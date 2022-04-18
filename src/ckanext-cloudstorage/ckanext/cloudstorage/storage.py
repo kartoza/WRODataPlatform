@@ -163,11 +163,9 @@ class ResourceCloudStorage(CloudStorage):
         self.old_filename = None
         self.file = None
         self.resource = resource
-
         upload_field_storage = resource.pop('upload', None)
         self._clear = resource.pop('clear_upload', None)
         multipart_name = resource.pop('multipart_name', None)
-
         # Check to see if a file has been provided
         if isinstance(upload_field_storage, (ALLOWED_UPLOAD_TYPES)):
             self.filename = munge.munge_filename(upload_field_storage.filename)
@@ -199,10 +197,9 @@ class ResourceCloudStorage(CloudStorage):
         :param rid: The resource ID.
         :param filename: The unmunged resource filename.
         """
+        # mohab, you can add "wro theme" here, agriculture, water, ..etc.
         return os.path.join(
-            'resources',
-            rid,
-            munge.munge_filename(filename)
+            filename    # changed here
         )
 
     def upload(self, id, max_size=10):
@@ -241,8 +238,7 @@ class ResourceCloudStorage(CloudStorage):
 
                 # TODO: This might not be needed once libcloud is upgraded
                 if isinstance(self.file_upload, SpooledTemporaryFile):
-                    #raise RuntimeError(self.file_upload._file.__dict__)
-                    self.file_upload.next = next(self.file_upload._file)
+                    self.file_upload.next = self.file_upload._file  # changed here
 
                 self.container.upload_object_via_stream(
                     self.file_upload,
@@ -284,7 +280,6 @@ class ResourceCloudStorage(CloudStorage):
         """
         # Find the key the file *should* be stored at.
         path = self.path_from_filename(rid, filename)
-
         # If advanced azure features are enabled, generate a temporary
         # shared access link instead of simply redirecting to the file.
         if self.can_use_advanced_azure and self.use_secure_urls:
@@ -348,3 +343,6 @@ class ResourceCloudStorage(CloudStorage):
     @property
     def package(self):
         return model.Package.get(self.resource['package_id'])
+
+    # def get_path(self,param):
+    #     return f'https://storage.cloud.google.com/{self.container_name}/{self.resource["name"]}'

@@ -1,0 +1,14 @@
+# gcs_upload-js:
+#   filter: rjsmin
+#   output: ckanext-gcs_upload/%(version)s-gcs_upload.js
+#   contents:
+#     - js/gcs_upload.js
+#   extra:
+#     preload:
+#       - base/main
+
+# gcs_upload-css:
+#   filter: cssrewrite
+#   output: ckanext-gcs_upload/%(version)s-gcs_upload.css
+#   contents:
+#     - css/gcs_upload.css
