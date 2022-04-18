@@ -2,6 +2,7 @@
 
 '''API functions for adding data to CKAN.'''
 
+from importlib import resources
 import logging
 import random
 import re
@@ -312,7 +313,6 @@ def resource_create(context, data_dict):
             data_dict['size'] = upload.filesize
 
     pkg_dict['resources'].append(data_dict)
-
     try:
         context['defer_commit'] = True
         context['use_cache'] = False
@@ -334,7 +334,6 @@ def resource_create(context, data_dict):
     #  Run package show again to get out actual last_resource
     updated_pkg_dict = _get_action('package_show')(context, {'id': package_id})
     resource = updated_pkg_dict['resources'][-1]
-
     #  Add the default views to the new resource
     logic.get_action('resource_create_default_resource_views')(
         {'model': context['model'],
@@ -347,7 +346,9 @@ def resource_create(context, data_dict):
 
     for plugin in plugins.PluginImplementations(plugins.IResourceController):
         plugin.after_create(context, resource)
-
+    # mohab
+    mohab_resource_name = resource['name']
+    resource['url'] = f'https://storage.cloud.google.com/mohabtester/{mohab_resource_name}'
     return resource
 
 
