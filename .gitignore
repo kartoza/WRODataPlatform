@@ -132,3 +132,4 @@ dmypy.json
 .pyre/
 
 src/ckanext-tester/
+src/ckanext-iauthfunctions

@@ -94,7 +94,9 @@ def read(package_type, id, resource_id):
             break
     if not resource:
         return base.abort(404, _(u'Resource not found'))
-
+    # mohab acted here
+    mohab_resource_name = resource['name']
+    resource['url'] = f'https://storage.cloud.google.com/mohabtester/{mohab_resource_name}'
     # get package license info
     license_id = package.get(u'license_id')
     try:
