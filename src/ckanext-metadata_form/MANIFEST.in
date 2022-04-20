@@ -1,5 +1,0 @@
-include README.rst
-include LICENSE
-include requirements.txt
-recursive-include ckanext/metadata_form *.html *.json *.js *.less *.css *.mo *.yml
-recursive-include ckanext/metadata_form/migration *.ini *.py *.mako
