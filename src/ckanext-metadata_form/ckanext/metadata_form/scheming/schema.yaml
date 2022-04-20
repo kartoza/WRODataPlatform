@@ -11,11 +11,13 @@ dataset_fields:
   required: true
   form_placeholder: Your email address
 
-- field_name: institution
+- field_name: owner_org
   label: Institution
   help_text: input your institution
   required: true
   form_placeholder: Your institution
+  #preset: emc_dataset_organization
+  # the field name owner_org is required by ckanex-scheming
 
 - field_name: contact_person
   label: Contact person
@@ -87,12 +89,12 @@ dataset_fields:
 - field_name: metadata_available
   label: Metadata available
   required: true
-  preset: select
   choices:
-  - value: yes
-    label: yes
-  - value: no
-    label: no
+  - value: "yes"
+    label: "yes"
+  - value: "no"
+    label: "no"
+  preset: select
   
 - field_name: metadata_scheme
   label: Metadata scheme
@@ -247,7 +249,32 @@ dataset_fields:
 - field_name: agreement
   label: I agree to the Data Management Plan and Term and Conditions of the WRO
   required: true
-  preset: multiple_checkbox
-  choices:
-  - value: yes
-    label: Yes
+  validators: boolean_validator
+  preset: emc_checkbox
+
+
+resource_fields:
+
+  - field_name: url
+    label: URL
+    preset: resource_url_upload
+
+  - field_name: name
+    label: Name
+    form_placeholder: eg. January 2011 Gold Prices
+
+  - field_name: description
+    label: Description
+    form_snippet: markdown.html
+    form_placeholder: Some useful notes about the data
+
+  - field_name: format
+    label: Format
+    required: true
+    preset: resource_format_autocomplete
+    help_text: Name of the data transfer format - This is a SANS 1878 mandatory field
+
+  - field_name: format_version
+    label: Format Version
+    required: true
+    help_text: Version of the data transfer format (date, number, etc) - This is a SANS 1878 mandatory field
