@@ -1,5 +1,0 @@
-include README.rst
-include LICENSE
-include requirements.txt
-recursive-include ckanext/template_changer *.html *.json *.js *.less *.css *.mo *.yml
-recursive-include ckanext/template_changer/migration *.ini *.py *.mako

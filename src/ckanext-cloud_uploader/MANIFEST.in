@@ -1,5 +1,0 @@
-include README.rst
-include LICENSE
-include requirements.txt
-recursive-include ckanext/cloud_uploader *.html *.json *.js *.less *.css *.mo *.yml
-recursive-include ckanext/cloud_uploader/migration *.ini *.py *.mako
