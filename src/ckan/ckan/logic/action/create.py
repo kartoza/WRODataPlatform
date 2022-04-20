@@ -346,9 +346,6 @@ def resource_create(context, data_dict):
 
     for plugin in plugins.PluginImplementations(plugins.IResourceController):
         plugin.after_create(context, resource)
-    # mohab
-    mohab_resource_name = resource['name']
-    resource['url'] = f'https://storage.cloud.google.com/mohabtester/{mohab_resource_name}'
     return resource
 
 
