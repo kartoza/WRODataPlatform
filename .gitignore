@@ -18,7 +18,7 @@ downloads/
 eggs/
 .eggs/
 lib/
-lib64
+lib64/
 parts/
 sdist/
 var/
@@ -133,3 +133,4 @@ dmypy.json
 
 src/ckanext-tester/
 src/ckanext-iauthfunctions
+pyvenv.cfg
