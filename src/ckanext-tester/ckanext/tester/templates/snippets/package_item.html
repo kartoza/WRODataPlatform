@@ -1,0 +1,15 @@
+<!-- tester_assets --> 
+{% ckan_extends %}
+{% block content %}
+    {{ super() }}
+    {% asset 'tester_assets/tester-css' %}
+    {% asset 'tester_assets/tester-js' %}
+    <button data-module="tester_popover" class="btn btn-primary" href="#"
+            data-module-id="{{ package.id }}"
+            data-module-title="{{ package.title }}"
+            data-module-license="{{ package.license_title }}"
+            data-module-num_resources="{{ package.num_resources }}"
+    >
+        <i class="fa fa-info-circle"></i>
+    </button>
+{% endblock %}
