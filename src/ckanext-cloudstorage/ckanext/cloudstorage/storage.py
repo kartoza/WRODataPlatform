@@ -343,6 +343,3 @@ class ResourceCloudStorage(CloudStorage):
     @property
     def package(self):
         return model.Package.get(self.resource['package_id'])
-
-    # def get_path(self,param):
-    #     return f'https://storage.cloud.google.com/{self.container_name}/{self.resource["name"]}'

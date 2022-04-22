@@ -7,8 +7,7 @@ from ckanext.cloudstorage import storage
 from ckanext.cloudstorage import helpers
 import ckanext.cloudstorage.logic.action.multipart as m_action
 import ckanext.cloudstorage.logic.auth.multipart as m_auth
-import ckanext.cloudstorage.logic.action.create as create
-from ckanext.cloudstorage.views.resource import read
+
 
 class CloudStoragePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IUploader)
@@ -88,7 +87,6 @@ class CloudStoragePlugin(plugins.SingletonPlugin):
             'cloudstorage_abort_multipart': m_action.abort_multipart,
             'cloudstorage_check_multipart': m_action.check_multipart,
             'cloudstorage_clean_multipart': m_action.clean_multipart,
-            'resource_create':create.resource_create
         }
 
     # IAuthFunctions
@@ -146,11 +144,3 @@ class CloudStoragePlugin(plugins.SingletonPlugin):
             for old_file in uploader.container.iterate_objects():
                 if old_file.name.startswith(upload_path):
                     old_file.delete()
-
-    def view_template(self, context, data_dict):
-        # name = resource_dict['name']
-        # format = resource_dict['format'].lower()
-        # resource_dict['url'] = f'https://storage.cloud.google.com/mohabtester/{name}.{format}'
-        # return resource_dict
-        return '/templates/binga.html'
-        raise RuntimeError('context:',context, 'data_dict', data_dict)
