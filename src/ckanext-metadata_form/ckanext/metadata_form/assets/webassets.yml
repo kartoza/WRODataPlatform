@@ -1,0 +1,14 @@
+# metadata_form-js:
+#   filter: rjsmin
+#   output: ckanext-metadata_form/%(version)s-metadata_form.js
+#   contents:
+#     - js/metadata_form.js
+#   extra:
+#     preload:
+#       - base/main
+
+# metadata_form-css:
+#   filter: cssrewrite
+#   output: ckanext-metadata_form/%(version)s-metadata_form.css
+#   contents:
+#     - css/metadata_form.css

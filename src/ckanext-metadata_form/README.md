@@ -1,0 +1,1 @@
+Metadata capture form plugin, uses ckanext-scheming plugin config.
