@@ -1,93 +1,56 @@
 # See CKAN docs on installation from Docker Compose on usage
-FROM python:3.8-slim-bullseye
+FROM python:3.8-slim
+#FROM brunneis/python:3.8.3-ubuntu-20.04
+# if you didn't include this, ubuntu will ask you about locale and these things.
+ENV DEBIAN_FRONTEND noninteractive
 
-# Install required system packages -- this is coming from ckan dockerfile
+# Install required system packages
 RUN apt-get -q -y update \
     && DEBIAN_FRONTEND=noninteractive apt-get -q -y upgrade \
-    && apt-get -q -y install \
+    && apt-get -q -y install --no-install-recommends\
         python-dev \
-        python-pip \
-        python-virtualenv \
-        python-wheel \
         python3-dev \
         python3-pip \
-        python3-virtualenv \
         python3-wheel \
+        postgresql-client \
         libpq-dev \
         libxml2-dev \
         libxslt-dev \
         libgeos-dev \
         libssl-dev \
         libffi-dev \
-        postgresql-client \
+        libmagic1 \
         build-essential \
+        postgresql-client \
         git-core \
-        vim \
         wget \
+        git-core \
     && apt-get -q clean \
     && rm -rf /var/lib/apt/lists/*
 
-# ckan spatial dependencies -- this is coming from EMC, needed with the map
-RUN   apt-get install --yes --no-install-recommends \
-      proj-bin \
-      python-dev \
-      libxslt1-dev \
-      libgeos-c1v5  \
-      zlib1g-dev && \
-    apt-get --yes clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# installing dependencies found in the installation guide and not above
-RUN apt-get install --yes \
-    postgresql git-core solr-tomcat openjdk-8-jdk redis-server
-
-# out Working directory  
-WORKDIR /home/wro
-
-# Define environment variables -- altering ckan default ones
-ENV CKAN_HOME $WORKDIR/ckan
-ENV CKAN_VENV $WORKDIR
-ENV CKAN_CONFIG /etc/ckan/default
-# this is the dfault storage path, no need to change it.
+#Define environment variables
+ENV CKAN_HOME /home/wro
+#ENV CKAN_VENV $CKAN_HOME/venv
+ENV CKAN_CONFIG /etc/ckan
 ENV CKAN_STORAGE_PATH=/var/lib/ckan
+# create these directories
+RUN mkdir -p $CKAN_HOME $CKAN_CONFIG $CKAN_STORAGE_PATH
+WORKDIR $CKAN_HOME
+RUN chmod -R 777 $CKAN_CONFIG
+COPY ./ckan.ini $CKAN_CONFIG
+RUN python3 -m venv . && . bin/activate \
+# there is an error with ckan setuptools, and flask-debugtoolbar version and gunicorn
+&& pip install setuptools==45 && pip install flask-debugtoolbar && pip install gunicorn\
+# install ckan and the extensions (use root pip, we don't need venv)
+# todo (use poetry)
+&& pip install -e 'git+https://github.com/ckan/ckan.git@ckan-2.9.5#egg=ckan[requirements]'
 
-# create those folders
-RUN mkdir -p $CKAN_VENV $CKAN_CONFIG $CKAN_STORAGE_PATH && \
-    sudo chown -R `whoami` /etc/ckan/
-
-# Build-time variables specified by docker-compose.yml / .env
-ARG CKAN_SITE_URL
-
-# Setup virtual environment for CKAN, this command happens inisde WORKDIR
-RUN python3 -m venv . &&
-
-# installing dependencies, also happens inisde workdir
-COPY requirements.txt . 
-RUN pip install -r requirements.txt
-
-# setup ckan
-RUN source bin/activate && \
-    pip install -e 'git+https://github.com/Mohab25/ckan.git@ckan-2.9.5#egg=ckan[requirements]' && \
-    sudo -u postgres createuser -S -D -R -P ckan_default && \
-    sudo -u postgres createdb -O ckan_default ckan_default -E utf-8 && \
-    ckan generate config /etc/ckan/default/ckan.ini && \
-    
-
-
-# Setup CKAN
-ADD . $CKAN_VENV/src/ckan/
-RUN ckan-pip install -U pip && \
-    ckan-pip install --upgrade --no-cache-dir -r $CKAN_VENV/src/ckan/requirement-setuptools.txt && \
-    ckan-pip install --upgrade --no-cache-dir -r $CKAN_VENV/src/ckan/requirements-py2.txt && \
-    ckan-pip install -e $CKAN_VENV/src/ckan/ && \
-    ln -s $CKAN_VENV/src/ckan/ckan/config/who.ini $CKAN_CONFIG/who.ini && \
-    cp -v $CKAN_VENV/src/ckan/contrib/docker/ckan-entrypoint.sh /ckan-entrypoint.sh && \
-    chmod +x /ckan-entrypoint.sh && \
-    chown -R ckan:ckan $CKAN_HOME $CKAN_VENV $CKAN_CONFIG $CKAN_STORAGE_PATH
-
-ENTRYPOINT ["/ckan-entrypoint.sh"]
-
-USER ckan
+RUN ln -s $CKAN_HOME/src/ckan/ckan/config/who.ini $CKAN_CONFIG/who.ini
+RUN ls $CKAN_HOME
+RUN ls $CKAN_CONFIG
+RUN . bin/activate && ckan -c $CKAN_CONFIG/ckan.ini db init \
 EXPOSE 5000
 
-CMD ["ckan","-c","/etc/ckan/production.ini", "run", "--host", "0.0.0.0"]
+# setup gunicorn instead of the development server
+
+CMD ["ckan","-c","/etc/ckan/ckan.ini", "run", "--host", "0.0.0.0"]
