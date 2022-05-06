@@ -133,7 +133,3 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-
-src/ckanext-tester/
-src/ckanext-iauthfunctions
-
