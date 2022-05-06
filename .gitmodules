@@ -1,6 +1,0 @@
-[submodule "ckanext-scheming"]
-        path = src/ckanext-scheming
-        url = https://github.com/ckan/ckanext-scheming.git
-[submodule "src/ckanext-scheming"]
-	path = src/ckanext-scheming
-	url = git@github.com:https://github.com/ckan/ckanext-scheming.git

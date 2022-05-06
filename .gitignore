@@ -12,6 +12,7 @@ build/
 bin/
 man/
 share/
+include/
 develop-eggs/
 dist/
 downloads/
@@ -29,6 +30,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+pyvenv.cfg
+.gitmodules
 src/
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -130,7 +133,3 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-
-src/ckanext-tester/
-src/ckanext-iauthfunctions
-pyvenv.cfg
