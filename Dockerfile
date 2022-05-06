@@ -48,9 +48,7 @@ RUN python3 -m venv . && . bin/activate \
 RUN ln -s $CKAN_HOME/src/ckan/ckan/config/who.ini $CKAN_CONFIG/who.ini
 RUN ls $CKAN_HOME
 RUN ls $CKAN_CONFIG
-RUN . bin/activate && ckan -c $CKAN_CONFIG/ckan.ini db init \
-EXPOSE 5000
-
+RUN . bin/activate && ckan -c $CKAN_CONFIG/ckan.ini db init
 # setup gunicorn instead of the development server
 
 CMD ["ckan","-c","/etc/ckan/ckan.ini", "run", "--host", "0.0.0.0"]
