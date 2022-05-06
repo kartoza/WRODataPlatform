@@ -13,7 +13,10 @@ bleach==3.1.4
 blinker==1.4
 certifi==2021.5.30
 chardet==4.0.0
+-e git+https://github.com/ckan/ckan.git@65af260bef26ea99981597f872d39da0a3f4f3f9#egg=ckan
 ckanapi==4.6
+# Editable install with no version control (ckanext-metadata-form==0.0.1)
+-e /home/mohab/Main/development/WRO/src/ckanext-metadata_form
 -e git+https://github.com/ckan/ckanext-scheming.git@e24ebca2e29cad8c8061755e55373906679506a8#egg=ckanext_scheming
 ckantoolkit==0.0.4
 click==7.1.2
