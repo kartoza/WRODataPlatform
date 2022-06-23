@@ -27,7 +27,7 @@ class Default:
 
     NASA_POWER_URL = 'https://power.larc.nasa.gov/api/temporal'
     NASA_POWER_FORMAT = 'CSV'
-    NASA_POWER_COMMUNITY = 'RE'  # AG, RE, or SB
+    NASA_POWER_COMMUNITY = ['RE', 'SB', 'AG']  # AG: Agroclimatology, RE: Renewable energy, or SB: Sustainable buildings
     NASA_POWER_TEMPORAL_AVE = ['daily', 'monthly', 'climatology']
 
     SA_GRID_EXTENTS = [
@@ -173,6 +173,126 @@ class Default:
 
 
 class Definitions:
+    # Solar fluxes and related
+    SKY_SURFACE_SW_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_SW_DWN',
+        'name': 'Sky_surface_shortwave_irradiance',
+        'description': 'All sky surface shortwave downward irradiance'
+    }
+    SKY_SURFACE_SW_IRRADIANCE_GMT = {
+        'key': 'ALLSKY_SFC_SW_DWN_HR',
+        'name': 'Sky_surface_shortwave_irradiance_GMT',
+        'description': 'All sky surface shortwave downward irradiance at GMT times'
+    }
+    CLEAR_SKY_SURFACE_SW_IRRADIANCE = {
+        'key': 'CLRSKY_SFC_SW_DWN',
+        'name': 'Clear_sky_surface_shortwave_irradiance',
+        'description': 'Clear sky surface shortwave'
+    }
+    SKY_INSOLATION_CLEARNESS_INDEX = {
+        'key': 'ALLSKY_KT',
+        'name': 'Sky_insolation_clearness_index',
+        'description': 'All sky insolation clearness index'
+    }
+    CLEAR_SKY_INSOLATION_CLEARNESS_INDEX = {
+        'key': 'CLRSKY_KT',
+        'name': 'Clear_sky_insolation_clearness_index',
+        'description': 'Clear sky insolation clearness index'
+    }
+    SKY_SURFACE_LW_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_LW_DWN',
+        'name': 'Sky_surface_longwave',
+        'description': 'All sky surface longwave downward irradiance (thermal infrared)'
+    }
+    SKY_SURFACE_PS_ACTIVE_RADIATION = {
+        'key': 'ALLSKY_SFC_PAR_TOT',
+        'name': 'Sky_surface_PAR_total',
+        'description': 'All sky surface photosynthetically active radiation (PAR) total'
+    }
+    CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION = {
+        'key': 'CLRSKY_SFC_PAR_TOT',
+        'name': 'Clear_sky_surface_PAR_total',
+        'description': 'Clear sky surface photosynthetically active radiation (PAR) total'
+    }
+    SKY_SURFACE_UVA_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_UVA',
+        'name': 'Sky_surface_UVA',
+        'description': 'All sky surface UVA irradiance'
+    }
+    SKY_SURFACE_UVB_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_UVB',
+        'name': 'Sky_surface_UVB',
+        'description': 'All sky surface UVB irradiance'
+    }
+    SKY_SURFACE_UV_INDEX = {
+        'key': 'ALLSKY_SFC_UV_INDEX',
+        'name': 'Sky_surface_UV_index',
+        'description': 'All sky surface UV index'
+    }
+    SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_SW_DNI',
+        'name': 'Sky_surface_shortwave_direct_normal_irradiance',
+        'description': 'All sky surface shortwave downward direct normal irradiance'
+    }
+    SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MAX = {
+        'key': 'ALLSKY_SFC_SW_DNI_MAX',
+        'name': 'Sky_surface_shortwave_direct_normal_irradiance_max',
+        'description': 'All sky surface shortwave direct normal irradiance maximum'
+    }
+    SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MIN = {
+        'key': 'ALLSKY_SFC_SW_DNI_MIN',
+        'name': 'Sky_surface_shortwave_direct_normal_irradiance_min',
+        'description': 'All sky surface shortwave direct normal irradiance minimum'
+    }
+    SKY_SURFACE_SW_DIFFUSE_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_SW_DIFF',
+        'name': 'Sky_surface_shortwave_diffuse_irradiance',
+        'description': 'All sky surface shortwave diffuse irradiance'
+    }
+    SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MAX = {
+        'key': 'ALLSKY_SFC_SW_DIFF_MAX',
+        'name': 'Sky_surface_shortwave_diffuse_irradiance_max',
+        'description': 'All sky surface shortwave diffuse irradiance maximum'
+    }
+    SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MIN = {
+        'key': 'ALLSKY_SFC_SW_DIFF_MIN',
+        'name': 'Sky_surface_shortwave_diffuse_irradiance_min',
+        'description': 'All sky surface shortwave diffuse irradiance minimum'
+    }
+    SKY_SURFACE_ALBEDO = {
+        'key': 'ALLSKY_SRF_ALB',
+        'name': 'Sky_surface_albedo',
+        'description': 'All sky surface albedo'
+    }
+    TOA_SW_IRRADIANCE = {
+        'key': 'TOA_SW_DWN',
+        'name': 'TOA_shortwave_irradiance',
+        'description': 'Top-of-atmosphere shortwave downward irradiance'
+    }
+    CLOUD_AMOUNT = {
+        'key': 'CLOUD_AMT',
+        'name': 'Cloud_amount',
+        'description': 'Cloud amount'
+    }
+    CLOUD_AMOUNT_GMT = {
+        'key': 'CLOUD_AMT_HR',
+        'name': '',
+        'description': 'Cloud amount at GMT times'
+    }
+
+    # Parameters for solar cooking
+    WINDSPEED_2M = {
+        'key': 'WS2M',
+        'name': 'Windspeed_02m',
+        'description': 'Windspeed at 2 meters'
+    }
+    MIDDAY_INSOLATION_INCIDENT = {
+        'key': 'MIDDAY_INSOL',
+        'name': 'Midday_insolation',
+        'description': 'Midday insolation incident'
+    }
+
+    # Temperature/Precipitation
     TEMP = {
         'key': 'T2M',
         'name': 'Temperature',
@@ -192,6 +312,16 @@ class Definitions:
         'key': 'TS',
         'name': 'Earth_skin_temperature',
         'description': 'Earth skin temperature'
+    }
+    EARTH_SKIN_TEMP_MAX = {
+        'key': 'TS_MAX',
+        'name': 'Earth_skin_temperature_max',
+        'description': 'Earth skin temperature maximum'
+    }
+    EARTH_SKIN_TEMP_MIN = {
+        'key': 'TS_MIN',
+        'name': 'Earth_skin_temperature_min',
+        'description': 'Earth skin temperature minimum'
     }
     TEMP_RANGE = {
         'key': 'T2M_RANGE',
@@ -220,9 +350,16 @@ class Definitions:
     }
     PRECIPITATION = {
         'key': 'PRECTOTCORR',
-        'name': 'Precipitation',
-        'description': 'Precipitation'
+        'name': 'Precipitation_ave',
+        'description': 'Average precipitation'
     }
+    PRECIPITATION_SUM = {
+        'key': 'PRECTOTCORR_SUM',
+        'name': 'Precipitation_ave_sum',
+        'description': 'Precipitation sum average'
+    }
+
+    # Wind/Pressure
     SURFACE_PRESSURE = {
         'key': 'PS',
         'name': 'Surface_pressure',
@@ -279,7 +416,66 @@ class Definitions:
         'description': 'Wind direction at 50 meters'
     }
 
-    LIST_NASA_POWER_DATASETS = [
+    # DOE/ASHRAE climate building
+    COOLING_DEGREE_DAYS_ABOVE_ZERO = {
+        'key': 'CDD0',
+        'name': 'Cooling_degree_days_above_00',
+        'description': 'Cooling degree days above 0 celcius'
+    }
+    COOLING_DEGREE_DAYS_ABOVE_10 = {
+        'key': 'CDD10',
+        'name': 'Cooling_degree_days_above_10',
+        'description': 'Cooling degree days above 10 celcius'
+    }
+    COOLING_DEGREE_DAYS_ABOVE_18 = {
+        'key': 'CDD18_3',
+        'name': 'Cooling_degree_days_above_18_3',
+        'description': 'Cooling degree days above 18.3 celcius'
+    }
+    HEATING_DEGREE_DAYS_BELOW_ZERO = {
+        'key': 'HDD0',
+        'name': 'Heating_degree_days_below_00',
+        'description': 'Heating degree days below 0 celcius'
+    }
+    HEATING_DEGREE_DAYS_BELOW_10 = {
+        'key': 'HDD10',
+        'name': 'Heating_degree_days_below_10',
+        'description': 'Heating degree days below 10 celcius'
+    }
+    HEATING_DEGREE_DAYS_BELOW_18 = {
+        'key': 'HDD18_3',
+        'name': 'Heating_degree_days_below_18_3',
+        'description': 'Heating degree days below 18.3 celcius'
+    }
+
+    # Soil properties
+    SURFACE_SOIL_WETNESS = {
+        'key': 'GWETTOP',
+        'name': 'Surface_soil_wetness',
+        'description': 'Surface soil wetness (surface to 5 cm below)'
+    }
+    ROOT_SOIL_WETNESS = {
+        'key': 'GWETROOT',
+        'name': 'Root_soil_wetness',
+        'description': 'Root zone soil wetness (surface to 100 cm below)'
+    }
+    PROFILE_SOIL_MOISTURE = {
+        'key': 'GWETPROF',
+        'name': 'Profile_soil_moisture',
+        'description': 'Profile soil moisture (surface to bedrock)'
+    }
+
+    LIST_NASA_POWER_DATASETS_RE_DAILY = [
+        SKY_SURFACE_SW_IRRADIANCE,
+        CLEAR_SKY_SURFACE_SW_IRRADIANCE,
+        SKY_INSOLATION_CLEARNESS_INDEX,
+        SKY_SURFACE_LW_IRRADIANCE,
+        SKY_SURFACE_PS_ACTIVE_RADIATION,
+        CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
+        SKY_SURFACE_UVA_IRRADIANCE,
+        SKY_SURFACE_UVB_IRRADIANCE,
+        SKY_SURFACE_UV_INDEX,
+        WINDSPEED_2M,
         TEMP,
         DEW_FROST,
         WET_TEMP,
@@ -301,6 +497,133 @@ class Definitions:
         WINDSPEED_50M_MIN,
         WINDSPEED_50M_RANGE,
         WIND_DIRECTION_50M,
+    ]
+    LIST_NASA_POWER_DATASETS_SB_DAILY = [
+        COOLING_DEGREE_DAYS_ABOVE_ZERO,
+        COOLING_DEGREE_DAYS_ABOVE_10,
+        COOLING_DEGREE_DAYS_ABOVE_18,
+        HEATING_DEGREE_DAYS_BELOW_ZERO,
+        HEATING_DEGREE_DAYS_BELOW_10,
+        HEATING_DEGREE_DAYS_BELOW_18
+    ]
+    LIST_NASA_POWER_DATASETS_AG_DAILY = [
+        SURFACE_SOIL_WETNESS,
+        ROOT_SOIL_WETNESS,
+        PROFILE_SOIL_MOISTURE
+    ]
+
+    LIST_NASA_POWER_DATASETS_RE_MONTHLY = [
+        SKY_SURFACE_SW_IRRADIANCE,
+        CLEAR_SKY_SURFACE_SW_IRRADIANCE,
+        SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
+        SKY_SURFACE_SW_DIFFUSE_IRRADIANCE,
+        SKY_INSOLATION_CLEARNESS_INDEX,
+        CLEAR_SKY_INSOLATION_CLEARNESS_INDEX,
+        SKY_SURFACE_ALBEDO,
+        TOA_SW_IRRADIANCE,
+        CLOUD_AMOUNT,
+        SKY_SURFACE_PS_ACTIVE_RADIATION,
+        CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
+        SKY_SURFACE_UVA_IRRADIANCE,
+        SKY_SURFACE_UVB_IRRADIANCE,
+        SKY_SURFACE_UV_INDEX,
+        WINDSPEED_2M,
+        TEMP,
+        DEW_FROST,
+        WET_TEMP,
+        EARTH_SKIN_TEMP,
+        TEMP_RANGE,
+        TEMP_MAX,
+        TEMP_MIN,
+        SKY_SURFACE_LW_IRRADIANCE,
+        SPECIFIC_HUMIDITY,
+        RELATIVE_HUMIDITY,
+        PRECIPITATION,
+        PRECIPITATION_SUM,
+        SURFACE_PRESSURE,
+        WINDSPEED_10M,
+        WINDSPEED_10M_MAX,
+        WINDSPEED_10M_MIN,
+        WINDSPEED_10M_RANGE,
+        WIND_DIRECTION_10M,
+        WINDSPEED_50M,
+        WINDSPEED_50M_MAX,
+        WINDSPEED_50M_MIN,
+        WINDSPEED_50M_RANGE,
+        WIND_DIRECTION_50M
+    ]
+    LIST_NASA_POWER_DATASETS_SB_MONTHLY = [
+        COOLING_DEGREE_DAYS_ABOVE_ZERO,
+        COOLING_DEGREE_DAYS_ABOVE_10,
+        COOLING_DEGREE_DAYS_ABOVE_18,
+        HEATING_DEGREE_DAYS_BELOW_ZERO,
+        HEATING_DEGREE_DAYS_BELOW_10,
+        HEATING_DEGREE_DAYS_BELOW_18
+    ]
+    LIST_NASA_POWER_DATASETS_AG_MONTHLY = [
+        SURFACE_SOIL_WETNESS,
+        ROOT_SOIL_WETNESS,
+        PROFILE_SOIL_MOISTURE
+    ]
+
+    LIST_NASA_POWER_DATASETS_RE_CLIMATOLOGY = [
+        SKY_SURFACE_SW_IRRADIANCE,
+        SKY_SURFACE_SW_IRRADIANCE_GMT,
+        CLEAR_SKY_SURFACE_SW_IRRADIANCE,
+        SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
+        SKY_SURFACE_SW_DIFFUSE_IRRADIANCE,
+        SKY_INSOLATION_CLEARNESS_INDEX,
+        SKY_SURFACE_ALBEDO,
+        TOA_SW_IRRADIANCE,
+        CLOUD_AMOUNT,
+        SKY_SURFACE_PS_ACTIVE_RADIATION,
+        CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
+        SKY_SURFACE_UVA_IRRADIANCE,
+        SKY_SURFACE_UVB_IRRADIANCE,
+        SKY_SURFACE_UV_INDEX,
+        SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MAX,
+        SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MIN,
+        SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MAX,
+        SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MIN,
+        MIDDAY_INSOLATION_INCIDENT,
+        WINDSPEED_2M,
+        TEMP,
+        DEW_FROST,
+        WET_TEMP,
+        EARTH_SKIN_TEMP,
+        TEMP_RANGE,
+        TEMP_MAX,
+        TEMP_MIN,
+        EARTH_SKIN_TEMP_MAX,
+        EARTH_SKIN_TEMP_MIN,
+        SKY_SURFACE_LW_IRRADIANCE,
+        SPECIFIC_HUMIDITY,
+        RELATIVE_HUMIDITY,
+        PRECIPITATION,
+        PRECIPITATION_SUM,
+        SURFACE_PRESSURE,
+        WINDSPEED_10M,
+        WINDSPEED_10M_MAX,
+        WINDSPEED_10M_MIN,
+        WINDSPEED_10M_RANGE,
+        WINDSPEED_50M,
+        WINDSPEED_50M_MAX,
+        WINDSPEED_50M_MIN,
+        WINDSPEED_50M_RANGE,
+        CLOUD_AMOUNT_GMT
+    ]
+    LIST_NASA_POWER_DATASETS_SB_CLIMATOLOGY = [
+        COOLING_DEGREE_DAYS_ABOVE_ZERO,
+        COOLING_DEGREE_DAYS_ABOVE_10,
+        COOLING_DEGREE_DAYS_ABOVE_18,
+        HEATING_DEGREE_DAYS_BELOW_ZERO,
+        HEATING_DEGREE_DAYS_BELOW_10,
+        HEATING_DEGREE_DAYS_BELOW_18
+    ]
+    LIST_NASA_POWER_DATASETS_AG_CLIMATOLOGY = [
+        SURFACE_SOIL_WETNESS,
+        ROOT_SOIL_WETNESS,
+        PROFILE_SOIL_MOISTURE
     ]
 
 
@@ -564,6 +887,32 @@ class Utilities:
         # Returns True if the file unzipped correctly
         return True
 
+    @staticmethod
+    def get_dataset_list(community, temporal):
+        if community == 'RE':
+            if temporal == 'daily':
+                return Definitions.LIST_NASA_POWER_DATASETS_RE_DAILY
+            elif temporal == 'monthly':
+                return Definitions.LIST_NASA_POWER_DATASETS_RE_MONTHLY
+            elif temporal == 'climatology':
+                return Definitions.LIST_NASA_POWER_DATASETS_RE_CLIMATOLOGY
+        elif community == 'SB':
+            if temporal == 'daily':
+                return Definitions.LIST_NASA_POWER_DATASETS_SB_DAILY
+            elif temporal == 'monthly':
+                return Definitions.LIST_NASA_POWER_DATASETS_SB_MONTHLY
+            elif temporal == 'climatology':
+                return Definitions.LIST_NASA_POWER_DATASETS_SB_CLIMATOLOGY
+        elif community == 'AG':
+            if temporal == 'daily':
+                return Definitions.LIST_NASA_POWER_DATASETS_AG_DAILY
+            elif temporal == 'monthly':
+                return Definitions.LIST_NASA_POWER_DATASETS_AG_MONTHLY
+            elif temporal == 'climatology':
+                return Definitions.LIST_NASA_POWER_DATASETS_AG_CLIMATOLOGY
+
+        return ''
+
 
 def data_added_to_bucket():
     """Trigger function to call when data has been uploaded to a bucket.
@@ -616,110 +965,113 @@ def download_weather_data():
     skip_leading_rows = 10  # Number of rows which will be skipped at the start of the file
     skip_trailing_rows = 1  # Number of rows at the enc of the file which will be skipped
 
-    for period in Default.NASA_POWER_TEMPORAL_AVE:
-        if period == 'daily':
-            # YYYYMMDD for 'daily'
-            date_required = True
-            start_date = '20210101'
-            end_date = '20210131'
-        elif period == 'monthly':
-            # YYYY for 'monthly'
-            date_required = True
-            start_date = '2021'
-            end_date = '2022'
-        else:
-            # Date not required for 'climatology'
-            date_required = False
-            start_date = ''  # YYYYMMDD
-            end_date = ''  # YYYYMMDD
+    for community in Default.NASA_POWER_COMMUNITY:
+        for period in Default.NASA_POWER_TEMPORAL_AVE:
+            if period == 'daily':
+                # YYYYMMDD for 'daily'
+                date_required = True
+                start_date = '20210101'
+                end_date = '20210131'
+            elif period == 'monthly':
+                # YYYY for 'monthly'
+                date_required = True
+                start_date = '2021'
+                end_date = '2022'
+            else:
+                # Date not required for 'climatology'
+                date_required = False
+                start_date = ''  # YYYYMMDD
+                end_date = ''  # YYYYMMDD
 
-        for dataset in Definitions.LIST_NASA_POWER_DATASETS:
-            dataset_key = dataset['key']
-            dataset_name = dataset['name']
-            dataset_description = dataset['description']
+            list_datasets = Utilities.get_dataset_list(community, period)
 
-            table_name = '{}_{}_{}_{}'.format(
-                dataset_name,
-                period,
-                start_date,
-                end_date
-            )
+            for dataset in list_datasets:
+                dataset_key = dataset['key']
+                dataset_name = dataset['name']
+                dataset_description = dataset['description']
 
-            file_name = table_name + '.csv'
-            file_dir = 'nasa_test/' + file_name
-            with io.StringIO() as file_mem:
-                for extent in Default.SA_GRID_EXTENTS:
-                    lat_min = extent["lat_min"]
-                    lat_max = extent["lat_max"]
-                    lon_min = extent["lon_min"]
-                    lon_max = extent["lon_max"]
+                table_name = '{}_{}_{}_{}'.format(
+                    dataset_name,
+                    period,
+                    start_date,
+                    end_date
+                )
 
-                    if date_required:
-                        link = '{}/{}/regional?parameters={}&start={}&end={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
-                            Default.NASA_POWER_URL,
-                            period,
-                            dataset_key,
-                            start_date,
-                            end_date,
-                            Default.NASA_POWER_COMMUNITY,
-                            Default.NASA_POWER_FORMAT,
-                            lat_min,
-                            lat_max,
-                            lon_min,
-                            lon_max
-                        )
-                    else:
-                        link = '{}/{}/regional?parameters={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
-                            Default.NASA_POWER_URL,
-                            period,
-                            dataset_key,
-                            Default.NASA_POWER_COMMUNITY,
-                            Default.NASA_POWER_FORMAT,
-                            lat_min,
-                            lat_max,
-                            lon_min,
-                            lon_max
-                        )
+                file_name = table_name + '.csv'
+                file_dir = 'nasa_test/' + file_name
+                with io.StringIO() as file_mem:
+                    for extent in Default.SA_GRID_EXTENTS:
+                        lat_min = extent["lat_min"]
+                        lat_max = extent["lat_max"]
+                        lon_min = extent["lon_min"]
+                        lon_max = extent["lon_max"]
 
-                    result = requests.get(link)
-                    content = result.content
+                        if date_required:
+                            link = '{}/{}/regional?parameters={}&start={}&end={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
+                                Default.NASA_POWER_URL,
+                                period,
+                                dataset_key,
+                                start_date,
+                                end_date,
+                                Default.NASA_POWER_COMMUNITY,
+                                Default.NASA_POWER_FORMAT,
+                                lat_min,
+                                lat_max,
+                                lon_min,
+                                lon_max
+                            )
+                        else:
+                            link = '{}/{}/regional?parameters={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
+                                Default.NASA_POWER_URL,
+                                period,
+                                dataset_key,
+                                Default.NASA_POWER_COMMUNITY,
+                                Default.NASA_POWER_FORMAT,
+                                lat_min,
+                                lat_max,
+                                lon_min,
+                                lon_max
+                            )
 
-                    # Newline not stored as '\n' character, so use r'\n'
-                    split_content = str(content).split(r'\n')
+                        result = requests.get(link)
+                        content = result.content
 
-                    # Removes unwanted lines
-                    split_content = split_content[skip_leading_rows:(len(split_content) - skip_trailing_rows)]
+                        # Newline not stored as '\n' character, so use r'\n'
+                        split_content = str(content).split(r'\n')
 
-                    for line in split_content:
-                        file_mem.write(line)
-                        file_mem.write('\n')
+                        # Removes unwanted lines
+                        split_content = split_content[skip_leading_rows:(len(split_content) - skip_trailing_rows)]
 
-                    # Utilities.write_to_file(file_dir, split_content)
+                        for line in split_content:
+                            file_mem.write(line)
+                            file_mem.write('\n')
 
-                client = storage.Client(project=Default.PROJECT_ID)
-                bucket = client.bucket(Default.BUCKET_TEMP)
+                        # Utilities.write_to_file(file_dir, split_content)
 
-                blob = bucket.blob(file_name)
-                blob.upload_from_string(file_mem.getvalue())
+                    client = storage.Client(project=Default.PROJECT_ID)
+                    bucket = client.bucket(Default.BUCKET_TEMP)
 
-                schema = [
-                    bigquery.SchemaField('LAT', 'FLOAT', mode='NULLABLE'),
-                    bigquery.SchemaField('LON', 'FLOAT', mode='NULLABLE'),
-                    bigquery.SchemaField('YEAR', 'INTEGER', mode='NULLABLE'),
-                    bigquery.SchemaField('MONTH', 'INTEGER', mode='NULLABLE'),
-                    bigquery.SchemaField('DAY', 'INTEGER', mode='NULLABLE'),
-                    bigquery.SchemaField(table_name, 'FLOAT', mode='NULLABLE')
-                ]
+                    blob = bucket.blob(file_name)
+                    blob.upload_from_string(file_mem.getvalue())
 
-                upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
-                bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + table_name
+                    schema = [
+                        bigquery.SchemaField('LAT', 'FLOAT', mode='NULLABLE'),
+                        bigquery.SchemaField('LON', 'FLOAT', mode='NULLABLE'),
+                        bigquery.SchemaField('YEAR', 'INTEGER', mode='NULLABLE'),
+                        bigquery.SchemaField('MONTH', 'INTEGER', mode='NULLABLE'),
+                        bigquery.SchemaField('DAY', 'INTEGER', mode='NULLABLE'),
+                        bigquery.SchemaField(table_name, 'FLOAT', mode='NULLABLE')
+                    ]
 
-                Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
+                    upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
+                    bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + table_name
 
-                bucket.delete_blob(file_name)
+                    Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
 
-            # remove
-            return
+                    bucket.delete_blob(file_name)
+
+                # remove
+                return
 
 
 if __name__ == '__main__':
