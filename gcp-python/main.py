@@ -578,22 +578,27 @@ class Utilities:
 
 
 # [START functions_bucket_storage]
-def data_added_to_bucket():
+def data_added_to_bucket(event, context):
     """Trigger function to call when data has been uploaded to a bucket.
     Deploy this function to a Google cloud storage bucket
     """
-    # BigQuery client
+    # Google platform
     client_bq = bigquery.Client()
     client = storage.Client(project=Default.PROJECT_ID)
     bucket = client.get_bucket(Default.BUCKET_TRIGGER)
 
-    list_csv, list_excel, list_archives, list_raster, list_vector = Utilities.list_bucket_data(
-        project=Default.PROJECT_ID,
-        bucket=Default.BUCKET_TRIGGER)
+    # Trigger variables
+    bucket_name = event['bucket']
+    uploaded_file = event['name']
+    event_id = context.event_id
+    event_type = context.event_type
+    metageneration = event['metageneration']
+    time_created = event['timeCreated']
+    updated = event['updated']
 
-    for csv_file in list_csv:
-        output_table_name = csv_file.replace('.csv', '')
-        upload_uri = 'gs://' + Default.BUCKET_TRIGGER + '/' + csv_file
+    if uploaded_file.endswith('.csv'):
+        output_table_name = uploaded_file.replace('.csv', '')
+        upload_uri = 'gs://' + bucket_name + '/' + uploaded_file
         bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + output_table_name
 
         schema = [
@@ -608,22 +613,21 @@ def data_added_to_bucket():
 
         success = Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, 1)
         if success:
-            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_DONE, csv_file, csv_file)
+            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_DONE, uploaded_file, uploaded_file)
         else:
-            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, csv_file, csv_file)
-
-    for archive_file in list_archives:
-        success = Utilities.unzip(archive_file)
+            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, uploaded_file, uploaded_file)
+    elif uploaded_file.endswith('.zip'):
+        success = Utilities.unzip(uploaded_file)
         if success:
-            bucket.delete_blob(archive_file)
+            bucket.delete_blob(uploaded_file)
         else:
-            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, archive_file, archive_file)
-
-    for shp_file in list_vector:
-        Utilities.shp_to_geojson(shp_file)
+            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, uploaded_file, uploaded_file)
+    elif uploaded_file.endswith('.shp'):
+        Utilities.shp_to_geojson(uploaded_file)
 # [END functions_bucket_storage]
 
 
+# [START functions_download_weather_date]
 def download_weather_data():
     """Downloads data from NASA POWER
     """
@@ -734,3 +738,4 @@ def download_weather_data():
 
             # remove
             return
+# [END functions_download_weather_date]
