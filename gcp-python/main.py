@@ -609,11 +609,15 @@ def data_added_to_bucket():
         success = Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, 1)
         if success:
             moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_DONE, csv_file, csv_file)
+        else:
+            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, csv_file, csv_file)
 
     for archive_file in list_archives:
         success = Utilities.unzip(archive_file)
         if success:
             bucket.delete_blob(archive_file)
+        else:
+            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, archive_file, archive_file)
 
     for shp_file in list_vector:
         Utilities.shp_to_geojson(shp_file)
