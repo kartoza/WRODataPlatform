@@ -13,21 +13,17 @@ from requests import get, post
 
 
 class Default:
+    # Projects
     PROJECT_ID = 'thermal-glazing-350010'
-    BUCKET_NAME = 'wro-trigger-test'
-    BUCKET_PROCESSED = 'wro-done'
-    BUCKET_TEMP = 'wro-temp'
-    BIQGUERY_DATASET = 'hydro_test'
 
-    SCHEMA = [
-        # bigquery.SchemaField('Date', 'Date', mode='NULLABLE'),
-        bigquery.SchemaField('Max_Temperature', 'FLOAT', mode='NULLABLE'),
-        bigquery.SchemaField('Min_Temperature', 'FLOAT', mode='NULLABLE'),
-        bigquery.SchemaField('Precipitation', 'FLOAT', mode='NULLABLE'),
-        bigquery.SchemaField('Relative_Humidity', 'FLOAT', mode='NULLABLE'),
-        bigquery.SchemaField('Solar', 'FLOAT', mode='NULLABLE'),
-        bigquery.SchemaField('Streamflow', 'FLOAT', mode='NULLABLE'),
-    ]
+    # Buckets
+    BUCKET_TRIGGER = 'wro-trigger-test'
+    BUCKET_DONE = 'wro-done'
+    BUCKET_TEMP = 'wro-temp'
+    BUCKET_FAILED = 'wro-failed'
+
+    # BigQuery
+    BIQGUERY_DATASET = 'hydro_test'
 
     NASA_POWER_URL = 'https://power.larc.nasa.gov/api/temporal'
     NASA_POWER_FORMAT = 'CSV'
@@ -475,7 +471,7 @@ class Utilities:
 
         print('shp found')
 
-        gc_shp = 'gs://' + Default.BUCKET_NAME + '/' + shp_file
+        gc_shp = 'gs://' + Default.BUCKET_TRIGGER + '/' + shp_file
 
         shp_geopandas = geopandas.read_file(gc_shp)
         shp_json = json.loads(shp_geopandas.to_json())
@@ -546,7 +542,7 @@ class Utilities:
         """
         try:
             client = storage.Client(project=Default.PROJECT_ID)
-            bucket = client.get_bucket(Default.BUCKET_NAME)
+            bucket = client.get_bucket(Default.BUCKET_TRIGGER)
 
             blob = bucket.blob(zip_file)
             zipbytes = io.BytesIO(blob.download_as_string())
@@ -576,20 +572,30 @@ def data_added_to_bucket():
     # BigQuery client
     client_bq = bigquery.Client()
     client = storage.Client(project=Default.PROJECT_ID)
-    bucket = client.get_bucket(Default.BUCKET_NAME)
+    bucket = client.get_bucket(Default.BUCKET_TRIGGER)
 
     list_csv, list_excel, list_archives, list_raster, list_vector = Utilities.list_bucket_data(
         project=Default.PROJECT_ID,
-        bucket=Default.BUCKET_NAME)
+        bucket=Default.BUCKET_TRIGGER)
 
     for csv_file in list_csv:
         output_table_name = csv_file.replace('.csv', '')
-        upload_uri = 'gs://' + Default.BUCKET_NAME + '/' + csv_file
+        upload_uri = 'gs://' + Default.BUCKET_TRIGGER + '/' + csv_file
         bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + output_table_name
 
-        success = Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, Default.SCHEMA, 1)
+        schema = [
+            # bigquery.SchemaField('Date', 'Date', mode='NULLABLE'),
+            bigquery.SchemaField('Max_Temperature', 'FLOAT', mode='NULLABLE'),
+            bigquery.SchemaField('Min_Temperature', 'FLOAT', mode='NULLABLE'),
+            bigquery.SchemaField('Precipitation', 'FLOAT', mode='NULLABLE'),
+            bigquery.SchemaField('Relative_Humidity', 'FLOAT', mode='NULLABLE'),
+            bigquery.SchemaField('Solar', 'FLOAT', mode='NULLABLE'),
+            bigquery.SchemaField('Streamflow', 'FLOAT', mode='NULLABLE'),
+        ]
+
+        success = Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, 1)
         if success:
-            moved = Utilities.move_data(Default.BUCKET_NAME, Default.BUCKET_PROCESSED, csv_file, csv_file)
+            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_DONE, csv_file, csv_file)
 
     for archive_file in list_archives:
         success = Utilities.unzip(archive_file)
