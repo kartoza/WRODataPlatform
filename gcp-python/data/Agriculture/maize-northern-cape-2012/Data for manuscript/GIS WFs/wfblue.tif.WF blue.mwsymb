@@ -1,0 +1,13 @@
+<MapWinGIS OcxVersion="4.8" FileType="LayerFile" FileVersion="0" Description="">
+  <Layer LayerType="Image" LayerName="Blue water footprint" LayerVisible="1" LayerKey="" MaxVisibleScale="100.000000" Filename="">
+    <ImageClass Key="" SetToGrey="0" TransparencyColor="16750899" TransparencyColor2="0" UseTransparencyColor="-1" TransparencyPercent="1.000000" DownsamplingMode="5" UpsamplingMode="5">
+      <GridColorSchemeClass Key="" NoDataColor="0" LightSourceIntensity="0.700000" AmbientIntensity="0.700000" LightSourceElevation="45.000000" LightSourceAzimuth="90.000000" LightSourceI="-0.707107" LightSourceJ="-0.707106" LightSourceK="0.000001">
+        <GridColorBreaks>
+          <GridColorBreakClass HighColor="10937314" LowColor="13666611" LowValue="0.000000" HighValue="321.000000" Caption="" ColoringType="0" GradientModel="1" Key="" />
+          <GridColorBreakClass HighColor="7705239" LowColor="10937314" LowValue="321.000000" HighValue="642.000000" Caption="" ColoringType="0" GradientModel="1" Key="" />
+        </GridColorBreaks>
+      </GridColorSchemeClass>
+      <LabelsClass Generated="0" AvoidCollisions="0" TextRenderingHint="5" />
+    </ImageClass>
+  </Layer>
+</MapWinGIS>
