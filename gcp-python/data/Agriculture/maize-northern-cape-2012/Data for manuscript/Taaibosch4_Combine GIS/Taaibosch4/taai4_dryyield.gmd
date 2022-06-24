@@ -1,0 +1,76 @@
+PAGESIZE 6.1, 8 INCHES;
+CELLSIZE MINIMUM;
+PRINTERPAGESIZE 8.5, 11;
+MARGINS 0.5, 0.5, 0.5, 0.5;
+ORIENTATION PORTRAIT;
+PRINTSCALE 100;
+WINDOW INTERSECTION;
+PROJECTION DEFAULT;
+AOI "d:/projects/current/wrc rs et/2013-14/pilot study 2 grains/sebal data/grainlook/aoi/taai4.aoi";
+OPTIMIZE NO;
+RASTER {
+	ID 1;
+	TITLE "n1_taai4wy1utm";
+	POSITION 2.3, 1.12222;
+	FILENAME "d:/projects/current/wrc rs et/2013-14/pilot study 2 grains/gwk information/yield/~stroperdata_nov2013/taaibosch/taai4wy1utm.img";
+	INTERPOLATION NEAREST;
+	ATHEMATIC;
+	DATATYPE FLOAT;
+	DECLARE "Float";
+	COMPRESSION UNCOMPRESSED;
+	COORDINATES MAP;
+	AOI NONE;
+	RECODE NO;
+	CHILD 3;
+}
+SCALAR {
+	ID 2;
+	TITLE "n2_Float";
+	POSITION 4.6, 1.24444;
+	DATATYPE DOUBLE;
+	VALUE 15.9;
+	CHILD 3;
+}
+FUNCTION {
+	ID 3;
+	TITLE "100-$n2_Float)/100)*$n1_taai4wy1utm";
+	POSITION 2.25556, 2.9;
+	VALUE "((100-$n2_Float)/100)*$n1_taai4wy1utm";
+	AREA UNION;
+	CHILD 4;
+}
+RASTER {
+	ID 4;
+	TITLE "n4_taaidy1utm";
+	POSITION 2.51111, 4.71111;
+	FILENAME "d:/projects/current/wrc rs et/2013-14/pilot study 2 grains/gwk information/yield/~stroperdata_nov2013/taaibosch/taaidy1utm.img";
+	DELETEFILE;
+	INTERPOLATION NEAREST;
+	ATHEMATIC;
+	DATATYPE FLOAT;
+	DECLARE "Float";
+	COMPRESSION UNCOMPRESSED;
+	COORDINATES MAP;
+	RECODE NO;
+}
+TEXT {
+	ID 9;
+	TITLE "ave moisture";
+	POSITION 4.46667, 1.26667;
+	FONT "new century schoolbook";
+	SIZE 14;
+}
+TEXT {
+	ID 10;
+	TITLE "wetyield1";
+	POSITION 2.16667, 1.11111;
+	FONT "new century schoolbook";
+	SIZE 14;
+}
+TEXT {
+	ID 13;
+	TITLE "dryyield1";
+	POSITION 2.26667, 4.68888;
+	FONT "new century schoolbook";
+	SIZE 14;
+}
