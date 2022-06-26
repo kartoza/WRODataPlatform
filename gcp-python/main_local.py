@@ -7,6 +7,7 @@ import geopandas
 import pandas as pd
 import json
 import os
+import calendar
 import csv
 
 import requests
@@ -171,6 +172,8 @@ class Default:
             "lon_max": "34.057872771999996"  # right
         }
     ]
+
+    LEAP_YEAR_ROW = ''
 
 
 class Definitions:
@@ -960,6 +963,9 @@ class Utilities:
         :rtype: list
         """
 
+        # Checks if the year is a leap yaer
+        leap_year = calendar.isleap(start_year)
+
         if temporal == 'daily':
             # Converts all values to string
             # This is required for the pandas date_range method
@@ -970,14 +976,22 @@ class Utilities:
             start_day = str(start_day)
             end_day = str(end_day)
 
+            list_dates = []
+
             # YYYYMMDD
             pd_start_date = "{}-{}-{}".format(start_year, start_month, start_day)
             pd_end_date = "{}-{}-{}".format(end_year, end_month, end_day)
 
             frequency = 'D'  # Daily
             date_format = "%Y%m%d"
-            list_dates = pd.date_range(pd_start_date, pd_end_date, freq=frequency).strftime(date_format).tolist()
-
+            list_days_temp = pd.date_range(pd_start_date, pd_end_date, freq=frequency).strftime(date_format).tolist()
+            for day in list_days_temp:
+                list_dates.append(
+                    {
+                        'start_date': day,
+                        'end_date': day
+                    }
+                )
             dates_required = True
         elif temporal == 'monthly':
             list_years_temp = range(start_year, end_year)
@@ -997,7 +1011,7 @@ class Utilities:
             list_dates = [-1]
             dates_required = False
 
-        return dates_required, list_dates
+        return dates_required, list_dates, leap_year
 
 
 def data_added_to_bucket():
@@ -1048,7 +1062,7 @@ def data_added_to_bucket():
 def download_weather_data():
     """Downloads data from NASA POWER
     """
-    skip_leading_rows = 10  # Number of rows which will be skipped at the start of the file
+    skip_leading_rows = 9  # Number of rows which will be skipped at the start of the file
     skip_trailing_rows = 1  # Number of rows at the enc of the file which will be skipped
 
     for community in Default.NASA_POWER_COMMUNITY:
@@ -1075,16 +1089,18 @@ def download_weather_data():
                 start_y = 2020
                 end_y = 2020
                 start_m = 1
-                end_m = 12
+                end_m = 3
                 start_d = 1
-                end_d = 12
-                list_dates, date_required = Utilities.get_date_list(period,
-                                                                    start_y,
-                                                                    end_y,
-                                                                    start_m,
-                                                                    end_m,
-                                                                    start_d,
-                                                                    end_d)
+                end_d = 31
+                date_required, list_dates, leap_year = Utilities.get_date_list(
+                    period,
+                    start_y,
+                    end_y,
+                    start_m,
+                    end_m,
+                    start_d,
+                    end_d
+                )
 
                 file_name = table_name + '.csv'
                 file_dir = 'nasa_test/' + file_name  # Just used for testing to store file locally
@@ -1093,6 +1109,9 @@ def download_weather_data():
 
                         start_date = date['start_date']
                         end_date = date['end_date']
+
+                        print(start_date)
+                        print(end_date)
 
                         for extent in Default.SA_GRID_EXTENTS:
                             lat_min = extent["lat_min"]
@@ -1146,30 +1165,30 @@ def download_weather_data():
                             # This is used for testing
                             Utilities.write_to_file(file_dir, split_content)
 
-                        # remove, for testing
-                        return
+                    # remove, for testing
+                    return
 
-                        client = storage.Client(project=Default.PROJECT_ID)
-                        bucket = client.bucket(Default.BUCKET_TEMP)
-
-                        blob = bucket.blob(file_name)
-                        blob.upload_from_string(file_mem.getvalue())
-
-                        schema = [
-                            bigquery.SchemaField('LAT', 'FLOAT', mode='NULLABLE'),
-                            bigquery.SchemaField('LON', 'FLOAT', mode='NULLABLE'),
-                            bigquery.SchemaField('YEAR', 'INTEGER', mode='NULLABLE'),
-                            bigquery.SchemaField('MONTH', 'INTEGER', mode='NULLABLE'),
-                            bigquery.SchemaField('DAY', 'INTEGER', mode='NULLABLE'),
-                            bigquery.SchemaField(table_name, 'FLOAT', mode='NULLABLE')
-                        ]
-
-                        upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
-                        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + table_name
-
-                        Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
-
-                        bucket.delete_blob(file_name)
+                    # client = storage.Client(project=Default.PROJECT_ID)
+                    # bucket = client.bucket(Default.BUCKET_TEMP)
+                    #
+                    # blob = bucket.blob(file_name)
+                    # blob.upload_from_string(file_mem.getvalue())
+                    #
+                    # schema = [
+                    #     bigquery.SchemaField('LAT', 'FLOAT', mode='NULLABLE'),
+                    #     bigquery.SchemaField('LON', 'FLOAT', mode='NULLABLE'),
+                    #     bigquery.SchemaField('YEAR', 'INTEGER', mode='NULLABLE'),
+                    #     bigquery.SchemaField('MONTH', 'INTEGER', mode='NULLABLE'),
+                    #     bigquery.SchemaField('DAY', 'INTEGER', mode='NULLABLE'),
+                    #     bigquery.SchemaField(table_name, 'FLOAT', mode='NULLABLE')
+                    # ]
+                    #
+                    # upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
+                    # bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + table_name
+                    #
+                    # Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
+                    #
+                    # bucket.delete_blob(file_name)
 
                 # remove, for testing
                 return
