@@ -4,6 +4,7 @@ import zipfile
 import logging
 import io
 import geopandas
+import pandas as pd
 import json
 import os
 import csv
@@ -889,7 +890,19 @@ class Utilities:
 
     @staticmethod
     def get_dataset_list(community, temporal):
+        """Unzips a zip file stored in a Google cloud storage bucket.
+
+        :param community: Renewable energy ('RE'), sustainable buildings ('SB'), or agroclimatology ('AG')
+        :type community: String
+
+        :param temporal: 'daily', 'monthly', or 'climatology'
+        :type temporal: String
+
+        :returns: A list contains the datasets which will be downloaded from NASA POWER
+        :rtype: list
+        """
         if community == 'RE':
+            # Renewable energy
             if temporal == 'daily':
                 return Definitions.LIST_NASA_POWER_DATASETS_RE_DAILY
             elif temporal == 'monthly':
@@ -897,6 +910,7 @@ class Utilities:
             elif temporal == 'climatology':
                 return Definitions.LIST_NASA_POWER_DATASETS_RE_CLIMATOLOGY
         elif community == 'SB':
+            # Sustainable buildings
             if temporal == 'daily':
                 return Definitions.LIST_NASA_POWER_DATASETS_SB_DAILY
             elif temporal == 'monthly':
@@ -904,6 +918,7 @@ class Utilities:
             elif temporal == 'climatology':
                 return Definitions.LIST_NASA_POWER_DATASETS_SB_CLIMATOLOGY
         elif community == 'AG':
+            # Agroclimatology
             if temporal == 'daily':
                 return Definitions.LIST_NASA_POWER_DATASETS_AG_DAILY
             elif temporal == 'monthly':
@@ -911,7 +926,78 @@ class Utilities:
             elif temporal == 'climatology':
                 return Definitions.LIST_NASA_POWER_DATASETS_AG_CLIMATOLOGY
 
-        return ''
+        # List could not be determined
+        return []
+
+    @staticmethod
+    def get_date_list(temporal, start_year, end_year, start_month, end_month, start_day, end_day):
+        """Based on the temporal type and dates provided, this function returns a list of dates.
+        For daily it will return all days, monthly all the months, and for climatology it will return no dates.
+        Climatology does not require dates.
+
+        :param temporal: 'daily', 'monthly', or 'climatology'
+        :type temporal: String
+
+        :param start_year: Start year
+        :type start_year: int
+
+        :param end_year: End year
+        :type end_year: int
+
+        :param start_month: Start month
+        :type start_month: int
+
+        :param end_month: End month
+        :type end_month: int
+
+        :param start_day: Start day
+        :type start_day: int
+
+        :param end_day: End day
+        :type end_day: int
+
+        :returns: A list which contains all of the dates which will be used to perform requests
+        :rtype: list
+        """
+
+        if temporal == 'daily':
+            # Converts all values to string
+            # This is required for the pandas date_range method
+            start_year = str(start_year)
+            end_year = str(end_year)
+            start_month = str(start_month)
+            end_month = str(end_month)
+            start_day = str(start_day)
+            end_day = str(end_day)
+
+            # YYYYMMDD
+            pd_start_date = "{}-{}-{}".format(start_year, start_month, start_day)
+            pd_end_date = "{}-{}-{}".format(end_year, end_month, end_day)
+
+            frequency = 'D'  # Daily
+            date_format = "%Y%m%d"
+            list_dates = pd.date_range(pd_start_date, pd_end_date, freq=frequency).strftime(date_format).tolist()
+
+            dates_required = True
+        elif temporal == 'monthly':
+            list_years_temp = range(start_year, end_year)
+            list_dates = []
+
+            for year in list_years_temp:
+                dates = {
+                    'start_date': str(year),
+                    'end_date': str(year)  # MAYBE ADD ONE?? ==================================
+                }
+                list_dates.append(dates)
+            dates_required = True
+        else:
+            # Climatology requires no date
+            # A single item added so that it enters the loop
+            # Value will not be used
+            list_dates = [-1]
+            dates_required = False
+
+        return dates_required, list_dates
 
 
 def data_added_to_bucket():
@@ -967,110 +1053,125 @@ def download_weather_data():
 
     for community in Default.NASA_POWER_COMMUNITY:
         for period in Default.NASA_POWER_TEMPORAL_AVE:
-            if period == 'daily':
-                # YYYYMMDD for 'daily'
-                date_required = True
-                start_date = '20210101'
-                end_date = '20210131'
-            elif period == 'monthly':
-                # YYYY for 'monthly'
-                date_required = True
-                start_date = '2021'
-                end_date = '2022'
-            else:
-                # Date not required for 'climatology'
-                date_required = False
-                start_date = ''  # YYYYMMDD
-                end_date = ''  # YYYYMMDD
-
             list_datasets = Utilities.get_dataset_list(community, period)
+            if len(list_datasets) == 0:
+                # List datasets could not be determined, skip
+                continue
 
             for dataset in list_datasets:
                 dataset_key = dataset['key']
                 dataset_name = dataset['name']
                 dataset_description = dataset['description']
 
-                table_name = '{}_{}_{}_{}'.format(
+                # Table name which will be used for the BigQuery table
+                # and temporary CSV file
+                table_name = '{}_{}_{}'.format(
                     dataset_name,
-                    period,
-                    start_date,
-                    end_date
+                    community,
+                    period
                 )
 
+                # Start and end dates
+                start_y = 2020
+                end_y = 2020
+                start_m = 1
+                end_m = 12
+                start_d = 1
+                end_d = 12
+                list_dates, date_required = Utilities.get_date_list(period,
+                                                                    start_y,
+                                                                    end_y,
+                                                                    start_m,
+                                                                    end_m,
+                                                                    start_d,
+                                                                    end_d)
+
                 file_name = table_name + '.csv'
-                file_dir = 'nasa_test/' + file_name
+                file_dir = 'nasa_test/' + file_name  # Just used for testing to store file locally
                 with io.StringIO() as file_mem:
-                    for extent in Default.SA_GRID_EXTENTS:
-                        lat_min = extent["lat_min"]
-                        lat_max = extent["lat_max"]
-                        lon_min = extent["lon_min"]
-                        lon_max = extent["lon_max"]
+                    for date in list_dates:
 
-                        if date_required:
-                            link = '{}/{}/regional?parameters={}&start={}&end={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
-                                Default.NASA_POWER_URL,
-                                period,
-                                dataset_key,
-                                start_date,
-                                end_date,
-                                Default.NASA_POWER_COMMUNITY,
-                                Default.NASA_POWER_FORMAT,
-                                lat_min,
-                                lat_max,
-                                lon_min,
-                                lon_max
-                            )
-                        else:
-                            link = '{}/{}/regional?parameters={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
-                                Default.NASA_POWER_URL,
-                                period,
-                                dataset_key,
-                                Default.NASA_POWER_COMMUNITY,
-                                Default.NASA_POWER_FORMAT,
-                                lat_min,
-                                lat_max,
-                                lon_min,
-                                lon_max
-                            )
+                        start_date = date['start_date']
+                        end_date = date['end_date']
 
-                        result = requests.get(link)
-                        content = result.content
+                        for extent in Default.SA_GRID_EXTENTS:
+                            lat_min = extent["lat_min"]
+                            lat_max = extent["lat_max"]
+                            lon_min = extent["lon_min"]
+                            lon_max = extent["lon_max"]
 
-                        # Newline not stored as '\n' character, so use r'\n'
-                        split_content = str(content).split(r'\n')
+                            if date_required:
+                                link = '{}/{}/regional?parameters={}&start={}&end={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
+                                    Default.NASA_POWER_URL,
+                                    period,
+                                    dataset_key,
+                                    start_date,
+                                    end_date,
+                                    community,
+                                    Default.NASA_POWER_FORMAT,
+                                    lat_min,
+                                    lat_max,
+                                    lon_min,
+                                    lon_max
+                                )
+                            else:
+                                link = '{}/{}/regional?parameters={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
+                                    Default.NASA_POWER_URL,
+                                    period,
+                                    dataset_key,
+                                    community,
+                                    Default.NASA_POWER_FORMAT,
+                                    lat_min,
+                                    lat_max,
+                                    lon_min,
+                                    lon_max
+                                )
 
-                        # Removes unwanted lines
-                        split_content = split_content[skip_leading_rows:(len(split_content) - skip_trailing_rows)]
+                            # Performs the requests and gets the contents from NASA POWER
+                            result = requests.get(link)
+                            content = result.content
 
-                        for line in split_content:
-                            file_mem.write(line)
-                            file_mem.write('\n')
+                            # Newline not stored as '\n' character, so use r'\n'
+                            split_content = str(content).split(r'\n')
 
-                        # Utilities.write_to_file(file_dir, split_content)
+                            # Removes unwanted lines at the start and end of the data
+                            split_content = split_content[skip_leading_rows:(len(split_content) - skip_trailing_rows)]
 
-                    client = storage.Client(project=Default.PROJECT_ID)
-                    bucket = client.bucket(Default.BUCKET_TEMP)
+                            # Writes the data into memory
+                            for line in split_content:
+                                file_mem.write(line)
+                                file_mem.write('\n')
 
-                    blob = bucket.blob(file_name)
-                    blob.upload_from_string(file_mem.getvalue())
+                            # Writes to a file locally
+                            # This is used for testing
+                            Utilities.write_to_file(file_dir, split_content)
 
-                    schema = [
-                        bigquery.SchemaField('LAT', 'FLOAT', mode='NULLABLE'),
-                        bigquery.SchemaField('LON', 'FLOAT', mode='NULLABLE'),
-                        bigquery.SchemaField('YEAR', 'INTEGER', mode='NULLABLE'),
-                        bigquery.SchemaField('MONTH', 'INTEGER', mode='NULLABLE'),
-                        bigquery.SchemaField('DAY', 'INTEGER', mode='NULLABLE'),
-                        bigquery.SchemaField(table_name, 'FLOAT', mode='NULLABLE')
-                    ]
+                        # remove, for testing
+                        return
 
-                    upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
-                    bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + table_name
+                        client = storage.Client(project=Default.PROJECT_ID)
+                        bucket = client.bucket(Default.BUCKET_TEMP)
 
-                    Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
+                        blob = bucket.blob(file_name)
+                        blob.upload_from_string(file_mem.getvalue())
 
-                    bucket.delete_blob(file_name)
+                        schema = [
+                            bigquery.SchemaField('LAT', 'FLOAT', mode='NULLABLE'),
+                            bigquery.SchemaField('LON', 'FLOAT', mode='NULLABLE'),
+                            bigquery.SchemaField('YEAR', 'INTEGER', mode='NULLABLE'),
+                            bigquery.SchemaField('MONTH', 'INTEGER', mode='NULLABLE'),
+                            bigquery.SchemaField('DAY', 'INTEGER', mode='NULLABLE'),
+                            bigquery.SchemaField(table_name, 'FLOAT', mode='NULLABLE')
+                        ]
 
-                # remove
+                        upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
+                        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + table_name
+
+                        Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
+
+                        bucket.delete_blob(file_name)
+
+                # remove, for testing
                 return
 
 
