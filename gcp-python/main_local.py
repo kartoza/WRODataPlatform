@@ -845,16 +845,22 @@ class Utilities:
         """
         if not os.path.exists(file):
             # File does not exist, create it
-            with open(file, 'w') as f:
+            with open(file, 'w+') as f:
                 for line in lines:
                     f.write(line)
                     f.write('\n')
         else:
             # File exists, append to it
-            with open(file, 'a') as f:
+            with open(file, 'w+') as f:
+                current_lines = f.readlines()
+                i = 0
                 for line in lines:
-                    f.write(line)
+                    new_line = current_lines[i] + line
+
+                    f.write(new_line)
                     f.write('\n')
+
+                    i = i + 1
         f.close()
 
     @staticmethod
@@ -1062,7 +1068,7 @@ def data_added_to_bucket():
 def download_weather_data():
     """Downloads data from NASA POWER
     """
-    skip_leading_rows = 9  # Number of rows which will be skipped at the start of the file
+    skip_leading_rows = 10  # Number of rows which will be skipped at the start of the file
     skip_trailing_rows = 1  # Number of rows at the enc of the file which will be skipped
 
     for community in Default.NASA_POWER_COMMUNITY:
@@ -1089,9 +1095,9 @@ def download_weather_data():
                 start_y = 2020
                 end_y = 2020
                 start_m = 1
-                end_m = 3
+                end_m = 1
                 start_d = 1
-                end_d = 31
+                end_d = 3
                 date_required, list_dates, leap_year = Utilities.get_date_list(
                     period,
                     start_y,
@@ -1113,7 +1119,16 @@ def download_weather_data():
                         print(start_date)
                         print(end_date)
 
-                        for extent in Default.SA_GRID_EXTENTS:
+                        test_extent = [
+                            {
+                                "lat_min": "-30.623123169",  # bottom
+                                "lat_max": "-27.623123169",  # top
+                                "lon_min": "16.057872772",  # left
+                                "lon_max": "19.057872772"  # right
+                            }]
+
+                        #for extent in Default.SA_GRID_EXTENTS:
+                        for extent in test_extent:
                             lat_min = extent["lat_min"]
                             lat_max = extent["lat_max"]
                             lon_min = extent["lon_min"]
@@ -1164,6 +1179,8 @@ def download_weather_data():
                             # Writes to a file locally
                             # This is used for testing
                             Utilities.write_to_file(file_dir, split_content)
+
+                        file_mem.seek(0)
 
                     # remove, for testing
                     return
