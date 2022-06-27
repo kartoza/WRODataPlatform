@@ -851,16 +851,36 @@ class Utilities:
                     f.write('\n')
         else:
             # File exists, append to it
-            with open(file, 'w+') as f:
-                current_lines = f.readlines()
-                i = 0
+            with open(file, 'a') as f:
                 for line in lines:
-                    new_line = current_lines[i] + line
-
-                    f.write(new_line)
+                    f.write(line)
                     f.write('\n')
 
-                    i = i + 1
+        f.close()
+
+    @staticmethod
+    def write_to_log(file, line):
+        """Writes to a log text file.
+
+        :param file: Output/target file
+        :type file: String
+
+        :param lines: Variable which contains a list of the lines which needs to be written to the log file
+        :type lines: List
+        """
+        print(line)
+
+        if not os.path.exists(file):
+            # File does not exist, create it
+            with open(file, 'w+') as f:
+                f.write(line)
+                f.write('\n')
+        else:
+            # File exists, append to it
+            with open(file, 'a') as f:
+                f.write(line)
+                f.write('\n')
+
         f.close()
 
     @staticmethod
@@ -1070,15 +1090,24 @@ def download_weather_data():
     """
     skip_leading_rows = 10  # Number of rows which will be skipped at the start of the file
     skip_trailing_rows = 1  # Number of rows at the enc of the file which will be skipped
+    lat_index = 0
+    lon_index = 1
+    value_index = 5
 
     for community in Default.NASA_POWER_COMMUNITY:
+        Utilities.write_to_log("log.txt", "COMMUNITY: " + community)
         for period in Default.NASA_POWER_TEMPORAL_AVE:
+            Utilities.write_to_log("log.txt", "PERIOD: " + period)
+
             list_datasets = Utilities.get_dataset_list(community, period)
+
             if len(list_datasets) == 0:
                 # List datasets could not be determined, skip
                 continue
 
             for dataset in list_datasets:
+                Utilities.write_to_log("log.txt", "DATASET: " + dataset["name"])
+
                 dataset_key = dataset['key']
                 dataset_name = dataset['name']
                 dataset_description = dataset['description']
@@ -1095,9 +1124,9 @@ def download_weather_data():
                 start_y = 2020
                 end_y = 2020
                 start_m = 1
-                end_m = 1
+                end_m = 3
                 start_d = 1
-                end_d = 3
+                end_d = 31
                 date_required, list_dates, leap_year = Utilities.get_date_list(
                     period,
                     start_y,
@@ -1110,29 +1139,54 @@ def download_weather_data():
 
                 file_name = table_name + '.csv'
                 file_dir = 'nasa_test/' + file_name  # Just used for testing to store file locally
-                with io.StringIO() as file_mem:
-                    for date in list_dates:
+                first_column_done = False
 
+                list_field_names = []
+                list_field_names.append('LAT')
+                list_field_names.append('LON')
+                with io.StringIO() as file_mem:
+                    current_data = []
+                    for date in list_dates:
                         start_date = date['start_date']
                         end_date = date['end_date']
 
-                        print(start_date)
-                        print(end_date)
+                        Utilities.write_to_log("log.txt", "DATE: " + start_date)
 
+                        field_name = '{}_{}'.format(
+                            dataset_name,
+                            start_date
+                        )
+                        list_field_names.append(field_name)
+
+                        # FOR TESTING
                         test_extent = [
                             {
                                 "lat_min": "-30.623123169",  # bottom
                                 "lat_max": "-27.623123169",  # top
                                 "lon_min": "16.057872772",  # left
                                 "lon_max": "19.057872772"  # right
+                            },
+                            {
+                                "lat_min": "-33.623123168999996",  # bottom
+                                "lat_max": "-30.623123169",  # top
+                                "lon_min": "16.057872772",  # left
+                                "lon_max": "19.057872772"  # right
+                            },
+                            {
+                                "lat_min": "-36.623123168999996",  # bottom
+                                "lat_max": "-33.623123168999996",  # top
+                                "lon_min": "16.057872772",  # left
+                                "lon_max": "19.057872772"  # right
                             }]
 
-                        #for extent in Default.SA_GRID_EXTENTS:
-                        for extent in test_extent:
+                        i = 0  # Used to retrieve pretext when adding more columns
+                        for extent in Default.SA_GRID_EXTENTS:
                             lat_min = extent["lat_min"]
                             lat_max = extent["lat_max"]
                             lon_min = extent["lon_min"]
                             lon_max = extent["lon_max"]
+
+                            Utilities.write_to_log("log.txt", "EXTENT: " + str(extent))
 
                             if date_required:
                                 link = '{}/{}/regional?parameters={}&start={}&end={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
@@ -1171,44 +1225,72 @@ def download_weather_data():
                             # Removes unwanted lines at the start and end of the data
                             split_content = split_content[skip_leading_rows:(len(split_content) - skip_trailing_rows)]
 
-                            # Writes the data into memory
                             for line in split_content:
-                                file_mem.write(line)
-                                file_mem.write('\n')
+                                if not first_column_done:
+                                    # Latitude, longitude and value
+                                    line = line.replace('\n', '')
 
-                            # Writes to a file locally
-                            # This is used for testing
-                            Utilities.write_to_file(file_dir, split_content)
+                                    list_columns = line.split(',')
+                                    write_to_mem = '{},{},{}'.format(
+                                        list_columns[lat_index],
+                                        list_columns[lon_index],
+                                        list_columns[value_index]
+                                    )
 
+                                    file_mem.write(write_to_mem)
+                                    file_mem.write('\n')
+                                else:
+                                    pretext = current_data[i]
+                                    pretext = pretext.replace('\n', '')
+
+                                    # Only the value is now required
+                                    line = line.replace('\n', '')
+                                    list_columns = line.split(',')
+                                    write_to_mem = '{}'.format(
+                                        list_columns[value_index]
+                                    )
+
+                                    file_mem.write(pretext + ',' + write_to_mem)
+                                    file_mem.write('\n')
+
+                                i = i + 1  # Used to retrieve pretext when adding more columns
+
+                        current_data = file_mem.getvalue()
+                        current_data = current_data.split('\n')
+
+                        # Sets the StringIO pointer to zero
                         file_mem.seek(0)
+                        # After the first dataset has been processed, the other cases will append new columns
+                        first_column_done = True
 
-                    # remove, for testing
-                    return
+                    # FOR TESTING
+                    test = file_mem.getvalue()
+                    test = test.split('\n')
+                    test = test[:len(test) - 1]
+                    Utilities.write_to_file(file_dir, test)
 
-                    # client = storage.Client(project=Default.PROJECT_ID)
-                    # bucket = client.bucket(Default.BUCKET_TEMP)
-                    #
-                    # blob = bucket.blob(file_name)
-                    # blob.upload_from_string(file_mem.getvalue())
-                    #
-                    # schema = [
-                    #     bigquery.SchemaField('LAT', 'FLOAT', mode='NULLABLE'),
-                    #     bigquery.SchemaField('LON', 'FLOAT', mode='NULLABLE'),
-                    #     bigquery.SchemaField('YEAR', 'INTEGER', mode='NULLABLE'),
-                    #     bigquery.SchemaField('MONTH', 'INTEGER', mode='NULLABLE'),
-                    #     bigquery.SchemaField('DAY', 'INTEGER', mode='NULLABLE'),
-                    #     bigquery.SchemaField(table_name, 'FLOAT', mode='NULLABLE')
-                    # ]
-                    #
-                    # upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
-                    # bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + table_name
-                    #
-                    # Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
-                    #
-                    # bucket.delete_blob(file_name)
+                    # Google cloud platform
+                    client = storage.Client(project=Default.PROJECT_ID)
+                    bucket = client.bucket(Default.BUCKET_TEMP)
 
-                # remove, for testing
-                return
+                    # Writes the CSV file to GCP
+                    data_in_mem = file_mem.getvalue()
+                    data_in_mem = data_in_mem[:len(data_in_mem) - 1]
+                    blob = bucket.blob(file_name)
+                    blob.upload_from_string(data_in_mem)
+
+                    # Creates the schema which will be used
+                    schema = []
+                    for field in list_field_names:
+                        bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
+                        schema.append(bq_field)
+
+                    upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
+                    bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + table_name
+
+                    Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
+
+                    bucket.delete_blob(file_name)
 
 
 if __name__ == '__main__':
