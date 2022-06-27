@@ -1,0 +1,6 @@
+<ColoringScheme SchemeType="Grid" GridName="wfgreen" GroupName="Data Layers">
+  <GridColoringScheme AmbientIntensity="0.7" Key="" LightSourceAzimuth="90" LightSourceElevation="45" LightSourceIntensity="0.7" NoDataColor="-16777216" ImageLayerFillTransparency="1" ImageUpsamplingMethod="None" ImageDownsamplingMethod="None">
+    <Break Caption="" LowValue="0" HighValue="32.7104415893555" LowColor="-12287929" HighColor="-13935842" ColoringType="0" GradientModel="1" />
+    <Break Caption="" LowValue="32.7104415893555" HighValue="65.4208831787109" LowColor="-13935842" HighColor="-5776216" ColoringType="0" GradientModel="1" />
+  </GridColoringScheme>
+</ColoringScheme>
