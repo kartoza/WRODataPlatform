@@ -34,12 +34,11 @@ def get_default_bounding_box() -> typing.Optional[typing.List[float]]:
     """
 
     configured_extent = toolkit.config.get(
-        "ckan.dalrrd_emc_dcpr.default_spatial_search_extent"
+        "default_spatial_search_extent"
     )
     parsed_extent = json.loads(configured_extent)
     return convert_geojson_to_bbox(parsed_extent)
-
-
+    
 def convert_geojson_to_bbox(
     geojson: typing.Dict,
 ) -> typing.Optional[typing.List[float]]:
