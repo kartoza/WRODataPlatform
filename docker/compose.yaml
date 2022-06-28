@@ -24,6 +24,8 @@ services:
         condition: service_started
       solr:
         condition: service_started
+      redis:
+        condition: service_started
 
   solr:
     image: ckan/ckan-solr:2.9-solr8 
@@ -33,6 +35,10 @@ services:
         target: /opt/solr-8.11.1/server/solr/ckan/conf/schema.xml
     ports:
       - "8985:8983"
+
+  redis:
+    image: redis:6.2
+
 
 volumes:
   ckan_vol:
