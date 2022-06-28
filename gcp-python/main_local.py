@@ -31,6 +31,7 @@ class Default:
     NASA_POWER_FORMAT = 'CSV'
     NASA_POWER_COMMUNITY = ['RE', 'SB', 'AG']  # AG: Agroclimatology, RE: Renewable energy, or SB: Sustainable buildings
     NASA_POWER_TEMPORAL_AVE = ['daily', 'monthly', 'climatology']
+    #NASA_POWER_TEMPORAL_AVE = ['monthly']
 
     SA_GRID_EXTENTS = [
         {
@@ -171,6 +172,38 @@ class Default:
             "lon_min": "31.057872772",  # left
             "lon_max": "34.057872771999996"  # right
         }
+    ]
+
+    MONTHLY_PREFIX = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+        'Monthly_ave'
+    ]
+
+    CLIMATOLOGY_PREFIX = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+        'Annual'
     ]
 
     LEAP_YEAR_ROW = ''
@@ -865,23 +898,24 @@ class Utilities:
         :param file: Output/target file
         :type file: String
 
-        :param lines: Variable which contains a list of the lines which needs to be written to the log file
-        :type lines: List
+        :param line: Variable which contains a list of the lines which needs to be written to the log file
+        :type line: List
         """
-        print(line)
+        if True:
+            print(line)
 
-        if not os.path.exists(file):
-            # File does not exist, create it
-            with open(file, 'w+') as f:
-                f.write(line)
-                f.write('\n')
-        else:
-            # File exists, append to it
-            with open(file, 'a') as f:
-                f.write(line)
-                f.write('\n')
+            if not os.path.exists(file):
+                # File does not exist, create it
+                with open(file, 'w+') as f:
+                    f.write(line)
+                    f.write('\n')
+            else:
+                # File exists, append to it
+                with open(file, 'a') as f:
+                    f.write(line)
+                    f.write('\n')
 
-        f.close()
+            f.close()
 
     @staticmethod
     def unzip(zip_file):
@@ -985,7 +1019,7 @@ class Utilities:
         :param end_day: End day
         :type end_day: int
 
-        :returns: A list which contains all of the dates which will be used to perform requests
+        :returns: A list which contains the dates which will be used to perform requests
         :rtype: list
         """
 
@@ -1020,13 +1054,13 @@ class Utilities:
                 )
             dates_required = True
         elif temporal == 'monthly':
-            list_years_temp = range(start_year, end_year)
+            list_years_temp = range(start_year, end_year + 1)
             list_dates = []
 
             for year in list_years_temp:
                 dates = {
                     'start_date': str(year),
-                    'end_date': str(year)  # MAYBE ADD ONE?? ==================================
+                    'end_date': str(year)
                 }
                 list_dates.append(dates)
             dates_required = True
@@ -1090,21 +1124,49 @@ def download_weather_data():
     """
     skip_leading_rows = 10  # Number of rows which will be skipped at the start of the file
     skip_trailing_rows = 1  # Number of rows at the enc of the file which will be skipped
-    lat_index = 0
-    lon_index = 1
-    value_index = 5
 
+    # Start and end dates
+    start_y = 2018
+    end_y = 2020
+    start_m = 1
+    end_m = 5
+    start_d = 1
+    end_d = 31
+
+    # Community: Renewable energy, sustainable buildings, or climatology
     for community in Default.NASA_POWER_COMMUNITY:
         Utilities.write_to_log("log.txt", "COMMUNITY: " + community)
+
+        # Period/temporal: Daily, monthly, or climatology
         for period in Default.NASA_POWER_TEMPORAL_AVE:
             Utilities.write_to_log("log.txt", "PERIOD: " + period)
 
+            # Indices for columns in request contents from NASA POWER
+            if period == 'daily':
+                # Only a lat, long, and a single value
+                lat_index = 0
+                lon_index = 1
+                value_index = [5]
+            elif period == 'monthly':
+                # Lat, lon, all months and monthly average
+                lat_index = 2
+                lon_index = 3
+                value_index = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+            else:
+                # Climatology. Lat, lon, all months, and annual
+                lat_index = 1
+                lon_index = 2
+                value_index = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+            # Gets the list of datasets to loop through
+            # Based on community and period
             list_datasets = Utilities.get_dataset_list(community, period)
 
             if len(list_datasets) == 0:
                 # List datasets could not be determined, skip
                 continue
 
+            # Performs requests on each dataset
             for dataset in list_datasets:
                 Utilities.write_to_log("log.txt", "DATASET: " + dataset["name"])
 
@@ -1120,13 +1182,7 @@ def download_weather_data():
                     period
                 )
 
-                # Start and end dates
-                start_y = 2020
-                end_y = 2020
-                start_m = 1
-                end_m = 3
-                start_d = 1
-                end_d = 31
+                # Gets a list of dates based on the start and end date
                 date_required, list_dates, leap_year = Utilities.get_date_list(
                     period,
                     start_y,
@@ -1146,17 +1202,41 @@ def download_weather_data():
                 list_field_names.append('LON')
                 with io.StringIO() as file_mem:
                     current_data = []
+
                     for date in list_dates:
-                        start_date = date['start_date']
-                        end_date = date['end_date']
+                        if date_required:
+                            # Daily and yearly
+                            start_date = date['start_date']
+                            end_date = date['end_date']
+                        else:
+                            # Climatology period type does not require dates
+                            start_date = ''
+                            end_date = ''
 
                         Utilities.write_to_log("log.txt", "DATE: " + start_date)
 
-                        field_name = '{}_{}'.format(
-                            dataset_name,
-                            start_date
-                        )
-                        list_field_names.append(field_name)
+                        if period == 'daily':
+                            field_name = '{}_{}'.format(
+                                dataset_name,
+                                start_date
+                            )
+                            list_field_names.append(field_name)
+                        elif period == 'monthly':
+                            for field_prefix in Default.MONTHLY_PREFIX:
+                                field_name = '{}_{}_{}'.format(
+                                    dataset_name,
+                                    field_prefix,
+                                    start_date
+                                )
+                                list_field_names.append(field_name)
+                        else:
+                            # Climatology
+                            for field_prefix in Default.CLIMATOLOGY_PREFIX:
+                                field_name = '{}_{}'.format(
+                                    dataset_name,
+                                    field_prefix
+                                )
+                                list_field_names.append(field_name)
 
                         # FOR TESTING
                         test_extent = [
@@ -1229,13 +1309,60 @@ def download_weather_data():
                                 if not first_column_done:
                                     # Latitude, longitude and value
                                     line = line.replace('\n', '')
-
                                     list_columns = line.split(',')
-                                    write_to_mem = '{},{},{}'.format(
-                                        list_columns[lat_index],
-                                        list_columns[lon_index],
-                                        list_columns[value_index]
-                                    )
+
+                                    if period == 'climatology':
+                                        # This test is only required for climatology
+                                        # Climatology has a last row which equals '\\r'
+                                        if len(list_columns) < 15:
+                                            continue
+
+                                    if period == 'daily':
+                                        # Lat, lon and a single value
+                                        write_to_mem = '{},{},{}'.format(
+                                            list_columns[lat_index],
+                                            list_columns[lon_index],
+                                            list_columns[value_index[0]]
+                                        )
+                                    elif period == 'monthly':
+                                        # Lat, lon, all months, and average monthly
+                                        write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                            list_columns[lat_index],
+                                            list_columns[lon_index],
+                                            list_columns[value_index[0]],
+                                            list_columns[value_index[1]],
+                                            list_columns[value_index[2]],
+                                            list_columns[value_index[3]],
+                                            list_columns[value_index[4]],
+                                            list_columns[value_index[5]],
+                                            list_columns[value_index[6]],
+                                            list_columns[value_index[7]],
+                                            list_columns[value_index[8]],
+                                            list_columns[value_index[9]],
+                                            list_columns[value_index[10]],
+                                            list_columns[value_index[11]],
+                                            list_columns[value_index[12]]
+                                        )
+                                    else:
+                                        # Climatology
+                                        # Lat, lon all months, and annual
+                                        write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                            list_columns[lat_index],
+                                            list_columns[lon_index],
+                                            list_columns[value_index[0]],
+                                            list_columns[value_index[1]],
+                                            list_columns[value_index[2]],
+                                            list_columns[value_index[3]],
+                                            list_columns[value_index[4]],
+                                            list_columns[value_index[5]],
+                                            list_columns[value_index[6]],
+                                            list_columns[value_index[7]],
+                                            list_columns[value_index[8]],
+                                            list_columns[value_index[9]],
+                                            list_columns[value_index[10]],
+                                            list_columns[value_index[11]],
+                                            list_columns[value_index[12]]
+                                        )
 
                                     file_mem.write(write_to_mem)
                                     file_mem.write('\n')
@@ -1243,18 +1370,56 @@ def download_weather_data():
                                     pretext = current_data[i]
                                     pretext = pretext.replace('\n', '')
 
-                                    # Only the value is now required
+                                    # Only the value(s) is now required
                                     line = line.replace('\n', '')
                                     list_columns = line.split(',')
-                                    write_to_mem = '{}'.format(
-                                        list_columns[value_index]
-                                    )
+                                    if period == 'daily':
+                                        # Only one value for daily
+                                        write_to_mem = '{}'.format(
+                                            list_columns[value_index[0]]
+                                        )
+                                    elif period == 'monthly':
+                                        # All months and average monthly
+                                        write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                            list_columns[value_index[0]],
+                                            list_columns[value_index[1]],
+                                            list_columns[value_index[2]],
+                                            list_columns[value_index[3]],
+                                            list_columns[value_index[4]],
+                                            list_columns[value_index[5]],
+                                            list_columns[value_index[6]],
+                                            list_columns[value_index[7]],
+                                            list_columns[value_index[8]],
+                                            list_columns[value_index[9]],
+                                            list_columns[value_index[10]],
+                                            list_columns[value_index[11]],
+                                            list_columns[value_index[12]]
+                                        )
+                                    else:
+                                        # Climatology
+                                        # All months and annual
+                                        write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                            list_columns[value_index[0]],
+                                            list_columns[value_index[1]],
+                                            list_columns[value_index[2]],
+                                            list_columns[value_index[3]],
+                                            list_columns[value_index[4]],
+                                            list_columns[value_index[5]],
+                                            list_columns[value_index[6]],
+                                            list_columns[value_index[7]],
+                                            list_columns[value_index[8]],
+                                            list_columns[value_index[9]],
+                                            list_columns[value_index[10]],
+                                            list_columns[value_index[11]],
+                                            list_columns[value_index[12]]
+                                        )
 
                                     file_mem.write(pretext + ',' + write_to_mem)
                                     file_mem.write('\n')
 
                                 i = i + 1  # Used to retrieve pretext when adding more columns
 
+                        # Stores the current state of the text
                         current_data = file_mem.getvalue()
                         current_data = current_data.split('\n')
 
@@ -1291,6 +1456,7 @@ def download_weather_data():
                     Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
 
                     bucket.delete_blob(file_name)
+                #return
 
 
 if __name__ == '__main__':
