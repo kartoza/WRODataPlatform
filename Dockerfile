@@ -38,7 +38,7 @@ RUN apt-get -q -y update \
 
     USER appuser
 
-    RUN mkdir /home/appuser/app  && mkdir /home/appuser/data
+    RUN mkdir /home/appuser/app  && mkdir /home/appuser/data && mkdir /home/appuser/ckan_storage
 
     ENV PATH="$PATH:/home/appuser/.local/bin"
 
