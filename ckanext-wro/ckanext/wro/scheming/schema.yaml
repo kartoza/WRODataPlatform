@@ -1,7 +1,6 @@
 scheming_version: 2
 dataset_type: metadata-form
-#about_url: http://example.com/the-camel-photos-schema
-
+#about_url: http://example.com/dataset
 
 dataset_fields:
 
@@ -11,153 +10,153 @@ dataset_fields:
   required: true
   form_placeholder: Your email address
 
-- field_name: owner_org
-  label: Institution
-  help_text: input your institution
+- field_name: title
+  label: Dataset title (maximum 100 characters)
+  preset: title
   required: true
-  form_placeholder: Your institution
-  #preset: emc_dataset_organization
-  # the field name owner_org is required by ckanex-scheming
+  form_placeholder: eg. A descriptive title
+  form_snippet: title.html
+
+- field_name: name
+  label: Dateset metadata URL
+  form_placeholder: /metadata-form/dataset_title
+  preset: dataset_slug
+  display_snippet: link.html
+
+- field_name: authors
+  label: Authors
+  repeating_label: Author
+  preset: repeated_subfields_extended
+  repeating_subfields:
+    - field_name: author_name
+      label: Author first name
+      required: true
+    - field_name: author_surname
+      label: Author surname
+    - field_name: author_email
+      label: Email
+      required: true
+    - field_name: owner_org
+      label: Organization
+      required: true
+      preset: organization_mod_preset
+      validators: ignore_missing
+    - field_name: author_department
+      label: Department
+      required: false
+    - field_name: contact_same_as_author
+      label: Is this author a contact person for the dataset?
+      required: false
+      #validators: boolean_validator
+      preset: mod_checkbox
+      choices:
+        - value:
+          label: 
 
 - field_name: contact_person
   label: Contact person
-  help_text: who represents your contact
-  required: true
-  form_placeholder: Your Contact
-
-- field_name: title
-  label: Dataset title
-  help_text: Name by which the cited resource is known - This is a SANS 1878 mandatory field
-#  preset: title
-  required: true
-  form_placeholder: eg. A descriptive title
-
-- field_name: name
-  label: URL
-  preset: dataset_slug
-  form_placeholder: eg. camel-no-5
-
-- field_name: description
-  label: Description
-  help_text: Short description of dataset
+  help_text: leave blank if it the same as the author
+  required: false
+  preset: repeated_subfields_extended
+  repeating_subfields:
+    - field_name: contact_name
+      label: Contact name
+      required: true
+      preset: contact_same_as_author_preset
+    - field_name: contact_email
+      label: Email
+      required: true
+      preset: contact_same_as_author_preset
+    - field_name: contact_orgnization
+      label: Organization
+      required: true
+      preset: contact_same_as_author_preset
+    - field_name: contact_department
+      label: Department
+      required: false
+    
+- field_name: dataset_description
+  label: Dataset description
+  help_text: Short description of dataset, e.g. 0-500 words
   required: true
   form_placeholder: Description
+  form_snippet: markdown.html
 
-- field_name: wrc_project_number
-  label: Project Number
-  help_text: input WRC Project Number
+- field_name: did_author_or_contact_organization_collect_the_data
+  label: Did the author / contact organization collect the data?
   required: false
-  form_placeholder: Project#
+  validators: boolean_validator
+  preset: mod_checkbox 
+  choices:
+    - value:
+      label:
 
-- field_name: creator
-  label: Creators
-  help_text: specify the creator of this dataset
+- field_name: data_collection_organization
+  label: Name of organization collected the data
   required: true
-  form_placeholder: e.g Dave bings
+  preset: data_collection_text_preset
+
+- field_name: dataset_language
+  label: Dataset language
+  help_text: Assumed English if not provided
+  required: false
+  form_placeholder: Dataset language.
 
 - field_name: publisher
   label: Publisher
-  help_text: specify the publisher of this dataset, e.g. Agricultural Research Council (ARC), Council for Scientific and Industrial Research (CSIR)
+  help_text: Institution that owns/publishes dataset {will become a drop-down list with all names of SA institutions}
   required: true
   form_placeholder: Publisher
 
 - field_name: publication_year
-  label: Publication Year
-  help_text: specify the publication year for this dataset, e.g 2021, 2022 or 2015-2020
+  label: Publication year
+  help_text: Year in which the digital object was published
   required: true
-  form_placeholder: Publisher
+  preset: date
 
-- field_name: resource_type
-  label: Resource Type
-  help_text: specify the resource type
+- field_name: wrc_project_number
+  label: Project number
+  help_text: WRC Project or report number (if applicable)
+  required: false
+
+- field_name: license
+  label: License
+  help_text: for creative commons license please visit https://creativecommons.org/
   required: true
   preset: select
   choices:
-  - value: dataset
-    label: Dataset
-  - value: text
-    label: Text
-  - value: image
-    label: Image
-
-- field_name: location
-  label: Location/GPS Coordinates
-  help_text: Expressed as point coordinates or lower-left upper-right bounding box coordinates, e.g. 16.48, -34.97; 32.86, -22.03 for all of South Africa 
-  required: false
-  form_placeholder: e.g 16.48, -34.97; 32.86, -22.03
-
-- field_name: spatial
-  label: Geographic location bounding box
-  required: false
-  help_text: >-
-    Bounding box for the dataset, expressed as the geographic coordinates of the upper left and lower right
-    corners - This is a SANS 1878 mandatory field
-  preset: emc_dataset_spatial_extent
-  form_display: map.html
-
-- field_name: metadata_available
-  label: Metadata available
-  required: true
-  choices:
-  - value: "yes"
-    label: "yes"
-  - value: "no"
-    label: "no"
-  preset: select
-  
-- field_name: metadata_scheme
-  label: Metadata scheme
-  help_text: choose a metadata scheme 
-  required: false
-  preset: select
-  choices:
-  - value: iso 19115/sans 1878
-    label: ISO 19115/SANS 1878
-  - value: dublin core
-    label: Dublin Core
-  - value: data document initiative(ddi)
-    label: Data Document Initiative(DDI)
-  - value: ecological metadata language(eml)
-    label: Ecological Metadata Language(EML)
-  - value: darwin core
-    label: Darwin Core
-  - value: internal lookup tables
-    label: Internal Lookup Tables(please upload with dataset)
-  - value: other
+  - value: Open (Creative Commons)
+    label: Open (Creative commons)
+  - value: Restricted access
+    label: Restricted access
+  - value: Ohter
     label: Other
+
+- field_name: dataset_license_url
+  label: License URL
+  help_text: specify the license url
+  required: false
+  form_placeholder: http://creativecommons.org/
 
 - field_name: keywords
   label: Keywords
-  help_text: five or more keywords separated by a comma
+  help_text: Keywords are used to tag/describe the dataset for discoverability in data searches. (e.g temperature, salinity, maize)
   required: true
-  form_placeholder: input keywords,
+  form_placeholder: Input keywords,
 
-- field_name: data_format
-  label: Data format
+- field_name: spatial
+  label: Geographic location or bounding box coordinates
+  help_allow_html: true
   required: false
-  form_placeholder: e.g API, JSON, XML, CSV, web scraping
+  help_text: >-
+    <b>Leave blank if data is not spatial</b>, Expressed as point coordinates or upper-left lower-right bounding box decimal coordinates (comma separated going with the order lat, long), e.g. -20.629147, 13.165308,-35.2462649, 35.7811468 for all of South Africa.
+  preset: spatial_data_preset
+  
+  #display_snippet: null
 
-- field_name: doi
-  label: DOI
-  required: false
-  form_placeholder: input DOI
-  help_text: as part of Phase 1 the WRO does not provide DOIs, please use a platform such as SAEON or Dataverse if a DOI is required and upload the metadata and citation here
-
-- field_name: data_availability
-  label: Data availablility
-  required: true
-  preset: select
-  choices:
-  - value: internal data
-    label: Shared Internal Data| Accessible to the custodian and the WRO platform managers and software engineers.
-  - value: community data
-    label: Shared Community Data| Accessible to the custodian, the WRO(internal) and selected other partners using the WRO.
-  - value: public data
-    label: Publically available data.
- 
 - field_name: wro_theme
-  label: WRO Theme (where data should be stored) 
-  required: true
+  label: Dataset topic category 
+  required: false
   preset: select
   choices:
   - value: agriculture
@@ -165,7 +164,7 @@ dataset_fields:
   - value: biodiversity
     label: Biodiversity
   - value: citizen_science
-    label: Citizen Science
+    label: Citizen science
   - value: dam_level
     label: Dam level
   - value: drought
@@ -206,74 +205,100 @@ dataset_fields:
 - field_name: data_structure_category
   label: Data structure category 
   required: true
-  preset: select
+  preset: radio
   choices:
   - value: structured
-    label: Structured (Clearly labelled and in a standarised format e.g Ms Excel tables, csv files)
+    label: Structured (clearly labelled and in a standardised format)
   - value: semi-structured
-    label: Semi-structured (Does not fully conforms to the tabular format of structured data but may contain tags and markers identifying properties to arrange
+    label: Semi-structured (does not fully conform to the tabular format of structured data, but may contain tags or markers identifying properties to arrange it into an organisational framework)
   - value: unstructured
-    label: Unstructured (Cannot be stored in relational databases and is often stored in its raw format, such as photographs of rivers and social media posts)
+    label: Unstructured (data cannot be stored in relational databases and is often stored in its raw format, such as images)
 
-
-- field_name: zone
-  label: Zone
+- field_name: uploader_estimation_of_extent
+  label: Uploader estimation of extent to which data have been processed
   required: true
-  help_text: Best estimated by data uploader based on extent or pre-processing
-  preset: select
+  preset: radio
   choices:
   - value: raw
     label: Raw
+  - value: still_being_processed
+    label: Still being processed
   - value: refined
     label: Refined
-  - value: processing
-    label: Processing
   - value: access
     label: Access
 
-- field_name: upload_requirements
-  label: Upload requirements
+- field_name: data_classification
+  label: is the data time seriesed or static
   required: true
-  preset: select
+  preset: data_classification_preset
   choices:
+  - value: time series
+    label: Time series
   - value: static
-    label: Static (once-off)
-  - value: time_series_weekly
-    label: Time series (weekly)
-  - value: time_series_monthly
-    label: Time series (mothly)
-  - value: time_series_annually
-    label: Time series (annualy)
+    label: Static
+  - value: both
+    label: Both
 
-- field_name: url_for_regular_upload
-  label: URL for regular upload
+- field_name: data_reference_date
+  label: Data reference date
   required: false
-  form_placeholder: http://
+  preset: simple_subfields
+  help_text: specify the refernce dates
+  repeating_subfields:
+      - field_name: data_reference_date_to
+        label: Data reference date (to)
+        required: true
+        preset: conditional_required_reference_date
+      - field_name: data_reference_date_from
+        required: true
+        label: Data reference date (from)
+        preset: conditional_required_reference_date
 
-- field_name: data_collection_name
-  label: Data Collection name
+- field_name: alternative_identifier
+  label: Alternate identifier
+  help_text: Any unique identifier for the metadata/dataset (e.g links to other identifiers, DOI, ISBN. Mandatory for replacement versions of the same data).
   required: false
-  help_text: Determines the name of the folder where files will be kept e.g. WRC 00140-2020-2021 North West province soil salinity project
+  form_placeholder: eg. DOI
+
+- field_name: vertical_extent_datum
+  label: Vertical extent datum
+  help_text: Unit of measure or reference point used to describe vertical extents (e.g. masl - metres above sea level, mbgl - metres below ground level)
+  required: false
+  form_placeholder:
+
+- field_name: minimum_maximum_extent
+  label: Vertical minimum-maximum extent
+  help_text: Specify the vertical minimum and maximum extent
+  preset: simple_subfields # customized by mohab(a lot to be added)
+  required: false
+  repeating_subfields:
+    - field_name: minimum_vertical_extent
+      label: Minimum vertical extent
+    - field_name: maximum_vertical_extent
+      label: Maximum vertical extent
 
 - field_name: agreement
-  label: I agree to the Data Management Plan and Term and Conditions of the WRO
+  label: I agree to the data management plan and terms and conditions of the WRO
   required: true
-  validators: boolean_validator
-  preset: emc_checkbox
-
+#  validators: boolean_validator
+  preset: agreement
+  choices:
+    - value:
+      label:
 
 resource_fields:
 
-  - field_name: url
+  - field_name: name
     label: URL
     preset: resource_url_upload
 
-  - field_name: name
+  - field_name: resource_name
     label: Name
     form_placeholder: eg. January 2011 Gold Prices
 
-  - field_name: description
-    label: Description
+  - field_name: dataset_description
+    label: Description of the data
     form_snippet: markdown.html
     form_placeholder: Some useful notes about the data
 
@@ -281,9 +306,189 @@ resource_fields:
     label: Format
     required: true
     preset: resource_format_autocomplete
+    #validators: not_empty (cause an error, the resource page keeps reloading without submission)
     help_text: Name of the data transfer format - This is a SANS 1878 mandatory field
 
-  - field_name: format_version
-    label: Format Version
-    required: true
-    help_text: Version of the data transfer format (date, number, etc) - This is a SANS 1878 mandatory field
+  - field_name: is_data_supplementary
+    label: Is data supplementary?
+    required: false
+    validators: boolean_validator
+    preset: mod_checkbox
+    choices:
+      - value:
+        label:
+    help_text: Will be considered primary data assets if not specified
+
+
+
+######## we might need these
+
+# - field_name: metadata_available
+#   label: Metadata available
+#   required: false
+#   choices:
+#   - value: "yes"
+#     label: "yes"
+#   - value: "no"
+#     label: "no"
+#   preset: select
+  
+# - field_name: metadata_scheme
+#   label: Metadata scheme
+#   help_text: choose a metadata scheme 
+#   required: false
+#   preset: select
+#   choices:
+#   - value: iso 19115/sans 1878
+#     label: ISO 19115/SANS 1878
+#   - value: dublin core
+#     label: Dublin Core
+#   - value: data document initiative(ddi)
+#     label: Data Document Initiative(DDI)
+#   - value: ecological metadata language(eml)
+#     label: Ecological Metadata Language(EML)
+#   - value: darwin core
+#     label: Darwin Core
+#   - value: internal lookup tables
+#     label: Internal Lookup Tables(please upload with dataset)
+#   - value: other
+#     label: Other
+
+
+
+
+# - field_name: data_availability
+#   label: Data availablility
+#   required: false
+#   preset: select
+#   choices:
+#   - value: internal data
+#     label: Shared Internal Data| Accessible to the custodian and the WRO platform managers and software engineers.
+#   - value: community data
+#     label: Shared Community Data| Accessible to the custodian, the WRO(internal) and selected other partners using the WRO.
+#   - value: public data
+#     label: Publically available data.
+
+# - field_name: data_collection_name
+#   label: Data Collection name
+#   required: false
+#   help_text: Determines the name of the folder where files will be kept e.g. WRC 00140-2020-2021 North West province soil salinity project
+
+
+
+# - field_name: contact_address
+#   label: Contact Address
+#   repeating_subfields:
+#   - field_name: address
+#     label: Address
+#     required: false
+#   - field_name: city
+#     label: City
+#   - field_name: state
+#     label: State
+#   - field_name: postal_code
+#     label: Postal Code
+#   - field_name: country
+#     label: Country
+
+
+
+# - field_name: supplementary_information
+#   label: Supplementary information
+#   help_text: for mohab, this should be a file field
+#   required: flase
+#   preset: organization_url_upload
+#   form_placeholder:
+
+
+
+############# probably we won't need these
+
+# - field_name: resource_type
+#   label: Resource Type
+#   help_text: specify the resource type
+#   required: false
+#   preset: select
+#   choices:
+#   - value: dataset
+#     label: Dataset
+#   - value: text
+#     label: Text
+#   - value: image
+#     label: Image
+
+# - field_name: location
+#   label: Location/GPS Coordinates
+#   help_text: Expressed as point coordinates or lower-left upper-right bounding box coordinates, e.g. 16.48, -34.97; 32.86, -22.03 for all of South Africa 
+#   required: false
+#   form_placeholder: e.g 16.48, -34.97; 32.86, -22.03
+
+
+
+# - field_name: data_format
+#   label: Data format
+#   required: false
+#   form_placeholder: e.g API, JSON, XML, CSV, web scraping
+
+
+# - field_name: url_for_regular_upload
+#   label: URL for regular upload
+#   required: false
+#   form_placeholder: http://
+
+
+# - field_name: upload_requirements
+#   label: Upload requirements
+#   required: false
+#   preset: select
+#   choices:
+#   - value: static
+#     label: Static (once-off)
+#   - value: time_series_weekly
+#     label: Time series (weekly)
+#   - value: time_series_monthly
+#     label: Time series (mothly)
+#   - value: time_series_annually
+#     label: Time series (annualy)
+
+
+# - field_name: zone
+#   label: Zone
+#   required: false
+#   help_text: Best estimated by data uploader based on extent or pre-processing
+#   preset: select
+#   choices:
+#   - value: raw
+#     label: Raw
+#   - value: refined
+#     label: Refined
+#   - value: processing
+#     label: Processing
+#   - value: access
+#     label: Access
+
+# - field_name: owner_org
+#   label: Institution
+#   help_text: input your institution
+#   required: false
+#   form_placeholder: Your institution
+  #preset: emc_dataset_organization
+  # the field name owner_org is required by ckanex-scheming
+
+    # preset: multiple_text
+    # form_blanks: 1
+    # required: false
+
+# - field_name: contact_same_as_creator
+#   label: is the contact person for this dataset is the author(s)
+#   required: false
+#   validators: boolean_validator
+#   preset: mod_checkbox
+
+# - field_name: owner_org
+#   label: Institution
+#   help_text: input your institution
+#   required: false
+#   form_placeholder: Your institution
+#   validators: ignore_missing
+#   preset: dataset_organization

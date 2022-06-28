@@ -1,6 +1,7 @@
 version: '3.9'
 services:
-  ckan_db:
+
+  db:
     image: postgis/postgis:13-3.1
     restart: always
     environment:
@@ -11,22 +12,19 @@ services:
     volumes: 
       - ckan_db:/var/lib/postgresql/data
       - ./postgis/create_ckan_default_db.sql:/docker-entrypoint-initdb.d/create_ckan_default_db.sql
+      - ./postgis/ckan_dump.sql:/docker-entrypoint-initdb.d/ckan_dump.sql
 
   ckan_wro:
     build: ../
     container_name: ckan_wro
     ports:
       - '9000:5000'
-    # volumes:
-    #   - ckan_vol:/home/wro
-    #   - ckan_config:/etc/ckan
-    # depends_on:
-    #   ckan_db:
-    #     condition: service_started
-    #   solr:
-    #     condition: service_started
-    # networks:
-    #   - wro-net
+    depends_on:
+      db:
+        condition: service_started
+      solr:
+        condition: service_started
+
   solr:
     image: ckan/ckan-solr:2.9-solr8 
     volumes:
@@ -34,31 +32,10 @@ services:
         source: $PWD/solr/schema.xml
         target: /opt/solr-8.11.1/server/solr/ckan/conf/schema.xml
     ports:
-      - "8984:8983"
-    # networks:
-    #   - wro-net
+      - "8985:8983"
 
 volumes:
   ckan_vol:
   ckan_config:
   ckan_db:
   solr_data:
-
-# networks:
-#   wro-net:
-#     name: wro-net
-#     external: true
-
-
-
-  # solr:
-  #   container_name: solr
-  #   build:
-  #     context: .
-  #     dockerfile: solr/Dockerfile
-  #   volumes:
-  #     - solr_data:/opt/solr/server/solr/ckan/data
-  #   networks:
-  #     - wro-net
-  #   ports:
-  #     - "8984:8983"

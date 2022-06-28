@@ -25,7 +25,7 @@ def gunicorn_up(ckan_ini):
         # create the gunicorn params and run os.exec()
         gunicorn_params = [
             "gunicorn",
-            "--chdir=/home/appuser/app/ckan/",
+#            "--chdir=/home/appuser/app/ckan/",
             "wsgi:application",
             "--bind=0.0.0.0:5000",
             "--preload"

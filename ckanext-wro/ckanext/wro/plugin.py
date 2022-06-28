@@ -1,14 +1,16 @@
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
-from .logic.action import create
+from ckan.common import config
 from . import helpers
+from .logic import converters, validators
+from .blueprints.map import map_blueprint
 
 class WroPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
-    plugins.implements(plugins.IActions)
-    plugins.implements(plugins.IActions)
-    plugins.implements(plugins.ITemplateHelpers)
-    plugins.implements(plugins.IResourceController, inherit=True) # temp testing 
+    #plugins.implements(plugins.ITemplateHelpers)
+    plugins.implements(plugins.IValidators)
+    plugins.implements(plugins.IBlueprint)
+    #IDatasetForm can be added
     # IConfigurer
 
     def update_config(self, config_):
@@ -16,37 +18,18 @@ class WroPlugin(plugins.SingletonPlugin):
         toolkit.add_public_directory(config_, 'public')
         toolkit.add_resource('fanstatic',
             'wro')
-        toolkit.add_resource('assets','template_change_assets')
+        toolkit.add_resource('assets','wro_assets')
 
-    
-    # IActions:
-    
-    def get_actions(self):
-        """
-            overriding the default creation to use
-            google cloud url mapping for resources
-        """
-        return{
-            'resource_create':create.resource_create
-        }
-
-    
-    # IResourceController
-
-    def before_show(self,resource_dict):
-        """
-            overriding the display to show google cloud
-            GCS url, instead of the default local mapping 
-        """
-        if resource_dict['url_type'] == 'upload':
-            if resource_dict['name'] != '':
-                res_name = resource_dict['name'].lower()
-                res_format = resource_dict['format'].lower()
-                resource_dict['url'] = f'https://storage.cloud.google.com/mohabtester/{res_name}.{res_format}'
-
-    # IHelpers
-    def get_helpers(self):
+    def get_validators(self) -> dict:
         return {
-            "emc_default_bounding_box": helpers.get_default_bounding_box,
-            "emc_convert_geojson_to_bounding_box": helpers.convert_geojson_to_bbox,
+            "convert_raw_input_to_geojson": converters.convert_raw_input_to_geojson,
+            "conditional_date_reference_validator": validators.conditional_date_reference_validator,
+            "author_same_as_contact": validators.author_same_as_contact,
+            "agreement": validators.agreement,
+            "author_or_contact_collected_data": validators.author_or_contact_collected_data
+
         }
+
+    # IBlueprint
+    def get_blueprint(self):
+        return [ map_blueprint,]
