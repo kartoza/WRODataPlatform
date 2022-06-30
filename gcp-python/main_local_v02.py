@@ -26,13 +26,15 @@ class Default:
 
     # BigQuery
     #BIQGUERY_DATASET = 'hydro_test'
-    BIQGUERY_DATASET = 'weather_monthly'
+    BIQGUERY_DATASET_DAILY = 'weather_daily'
+    BIQGUERY_DATASET_MONTHLY = 'weather_monthly'
+    BIQGUERY_DATASET_CLIMATOLOGY = 'weather_climatology'
 
     NASA_POWER_URL = 'https://power.larc.nasa.gov/api/temporal'
     NASA_POWER_FORMAT = 'CSV'
     NASA_POWER_COMMUNITY = ['RE', 'SB', 'AG']  # AG: Agroclimatology, RE: Renewable energy, or SB: Sustainable buildings
     #NASA_POWER_TEMPORAL_AVE = ['daily', 'monthly', 'climatology']
-    NASA_POWER_TEMPORAL_AVE = ['monthly']
+    NASA_POWER_TEMPORAL_AVE = ['climatology']
 
     SA_GRID_EXTENTS = [
         {
@@ -1206,6 +1208,32 @@ class Utilities:
         print('done')
 
 
+def table_to_geojson():
+    print('geojson')
+
+    client = bigquery.Client()
+    dataset_id = Default.BIQGUERY_DATASET_CLIMATOLOGY
+    table_name = ''
+
+    destination_uri = "gs://{}/{}".format(Default.BUCKET_TEMP, table_name + ".json")
+    dataset_ref = bigquery.DatasetReference(Default.PROJECT_ID, dataset_id)
+    table_ref = dataset_ref.table(table_name)
+    job_config = bigquery.job.ExtractJobConfig()
+    job_config.destination_format = bigquery.DestinationFormat.NEWLINE_DELIMITED_JSON
+
+    extract_job = client.extract_table(
+        table_ref,
+        destination_uri,
+        job_config=job_config,
+        # Location must match that of the source table.
+        location="US",
+    )  # API request
+    extract_job.result()  # Waits for job to complete.
+
+    print('done')
+
+
+
 def data_added_to_bucket():
     """Trigger function to call when data has been uploaded to a bucket.
     Deploy this function to a Google cloud storage bucket
@@ -1258,10 +1286,10 @@ def download_weather_data():
     skip_trailing_rows = 1  # Number of rows at the enc of the file which will be skipped
 
     # Start and end dates
-    start_y = 1984
-    end_y = 2021
+    start_y = 2020
+    end_y = 2020
     start_m = 1
-    end_m = 12
+    end_m = 1
     start_d = 1
     end_d = 31
 
@@ -1404,13 +1432,8 @@ def download_weather_data():
                             result = requests.get(link)
                             content = result.content
 
-                            #print("RESULT: " + str(result))
-                            #print("CONTENT: " + str(content))
-
                             # Newline not stored as '\n' character, so use r'\n'
                             split_content = str(content).split(r'\n')
-
-                            #print("SPLIT: " + str(split_content))
 
                             # Removes unwanted lines at the start and end of the data
                             split_content = split_content[skip_leading_rows:(len(split_content) - skip_trailing_rows)]
@@ -1568,7 +1591,7 @@ def download_weather_data():
                     Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
 
                     bucket.delete_blob(file_name)
-                #return
+            #return
 
 
 if __name__ == '__main__':
