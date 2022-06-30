@@ -7,8 +7,6 @@ import geopandas
 import pandas as pd
 import json
 import os
-import calendar
-import csv
 
 import requests
 from requests import get, post
@@ -16,22 +14,25 @@ from requests import get, post
 
 class Default:
     # Projects
-    PROJECT_ID = 'thermal-glazing-350010'
+    #PROJECT_ID = 'thermal-glazing-350010'
+    PROJECT_ID = 'wrc-wro'
 
     # Buckets
     BUCKET_TRIGGER = 'wro-trigger-test'
     BUCKET_DONE = 'wro-done'
-    BUCKET_TEMP = 'wro-temp'
+    #BUCKET_TEMP = 'wro-temp'
+    BUCKET_TEMP = 'wrc_wro_temp'
     BUCKET_FAILED = 'wro-failed'
 
     # BigQuery
-    BIQGUERY_DATASET = 'hydro_test'
+    #BIQGUERY_DATASET = 'hydro_test'
+    BIQGUERY_DATASET = 'weather_climatology'
 
     NASA_POWER_URL = 'https://power.larc.nasa.gov/api/temporal'
     NASA_POWER_FORMAT = 'CSV'
     NASA_POWER_COMMUNITY = ['RE', 'SB', 'AG']  # AG: Agroclimatology, RE: Renewable energy, or SB: Sustainable buildings
-    NASA_POWER_TEMPORAL_AVE = ['daily', 'monthly', 'climatology']
-    #NASA_POWER_TEMPORAL_AVE = ['monthly']
+    #NASA_POWER_TEMPORAL_AVE = ['daily', 'monthly', 'climatology']
+    NASA_POWER_TEMPORAL_AVE = ['climatology']
 
     SA_GRID_EXTENTS = [
         {
@@ -205,8 +206,6 @@ class Default:
         'Dec',
         'Annual'
     ]
-
-    LEAP_YEAR_ROW = ''
 
 
 class Definitions:
@@ -504,44 +503,44 @@ class Definitions:
 
     LIST_NASA_POWER_DATASETS_RE_DAILY = [
         SKY_SURFACE_SW_IRRADIANCE,
-        CLEAR_SKY_SURFACE_SW_IRRADIANCE,
-        SKY_INSOLATION_CLEARNESS_INDEX,
-        SKY_SURFACE_LW_IRRADIANCE,
-        SKY_SURFACE_PS_ACTIVE_RADIATION,
-        CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
-        SKY_SURFACE_UVA_IRRADIANCE,
-        SKY_SURFACE_UVB_IRRADIANCE,
-        SKY_SURFACE_UV_INDEX,
+        #CLEAR_SKY_SURFACE_SW_IRRADIANCE,
+        #SKY_INSOLATION_CLEARNESS_INDEX,
+        #SKY_SURFACE_LW_IRRADIANCE,
+        #SKY_SURFACE_PS_ACTIVE_RADIATION,
+        #CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
+        #SKY_SURFACE_UVA_IRRADIANCE,
+        #SKY_SURFACE_UVB_IRRADIANCE,
+        #SKY_SURFACE_UV_INDEX,
         WINDSPEED_2M,
         TEMP,
         DEW_FROST,
         WET_TEMP,
         EARTH_SKIN_TEMP,
-        TEMP_RANGE,
+        #TEMP_RANGE,
         TEMP_MAX,
         TEMP_MIN,
-        SPECIFIC_HUMIDITY,
+        #SPECIFIC_HUMIDITY,
         RELATIVE_HUMIDITY,
         PRECIPITATION,
-        SURFACE_PRESSURE,
+        #SURFACE_PRESSURE,
         WINDSPEED_10M,
-        WINDSPEED_10M_MAX,
-        WINDSPEED_10M_MIN,
-        WINDSPEED_10M_RANGE,
-        WIND_DIRECTION_10M,
-        WINDSPEED_50M,
-        WINDSPEED_50M_MAX,
-        WINDSPEED_50M_MIN,
-        WINDSPEED_50M_RANGE,
-        WIND_DIRECTION_50M,
+        #WINDSPEED_10M_MAX,
+        #WINDSPEED_10M_MIN,
+        #WINDSPEED_10M_RANGE,
+        #WIND_DIRECTION_10M,
+        #WINDSPEED_50M,
+        #WINDSPEED_50M_MAX,
+        #WINDSPEED_50M_MIN,
+        #WINDSPEED_50M_RANGE,
+        #WIND_DIRECTION_50M,
     ]
     LIST_NASA_POWER_DATASETS_SB_DAILY = [
-        COOLING_DEGREE_DAYS_ABOVE_ZERO,
-        COOLING_DEGREE_DAYS_ABOVE_10,
-        COOLING_DEGREE_DAYS_ABOVE_18,
-        HEATING_DEGREE_DAYS_BELOW_ZERO,
-        HEATING_DEGREE_DAYS_BELOW_10,
-        HEATING_DEGREE_DAYS_BELOW_18
+        #COOLING_DEGREE_DAYS_ABOVE_ZERO,
+        #COOLING_DEGREE_DAYS_ABOVE_10,
+        #COOLING_DEGREE_DAYS_ABOVE_18,
+        #HEATING_DEGREE_DAYS_BELOW_ZERO,
+        #HEATING_DEGREE_DAYS_BELOW_10,
+        #HEATING_DEGREE_DAYS_BELOW_18
     ]
     LIST_NASA_POWER_DATASETS_AG_DAILY = [
         SURFACE_SOIL_WETNESS,
@@ -551,51 +550,51 @@ class Definitions:
 
     LIST_NASA_POWER_DATASETS_RE_MONTHLY = [
         SKY_SURFACE_SW_IRRADIANCE,
-        CLEAR_SKY_SURFACE_SW_IRRADIANCE,
-        SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
-        SKY_SURFACE_SW_DIFFUSE_IRRADIANCE,
-        SKY_INSOLATION_CLEARNESS_INDEX,
-        CLEAR_SKY_INSOLATION_CLEARNESS_INDEX,
-        SKY_SURFACE_ALBEDO,
-        TOA_SW_IRRADIANCE,
+        #CLEAR_SKY_SURFACE_SW_IRRADIANCE,
+        #SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
+        #SKY_SURFACE_SW_DIFFUSE_IRRADIANCE,
+        #SKY_INSOLATION_CLEARNESS_INDEX,
+        #CLEAR_SKY_INSOLATION_CLEARNESS_INDEX,
+        #SKY_SURFACE_ALBEDO,
+        #TOA_SW_IRRADIANCE,
         CLOUD_AMOUNT,
         SKY_SURFACE_PS_ACTIVE_RADIATION,
         CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
-        SKY_SURFACE_UVA_IRRADIANCE,
-        SKY_SURFACE_UVB_IRRADIANCE,
-        SKY_SURFACE_UV_INDEX,
+        #SKY_SURFACE_UVA_IRRADIANCE,
+        #SKY_SURFACE_UVB_IRRADIANCE,
+        #SKY_SURFACE_UV_INDEX,
         WINDSPEED_2M,
         TEMP,
         DEW_FROST,
         WET_TEMP,
         EARTH_SKIN_TEMP,
-        TEMP_RANGE,
+        #TEMP_RANGE,
         TEMP_MAX,
         TEMP_MIN,
-        SKY_SURFACE_LW_IRRADIANCE,
+        #SKY_SURFACE_LW_IRRADIANCE,
         SPECIFIC_HUMIDITY,
         RELATIVE_HUMIDITY,
         PRECIPITATION,
         PRECIPITATION_SUM,
-        SURFACE_PRESSURE,
+        #SURFACE_PRESSURE,
         WINDSPEED_10M,
-        WINDSPEED_10M_MAX,
-        WINDSPEED_10M_MIN,
-        WINDSPEED_10M_RANGE,
-        WIND_DIRECTION_10M,
-        WINDSPEED_50M,
-        WINDSPEED_50M_MAX,
-        WINDSPEED_50M_MIN,
-        WINDSPEED_50M_RANGE,
-        WIND_DIRECTION_50M
+        #WINDSPEED_10M_MAX,
+        #WINDSPEED_10M_MIN,
+        #WINDSPEED_10M_RANGE,
+        #WIND_DIRECTION_10M,
+        #WINDSPEED_50M,
+        #WINDSPEED_50M_MAX,
+        #WINDSPEED_50M_MIN,
+        #WINDSPEED_50M_RANGE,
+        #WIND_DIRECTION_50M
     ]
     LIST_NASA_POWER_DATASETS_SB_MONTHLY = [
-        COOLING_DEGREE_DAYS_ABOVE_ZERO,
-        COOLING_DEGREE_DAYS_ABOVE_10,
-        COOLING_DEGREE_DAYS_ABOVE_18,
-        HEATING_DEGREE_DAYS_BELOW_ZERO,
-        HEATING_DEGREE_DAYS_BELOW_10,
-        HEATING_DEGREE_DAYS_BELOW_18
+        #COOLING_DEGREE_DAYS_ABOVE_ZERO,
+        #COOLING_DEGREE_DAYS_ABOVE_10,
+        #COOLING_DEGREE_DAYS_ABOVE_18,
+        #HEATING_DEGREE_DAYS_BELOW_ZERO,
+        #HEATING_DEGREE_DAYS_BELOW_10,
+        #HEATING_DEGREE_DAYS_BELOW_18
     ]
     LIST_NASA_POWER_DATASETS_AG_MONTHLY = [
         SURFACE_SOIL_WETNESS,
@@ -605,57 +604,57 @@ class Definitions:
 
     LIST_NASA_POWER_DATASETS_RE_CLIMATOLOGY = [
         SKY_SURFACE_SW_IRRADIANCE,
-        SKY_SURFACE_SW_IRRADIANCE_GMT,
-        CLEAR_SKY_SURFACE_SW_IRRADIANCE,
-        SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
-        SKY_SURFACE_SW_DIFFUSE_IRRADIANCE,
-        SKY_INSOLATION_CLEARNESS_INDEX,
-        SKY_SURFACE_ALBEDO,
-        TOA_SW_IRRADIANCE,
+        #SKY_SURFACE_SW_IRRADIANCE_GMT,
+        #CLEAR_SKY_SURFACE_SW_IRRADIANCE,
+        #SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
+        #SKY_SURFACE_SW_DIFFUSE_IRRADIANCE,
+        #SKY_INSOLATION_CLEARNESS_INDEX,
+        #SKY_SURFACE_ALBEDO,
+        #TOA_SW_IRRADIANCE,
         CLOUD_AMOUNT,
         SKY_SURFACE_PS_ACTIVE_RADIATION,
         CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
-        SKY_SURFACE_UVA_IRRADIANCE,
-        SKY_SURFACE_UVB_IRRADIANCE,
-        SKY_SURFACE_UV_INDEX,
-        SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MAX,
-        SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MIN,
-        SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MAX,
-        SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MIN,
-        MIDDAY_INSOLATION_INCIDENT,
+        #SKY_SURFACE_UVA_IRRADIANCE,
+        #SKY_SURFACE_UVB_IRRADIANCE,
+        #SKY_SURFACE_UV_INDEX,
+        #SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MAX,
+        #SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MIN,
+        #SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MAX,
+        #SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MIN,
+        #MIDDAY_INSOLATION_INCIDENT,
         WINDSPEED_2M,
         TEMP,
         DEW_FROST,
         WET_TEMP,
         EARTH_SKIN_TEMP,
-        TEMP_RANGE,
+        #TEMP_RANGE,
         TEMP_MAX,
         TEMP_MIN,
-        EARTH_SKIN_TEMP_MAX,
-        EARTH_SKIN_TEMP_MIN,
-        SKY_SURFACE_LW_IRRADIANCE,
+        #EARTH_SKIN_TEMP_MAX,
+        #EARTH_SKIN_TEMP_MIN,
+        #SKY_SURFACE_LW_IRRADIANCE,
         SPECIFIC_HUMIDITY,
         RELATIVE_HUMIDITY,
         PRECIPITATION,
         PRECIPITATION_SUM,
-        SURFACE_PRESSURE,
+        #SURFACE_PRESSURE,
         WINDSPEED_10M,
-        WINDSPEED_10M_MAX,
-        WINDSPEED_10M_MIN,
-        WINDSPEED_10M_RANGE,
-        WINDSPEED_50M,
-        WINDSPEED_50M_MAX,
-        WINDSPEED_50M_MIN,
-        WINDSPEED_50M_RANGE,
-        CLOUD_AMOUNT_GMT
+        #WINDSPEED_10M_MAX,
+        #WINDSPEED_10M_MIN,
+        #WINDSPEED_10M_RANGE,
+        #WINDSPEED_50M,
+        #WINDSPEED_50M_MAX,
+        #WINDSPEED_50M_MIN,
+        #WINDSPEED_50M_RANGE,
+        #CLOUD_AMOUNT_GMT
     ]
     LIST_NASA_POWER_DATASETS_SB_CLIMATOLOGY = [
-        COOLING_DEGREE_DAYS_ABOVE_ZERO,
-        COOLING_DEGREE_DAYS_ABOVE_10,
-        COOLING_DEGREE_DAYS_ABOVE_18,
-        HEATING_DEGREE_DAYS_BELOW_ZERO,
-        HEATING_DEGREE_DAYS_BELOW_10,
-        HEATING_DEGREE_DAYS_BELOW_18
+        #COOLING_DEGREE_DAYS_ABOVE_ZERO,
+        #COOLING_DEGREE_DAYS_ABOVE_10,
+        #COOLING_DEGREE_DAYS_ABOVE_18,
+        #HEATING_DEGREE_DAYS_BELOW_ZERO,
+        #HEATING_DEGREE_DAYS_BELOW_10,
+        #HEATING_DEGREE_DAYS_BELOW_18
     ]
     LIST_NASA_POWER_DATASETS_AG_CLIMATOLOGY = [
         SURFACE_SOIL_WETNESS,
@@ -993,6 +992,89 @@ class Utilities:
         return []
 
     @staticmethod
+    def append_field_names(list_field_names, period, name, date):
+        """Appends field names to an existing list. Daily only requires a single field,
+        monthly requires 13 (Jan to Dec and average monthly), and climatology also
+        requires 13 (Jan to Dec and annual).
+
+        :param list_field_names: List of fieldnames
+        :type list_field_names: list
+
+        :param period: 'daily', 'monthly', or 'climatology'
+        :type period: String
+
+        :param name: The prefix to add to the field name
+        :type name: String
+
+        :param date: The date which will be added to the field name
+        :type date: String
+
+        :returns: Contains the updated fields list
+        :rtype: list
+        """
+
+        if period == 'daily':
+            field_name = '{}_{}'.format(
+                name,
+                date
+            )
+            list_field_names.append(field_name)
+        elif period == 'monthly':
+            for field_prefix in Default.MONTHLY_PREFIX:
+                field_name = '{}_{}_{}'.format(
+                    name,
+                    field_prefix,
+                    date
+                )
+                list_field_names.append(field_name)
+        else:
+            # Climatology
+            for field_prefix in Default.CLIMATOLOGY_PREFIX:
+                field_name = '{}_{}'.format(
+                    name,
+                    field_prefix
+                )
+                list_field_names.append(field_name)
+
+        return list_field_names
+
+    @staticmethod
+    def get_request_content_indices(period):
+        """Gets the latitude index, longitude index, and a list of indices for the
+        CSV file contents received from NASA POWER when a request is done. These indices
+        differs for daily, monthly, and climatology.
+
+        :param period: 'daily', 'monthly', or 'climatology'
+        :type period: String
+
+        :returns: lat_index contains the latitude index
+        :rtype: integer
+
+        :returns: lon_index contains the longitude index
+        :rtype: integer
+
+        :returns: value_index contains a list of indices for the values
+        :rtype: list
+        """
+        if period == 'daily':
+            # Only a lat, long, and a single value
+            lat_index = 0
+            lon_index = 1
+            value_index = [5]
+        elif period == 'monthly':
+            # Lat, lon, all months and monthly average
+            lat_index = 2
+            lon_index = 3
+            value_index = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        else:
+            # Climatology. Lat, lon, all months, and annual
+            lat_index = 1
+            lon_index = 2
+            value_index = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+        return lat_index, lon_index, value_index
+
+    @staticmethod
     def get_date_list(temporal, start_year, end_year, start_month, end_month, start_day, end_day):
         """Based on the temporal type and dates provided, this function returns a list of dates.
         For daily it will return all days, monthly all the months, and for climatology it will return no dates.
@@ -1019,13 +1101,12 @@ class Utilities:
         :param end_day: End day
         :type end_day: int
 
+        :returns: True if a date will be required for the request, otherwise False
+        :rtype: boolean
+
         :returns: A list which contains the dates which will be used to perform requests
         :rtype: list
         """
-
-        # Checks if the year is a leap yaer
-        leap_year = calendar.isleap(start_year)
-
         if temporal == 'daily':
             # Converts all values to string
             # This is required for the pandas date_range method
@@ -1071,7 +1152,58 @@ class Utilities:
             list_dates = [-1]
             dates_required = False
 
-        return dates_required, list_dates, leap_year
+        return dates_required, list_dates
+
+    @staticmethod
+    def append_to_bigquery_table(table_id, list_field_names, csv_uri, skip_leading_rows=1):
+        """Append new columns to an existing table in BigQuery.
+
+        :param table_id: ID for the table in BigQuery: e.g. your-project.your_dataset.your_table_name
+        :type table_id: String
+
+        :param list_field_names: Names for new field(s)
+        :type list_field_names: list
+
+        :param csv_uri: URI for the CSV file stored in a Google Cloud Bucket
+        :type csv_uri: String
+
+        :param skip_leading_rows: Skips these rows at the top of the csv file
+        :type skip_leading_rows: int
+        """
+        print("append")
+
+        # Construct a BigQuery client object.
+        client = bigquery.Client()
+
+        # table_id = "your-project.your_dataset.your_table_name"
+
+        table = client.get_table(table_id)  # Make an API request.
+
+        # Updates the table schema
+        original_schema = table.schema
+        new_schema = original_schema[:]  # Creates a copy of the schema.
+        for field in list_field_names:
+            bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
+            new_schema.append(bq_field)
+
+        table.schema = new_schema
+        table = client.update_table(table, ["schema"])  # Make an API request.
+
+        print('bigquery')
+
+        job_config = bigquery.LoadJobConfig(
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+            source_format=bigquery.SourceFormat.CSV,
+            skip_leading_rows=skip_leading_rows
+        )
+
+        load_job = client.load_table_from_uri(
+            csv_uri, table_id, job_config=job_config
+        )  # Make an API request.
+
+        load_job.result()
+
+        print('done')
 
 
 def data_added_to_bucket():
@@ -1126,10 +1258,10 @@ def download_weather_data():
     skip_trailing_rows = 1  # Number of rows at the enc of the file which will be skipped
 
     # Start and end dates
-    start_y = 2018
+    start_y = 2020
     end_y = 2020
     start_m = 1
-    end_m = 5
+    end_m = 1
     start_d = 1
     end_d = 31
 
@@ -1142,21 +1274,7 @@ def download_weather_data():
             Utilities.write_to_log("log.txt", "PERIOD: " + period)
 
             # Indices for columns in request contents from NASA POWER
-            if period == 'daily':
-                # Only a lat, long, and a single value
-                lat_index = 0
-                lon_index = 1
-                value_index = [5]
-            elif period == 'monthly':
-                # Lat, lon, all months and monthly average
-                lat_index = 2
-                lon_index = 3
-                value_index = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
-            else:
-                # Climatology. Lat, lon, all months, and annual
-                lat_index = 1
-                lon_index = 2
-                value_index = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+            lat_index, lon_index, value_index = Utilities.get_request_content_indices(period)
 
             # Gets the list of datasets to loop through
             # Based on community and period
@@ -1165,6 +1283,8 @@ def download_weather_data():
             if len(list_datasets) == 0:
                 # List datasets could not be determined, skip
                 continue
+
+            #list_datasets = list_datasets[:1]  # DELETE =============================================================================
 
             # Performs requests on each dataset
             for dataset in list_datasets:
@@ -1183,7 +1303,7 @@ def download_weather_data():
                 )
 
                 # Gets a list of dates based on the start and end date
-                date_required, list_dates, leap_year = Utilities.get_date_list(
+                date_required, list_dates = Utilities.get_date_list(
                     period,
                     start_y,
                     end_y,
@@ -1215,28 +1335,13 @@ def download_weather_data():
 
                         Utilities.write_to_log("log.txt", "DATE: " + start_date)
 
-                        if period == 'daily':
-                            field_name = '{}_{}'.format(
-                                dataset_name,
-                                start_date
-                            )
-                            list_field_names.append(field_name)
-                        elif period == 'monthly':
-                            for field_prefix in Default.MONTHLY_PREFIX:
-                                field_name = '{}_{}_{}'.format(
-                                    dataset_name,
-                                    field_prefix,
-                                    start_date
-                                )
-                                list_field_names.append(field_name)
-                        else:
-                            # Climatology
-                            for field_prefix in Default.CLIMATOLOGY_PREFIX:
-                                field_name = '{}_{}'.format(
-                                    dataset_name,
-                                    field_prefix
-                                )
-                                list_field_names.append(field_name)
+                        # Adds fields to the list for the next dataset/date
+                        list_field_names = Utilities.append_field_names(
+                            list_field_names,
+                            period,
+                            dataset_name,
+                            start_date
+                        )
 
                         # FOR TESTING
                         test_extent = [
@@ -1311,9 +1416,11 @@ def download_weather_data():
                                     line = line.replace('\n', '')
                                     list_columns = line.split(',')
 
+                                    # A check required only for climatology
                                     if period == 'climatology':
                                         # This test is only required for climatology
                                         # Climatology has a last row which equals '\\r'
+                                        # This row will be ignored/skipped
                                         if len(list_columns) < 15:
                                             continue
 
@@ -1456,10 +1563,14 @@ def download_weather_data():
                     Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
 
                     bucket.delete_blob(file_name)
-                #return
+            #return
 
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     # data_added_to_bucket()
     download_weather_data()
+    #Utilities.append_to_bigquery_table('thermal-glazing-350010.hydro_test.Clear_sky_surface_shortwave_irradiance_RE_climatology',
+    #                                   ['TEST1', 'TEST2'],
+    #                                   '',
+    #                                   0)
