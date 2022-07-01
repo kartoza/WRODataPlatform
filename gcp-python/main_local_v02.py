@@ -3,7 +3,7 @@ from google.cloud import bigquery
 import zipfile
 import logging
 import io
-import geopandas
+#import geopandas
 import pandas as pd
 import json
 import os
@@ -14,18 +14,20 @@ from requests import get, post
 
 class Default:
     # Projects
-    #PROJECT_ID = 'thermal-glazing-350010'
-    PROJECT_ID = 'wrc-wro'
+    PROJECT_ID = 'thermal-glazing-350010'
+    #PROJECT_ID = 'wrc-wro'
 
     # Buckets
     BUCKET_TRIGGER = 'wro-trigger-test'
     BUCKET_DONE = 'wro-done'
-    #BUCKET_TEMP = 'wro-temp'
-    BUCKET_TEMP = 'wrc_wro_temp'
+    BUCKET_TEMP = 'wro-temp'
+    #BUCKET_TEMP = 'wrc_wro_temp'
     BUCKET_FAILED = 'wro-failed'
 
+    REGION = 'us-east1'
+
     # BigQuery
-    #BIQGUERY_DATASET = 'hydro_test'
+    BIQGUERY_DATASET = 'hydro_test'
     BIQGUERY_DATASET_DAILY = 'weather_daily'
     BIQGUERY_DATASET_MONTHLY = 'weather_monthly'
     BIQGUERY_DATASET_CLIMATOLOGY = 'weather_climatology'
@@ -822,50 +824,50 @@ class Utilities:
 
         return list_newline_json
 
-    @staticmethod
-    def shp_to_geojson(shp_file):
-        """Converts a shapefile stored in Google cloud storage GEOJSON.
-
-        :param shp_file: Google cloud storage directory of the shapefile (e.g. gs://bucket/folder/file.shp)
-        :type shp_file: Shapefile
-        """
-
-        print('shp found')
-
-        gc_shp = 'gs://' + Default.BUCKET_TRIGGER + '/' + shp_file
-
-        shp_geopandas = geopandas.read_file(gc_shp)
-        shp_json = json.loads(shp_geopandas.to_json())
-        newline_json = Utilities.convert_json_to_newline_json(shp_json)
-
-        print('newline json created')
-
-        client_bq = bigquery.Client()
-
-        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + shp_file.replace('.shp', '')
-
-        schema = [
-            bigquery.SchemaField('id', 'INTEGER', mode='NULLABLE'),
-            bigquery.SchemaField('desc', 'STRING', mode='NULLABLE'),
-            bigquery.SchemaField('geometry', 'GEOGRAPHY', mode='NULLABLE'),
-        ]
-
-        table = bigquery.Table(bq_table_uri, schema=schema)
-        table = client_bq.create_table(table)
-
-        print('table created')
-
-        job_config = bigquery.LoadJobConfig(
-            write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-            source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
-        )
-
-        print('start load')
-
-        load_job = client_bq.load_table_from_json(newline_json, bq_table_uri, job_config=job_config)
-        load_job.result()
-
-        print('done')
+    # @staticmethod
+    # def shp_to_geojson(shp_file):
+    #     """Converts a shapefile stored in Google cloud storage GEOJSON.
+    #
+    #     :param shp_file: Google cloud storage directory of the shapefile (e.g. gs://bucket/folder/file.shp)
+    #     :type shp_file: Shapefile
+    #     """
+    #
+    #     print('shp found')
+    #
+    #     gc_shp = 'gs://' + Default.BUCKET_TRIGGER + '/' + shp_file
+    #
+    #     shp_geopandas = geopandas.read_file(gc_shp)
+    #     shp_json = json.loads(shp_geopandas.to_json())
+    #     newline_json = Utilities.convert_json_to_newline_json(shp_json)
+    #
+    #     print('newline json created')
+    #
+    #     client_bq = bigquery.Client()
+    #
+    #     bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + shp_file.replace('.shp', '')
+    #
+    #     schema = [
+    #         bigquery.SchemaField('id', 'INTEGER', mode='NULLABLE'),
+    #         bigquery.SchemaField('desc', 'STRING', mode='NULLABLE'),
+    #         bigquery.SchemaField('geometry', 'GEOGRAPHY', mode='NULLABLE'),
+    #     ]
+    #
+    #     table = bigquery.Table(bq_table_uri, schema=schema)
+    #     table = client_bq.create_table(table)
+    #
+    #     print('table created')
+    #
+    #     job_config = bigquery.LoadJobConfig(
+    #         write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+    #         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+    #     )
+    #
+    #     print('start load')
+    #
+    #     load_job = client_bq.load_table_from_json(newline_json, bq_table_uri, job_config=job_config)
+    #     load_job.result()
+    #
+    #     print('done')
 
     @staticmethod
     def write_to_file(file, lines):
@@ -1041,6 +1043,44 @@ class Utilities:
         return list_field_names
 
     @staticmethod
+    def table_to_geojson(table_name):
+        client = bigquery.Client()
+        dataset_id = Default.BIQGUERY_DATASET
+
+        table_json = table_name + ".json"
+        destination_uri = "gs://{}/{}".format(Default.BUCKET_TEMP, table_json)
+        dataset_ref = bigquery.DatasetReference(Default.PROJECT_ID, dataset_id)
+        table_ref = dataset_ref.table(table_name)
+        job_config = bigquery.job.ExtractJobConfig()
+        job_config.destination_format = bigquery.DestinationFormat.NEWLINE_DELIMITED_JSON
+
+        extract_job = client.extract_table(
+            table_ref,
+            destination_uri,
+            job_config=job_config,
+            # Location must match that of the source table.
+            location=Default.REGION,
+        )  # API request
+        extract_job.result()  # Waits for job to complete.
+
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(Default.BUCKET_TEMP)
+        blob = bucket.blob(table_json)
+
+        blob_string = str(blob.download_as_string(client=None))
+        blob_string = blob_string.replace('\'b', '')
+        blob_string = blob_string[2:]  # Removes '\b' at the start of the string
+        split_json = blob_string.split(r'\n')  # Creates a list
+        split_json = split_json[:len(split_json) - 1]  # Removes the last element of the list
+
+        blob_json = [json.loads(line) for line in split_json]
+        data_geojson = Utilities.json_to_geojson(blob_json, 0, 1)
+
+        bucket.delete_blob(table_json)
+
+        return data_geojson
+
+    @staticmethod
     def get_request_content_indices(period):
         """Gets the latitude index, longitude index, and a list of indices for the
         CSV file contents received from NASA POWER when a request is done. These indices
@@ -1157,6 +1197,67 @@ class Utilities:
         return dates_required, list_dates
 
     @staticmethod
+    def json_to_geojson(data_json, lat_index, lon_index):
+        """Takes newline json as input and converts it to geojson. The index in the attribute table
+        of the latitude and longitude fields needs to be provided.
+        Currently for POINT data, but can be changed to include other types.
+
+        :param data_json: Newline json which contains the spatial data
+        :type data_json: Newline json
+
+        :param lat_index: Index field which contains the latitude
+        :type lat_index: int
+
+        :param lon_index: Index field which contains the longitude
+        :type lon_index: int
+
+        :returns: Geojson version of the newline json data
+        :rtype: geojson
+        """
+        list_elements = []
+        for element in data_json:
+            lat = 0
+            lon = 0
+            list_properties = {}
+            i = 0
+            for field in element:
+                if i == lat_index:
+                    # Latitude field
+                    lat = element[field]
+                elif i == lon_index:
+                    # Longitude field
+                    lon = element[field]
+                else:
+                    # Other fields (e.g. temperature)
+                    list_properties[field] = element[field]
+
+                i = i + 1
+
+            new_element = {
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': [lat, lon]
+                },
+                'properties': list_properties
+            }
+            list_elements.append(new_element)
+
+        data_geojson = {
+            'type': 'FeatureCollection',
+            'features': list_elements
+        }
+
+        return data_geojson
+
+    @staticmethod
+    def list_bigquery_tables(bq_dataset):
+        client = bigquery.Client()
+        tables = client.list_tables(bq_dataset)
+
+        return tables
+
+    @staticmethod
     def append_to_bigquery_table(table_id, list_field_names, csv_uri, skip_leading_rows=1):
         """Append new columns to an existing table in BigQuery.
 
@@ -1208,30 +1309,23 @@ class Utilities:
         print('done')
 
 
-def table_to_geojson():
-    print('geojson')
+def create_bigquery_json_files():
 
-    client = bigquery.Client()
-    dataset_id = Default.BIQGUERY_DATASET_CLIMATOLOGY
-    table_name = ''
+    list_bq_tables = Utilities.list_bigquery_tables(Default.BIQGUERY_DATASET)
 
-    destination_uri = "gs://{}/{}".format(Default.BUCKET_TEMP, table_name + ".json")
-    dataset_ref = bigquery.DatasetReference(Default.PROJECT_ID, dataset_id)
-    table_ref = dataset_ref.table(table_name)
-    job_config = bigquery.job.ExtractJobConfig()
-    job_config.destination_format = bigquery.DestinationFormat.NEWLINE_DELIMITED_JSON
+    for bq_table in list_bq_tables:
+        table_name = bq_table.table_id
+        table_geojson = Utilities.table_to_geojson(table_name)
 
-    extract_job = client.extract_table(
-        table_ref,
-        destination_uri,
-        job_config=job_config,
-        # Location must match that of the source table.
-        location="US",
-    )  # API request
-    extract_job.result()  # Waits for job to complete.
+        client = storage.Client(project=Default.PROJECT_ID)
+        bucket = client.get_bucket(Default.BUCKET_TEMP)
 
-    print('done')
-
+        blob = bucket.blob(table_name + '.geojson')
+        # upload the blob
+        blob.upload_from_string(
+            data=json.dumps(table_geojson),
+            content_type='application/json'
+        )
 
 
 def data_added_to_bucket():
@@ -1363,7 +1457,7 @@ def download_weather_data():
 
                         Utilities.write_to_log("log.txt", "DATE: " + start_date)
 
-                        # Adds fields to the list for the next dataset/date
+                        # Add fields to the list for the next dataset/date
                         list_field_names = Utilities.append_field_names(
                             list_field_names,
                             period,
@@ -1591,13 +1685,14 @@ def download_weather_data():
                     Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
 
                     bucket.delete_blob(file_name)
-            #return
+                return
 
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     # data_added_to_bucket()
-    download_weather_data()
+    create_bigquery_json_files()
+    #download_weather_data()
     #Utilities.append_to_bigquery_table('thermal-glazing-350010.hydro_test.Clear_sky_surface_shortwave_irradiance_RE_climatology',
     #                                   ['TEST1', 'TEST2'],
     #                                   '',

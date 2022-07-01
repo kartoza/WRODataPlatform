@@ -24,9 +24,17 @@ class Default:
     BUCKET_TEMP = 'wrc_wro_temp'
     BUCKET_FAILED = 'wro-failed'
 
+    REGION = 'us'
+
     # BigQuery
     #BIQGUERY_DATASET = 'hydro_test'
     BIQGUERY_DATASET = 'weather_monthly'
+
+    BIQGUERY_DATASET_DAILY = 'weather_daily'
+    BIQGUERY_DATASET_MONTHLY = 'weather_monthly'
+    BIQGUERY_DATASET_CLIMATOLOGY = 'weather_climatology'
+
+    LIST_BQ_DATASETS = [BIQGUERY_DATASET_CLIMATOLOGY, BIQGUERY_DATASET_MONTHLY, BIQGUERY_DATASET_DAILY]
 
     NASA_POWER_URL = 'https://power.larc.nasa.gov/api/temporal'
     NASA_POWER_FORMAT = 'CSV'
@@ -549,7 +557,7 @@ class Definitions:
     ]
 
     LIST_NASA_POWER_DATASETS_RE_MONTHLY = [
-        SKY_SURFACE_SW_IRRADIANCE,
+        #SKY_SURFACE_SW_IRRADIANCE,                                     # done
         #CLEAR_SKY_SURFACE_SW_IRRADIANCE,
         #SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
         #SKY_SURFACE_SW_DIFFUSE_IRRADIANCE,
@@ -557,27 +565,27 @@ class Definitions:
         #CLEAR_SKY_INSOLATION_CLEARNESS_INDEX,
         #SKY_SURFACE_ALBEDO,
         #TOA_SW_IRRADIANCE,
-        CLOUD_AMOUNT,
-        SKY_SURFACE_PS_ACTIVE_RADIATION,
-        CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
+        CLOUD_AMOUNT,                                                  # NOT done, back end service.
+        #SKY_SURFACE_PS_ACTIVE_RADIATION,                               # done
+        #CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
         #SKY_SURFACE_UVA_IRRADIANCE,
         #SKY_SURFACE_UVB_IRRADIANCE,
         #SKY_SURFACE_UV_INDEX,
-        WINDSPEED_2M,
-        TEMP,
-        DEW_FROST,
-        WET_TEMP,
-        EARTH_SKIN_TEMP,
+        #WINDSPEED_2M,                                                  # done
+        #TEMP,                                                          # done
+        #DEW_FROST,                                                      # done
+        #WET_TEMP,                                                      # done
+        #EARTH_SKIN_TEMP,                                                # done
         #TEMP_RANGE,
-        TEMP_MAX,
-        TEMP_MIN,
+        #TEMP_MAX,                                                         # done
+        #TEMP_MIN,                                                          # done
         #SKY_SURFACE_LW_IRRADIANCE,
-        SPECIFIC_HUMIDITY,
-        RELATIVE_HUMIDITY,
-        PRECIPITATION,
-        PRECIPITATION_SUM,
+        #SPECIFIC_HUMIDITY,                                                 # done
+        #RELATIVE_HUMIDITY,  # run2
+        #PRECIPITATION,  # run3
+        #PRECIPITATION_SUM,  # run3
         #SURFACE_PRESSURE,
-        WINDSPEED_10M,
+        #WINDSPEED_10M,  # run3
         #WINDSPEED_10M_MAX,
         #WINDSPEED_10M_MIN,
         #WINDSPEED_10M_RANGE,
@@ -597,9 +605,9 @@ class Definitions:
         #HEATING_DEGREE_DAYS_BELOW_18
     ]
     LIST_NASA_POWER_DATASETS_AG_MONTHLY = [
-        SURFACE_SOIL_WETNESS,
-        ROOT_SOIL_WETNESS,
-        PROFILE_SOIL_MOISTURE
+        #SURFACE_SOIL_WETNESS,  # run3
+        #ROOT_SOIL_WETNESS,  # run3
+        #PROFILE_SOIL_MOISTURE  # run3
     ]
 
     LIST_NASA_POWER_DATASETS_RE_CLIMATOLOGY = [
@@ -1039,6 +1047,43 @@ class Utilities:
         return list_field_names
 
     @staticmethod
+    def table_to_geojson(dataset_id, table_name):
+        client = bigquery.Client()
+
+        table_json = table_name + ".json"
+        destination_uri = "gs://{}/{}".format(Default.BUCKET_TEMP, table_json)
+        dataset_ref = bigquery.DatasetReference(Default.PROJECT_ID, dataset_id)
+        table_ref = dataset_ref.table(table_name)
+        job_config = bigquery.job.ExtractJobConfig()
+        job_config.destination_format = bigquery.DestinationFormat.NEWLINE_DELIMITED_JSON
+
+        extract_job = client.extract_table(
+            table_ref,
+            destination_uri,
+            job_config=job_config,
+            # Location must match that of the source table.
+            location=Default.REGION,
+        )  # API request
+        extract_job.result()  # Waits for job to complete.
+
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(Default.BUCKET_TEMP)
+        blob = bucket.blob(table_json)
+
+        blob_string = str(blob.download_as_string(client=None))
+        blob_string = blob_string.replace('\'b', '')
+        blob_string = blob_string[2:]  # Removes '\b' at the start of the string
+        split_json = blob_string.split(r'\n')  # Creates a list
+        split_json = split_json[:len(split_json) - 1]  # Removes the last element of the list
+
+        blob_json = [json.loads(line) for line in split_json]
+        data_geojson = Utilities.json_to_geojson(blob_json, 0, 1)
+
+        bucket.delete_blob(table_json)
+
+        return data_geojson
+
+    @staticmethod
     def get_request_content_indices(period):
         """Gets the latitude index, longitude index, and a list of indices for the
         CSV file contents received from NASA POWER when a request is done. These indices
@@ -1155,6 +1200,67 @@ class Utilities:
         return dates_required, list_dates
 
     @staticmethod
+    def json_to_geojson(data_json, lat_index, lon_index):
+        """Takes newline json as input and converts it to geojson. The index in the attribute table
+        of the latitude and longitude fields needs to be provided.
+        Currently for POINT data, but can be changed to include other types.
+
+        :param data_json: Newline json which contains the spatial data
+        :type data_json: Newline json
+
+        :param lat_index: Index field which contains the latitude
+        :type lat_index: int
+
+        :param lon_index: Index field which contains the longitude
+        :type lon_index: int
+
+        :returns: Geojson version of the newline json data
+        :rtype: geojson
+        """
+        list_elements = []
+        for element in data_json:
+            lat = 0
+            lon = 0
+            list_properties = {}
+            i = 0
+            for field in element:
+                if i == lat_index:
+                    # Latitude field
+                    lat = element[field]
+                elif i == lon_index:
+                    # Longitude field
+                    lon = element[field]
+                else:
+                    # Other fields (e.g. temperature)
+                    list_properties[field] = element[field]
+
+                i = i + 1
+
+            new_element = {
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': [lat, lon]
+                },
+                'properties': list_properties
+            }
+            list_elements.append(new_element)
+
+        data_geojson = {
+            'type': 'FeatureCollection',
+            'features': list_elements
+        }
+
+        return data_geojson
+
+    @staticmethod
+    def list_bigquery_tables(bq_dataset):
+        client = bigquery.Client()
+        tables = client.list_tables(bq_dataset)
+
+        return tables
+
+    @staticmethod
     def append_to_bigquery_table(table_id, list_field_names, csv_uri, skip_leading_rows=1):
         """Append new columns to an existing table in BigQuery.
 
@@ -1204,6 +1310,27 @@ class Utilities:
         load_job.result()
 
         print('done')
+
+
+def create_bigquery_json_files():
+
+    for bq_dataset in Default.LIST_BQ_DATASETS:
+        list_bq_tables = Utilities.list_bigquery_tables(bq_dataset)
+        for bq_table in list_bq_tables:
+            table_name = bq_table.table_id
+            table_geojson = Utilities.table_to_geojson(bq_dataset, table_name)
+
+            Utilities.write_to_log('log.txt', 'BQ TABLE: ' + table_name)
+
+            client = storage.Client(project=Default.PROJECT_ID)
+            bucket = client.get_bucket(Default.BUCKET_TEMP)
+
+            blob = bucket.blob(table_name + '.geojson')
+            # upload the blob
+            blob.upload_from_string(
+                data=json.dumps(table_geojson),
+                content_type='application/json'
+            )
 
 
 def data_added_to_bucket():
@@ -1258,7 +1385,7 @@ def download_weather_data():
     skip_trailing_rows = 1  # Number of rows at the enc of the file which will be skipped
 
     # Start and end dates
-    start_y = 1984
+    start_y = 1981
     end_y = 2021
     start_m = 1
     end_m = 12
@@ -1333,7 +1460,7 @@ def download_weather_data():
                             start_date = ''
                             end_date = ''
 
-                        Utilities.write_to_log("log.txt", "DATE: " + start_date)
+                        Utilities.write_to_log("log.txt", "\nDATE: " + start_date)
 
                         # Adds fields to the list for the next dataset/date
                         list_field_names = Utilities.append_field_names(
@@ -1404,8 +1531,10 @@ def download_weather_data():
                             result = requests.get(link)
                             content = result.content
 
+                            #print('\n')
                             #print("RESULT: " + str(result))
                             #print("CONTENT: " + str(content))
+                            #print('\n')
 
                             # Newline not stored as '\n' character, so use r'\n'
                             split_content = str(content).split(r'\n')
@@ -1479,6 +1608,8 @@ def download_weather_data():
                                     file_mem.write(write_to_mem)
                                     file_mem.write('\n')
                                 else:
+                                    #print("index: " + str(i))
+                                    #print("line: " + str(line))
                                     pretext = current_data[i]
                                     pretext = pretext.replace('\n', '')
 
@@ -1574,7 +1705,8 @@ def download_weather_data():
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     # data_added_to_bucket()
-    download_weather_data()
+    #download_weather_data()
+    create_bigquery_json_files()
     #Utilities.append_to_bigquery_table('thermal-glazing-350010.hydro_test.Clear_sky_surface_shortwave_irradiance_RE_climatology',
     #                                   ['TEST1', 'TEST2'],
     #                                   '',
