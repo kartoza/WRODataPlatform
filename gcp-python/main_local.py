@@ -10,37 +10,37 @@ import os
 
 import requests
 from requests import get, post
+from requests.exceptions import Timeout
 
 
 class Default:
     # Projects
-    #PROJECT_ID = 'thermal-glazing-350010'
     PROJECT_ID = 'wrc-wro'
+    #PROJECT_ID = 'thermal-glazing-350010'
 
     # Buckets
     BUCKET_TRIGGER = 'wro-trigger-test'
     BUCKET_DONE = 'wro-done'
+    BUCKET_FAILED = 'wro-failed'
     #BUCKET_TEMP = 'wro-temp'
     BUCKET_TEMP = 'wrc_wro_temp'
-    BUCKET_FAILED = 'wro-failed'
 
     REGION = 'us'
 
     # BigQuery
-    #BIQGUERY_DATASET = 'hydro_test'
-    BIQGUERY_DATASET = 'weather_monthly'
+    BIQGUERY_DATASET = 'hydro_test'
 
     BIQGUERY_DATASET_DAILY = 'weather_daily'
     BIQGUERY_DATASET_MONTHLY = 'weather_monthly'
     BIQGUERY_DATASET_CLIMATOLOGY = 'weather_climatology'
 
-    LIST_BQ_DATASETS = [BIQGUERY_DATASET_CLIMATOLOGY, BIQGUERY_DATASET_MONTHLY, BIQGUERY_DATASET_DAILY]
+    LIST_BQ_DATASETS = [BIQGUERY_DATASET_DAILY, BIQGUERY_DATASET_MONTHLY, BIQGUERY_DATASET_CLIMATOLOGY]
 
     NASA_POWER_URL = 'https://power.larc.nasa.gov/api/temporal'
     NASA_POWER_FORMAT = 'CSV'
     NASA_POWER_COMMUNITY = ['RE', 'SB', 'AG']  # AG: Agroclimatology, RE: Renewable energy, or SB: Sustainable buildings
     #NASA_POWER_TEMPORAL_AVE = ['daily', 'monthly', 'climatology']
-    NASA_POWER_TEMPORAL_AVE = ['monthly']
+    NASA_POWER_TEMPORAL_AVE = ['daily']
 
     SA_GRID_EXTENTS = [
         {
@@ -214,6 +214,9 @@ class Default:
         'Dec',
         'Annual'
     ]
+
+    DEFAULT_TIMEOUT = 120  # Seconds
+    MAX_REQUESTS = 5  # Number of requests which will be done
 
 
 class Definitions:
@@ -1200,6 +1203,15 @@ class Utilities:
         return dates_required, list_dates
 
     @staticmethod
+    def get_bq_dataset(period):
+        if period == 'daily':
+            return Default.LIST_BQ_DATASETS[0]
+        elif period == 'monthly':
+            return Default.LIST_BQ_DATASETS[1]
+        else:
+            return Default.LIST_BQ_DATASETS[22]
+
+    @staticmethod
     def json_to_geojson(data_json, lat_index, lon_index):
         """Takes newline json as input and converts it to geojson. The index in the attribute table
         of the latitude and longitude fields needs to be provided.
@@ -1261,6 +1273,21 @@ class Utilities:
         return tables
 
     @staticmethod
+    def get_data(link):
+        try:
+            # Performs the requests and gets the contents from NASA POWER
+            result = requests.get(link, timeout=Default.DEFAULT_TIMEOUT)
+            content = result.content
+        except Timeout:
+            print("TIMEOUT EXCEPTION")
+            return False, ''
+        except Exception as e:
+            print("EXCEPTION: " + str(e))
+            return False, ''
+
+        return True, content
+
+    @staticmethod
     def append_to_bigquery_table(table_id, list_field_names, csv_uri, skip_leading_rows=1):
         """Append new columns to an existing table in BigQuery.
 
@@ -1313,7 +1340,6 @@ class Utilities:
 
 
 def create_bigquery_json_files():
-
     for bq_dataset in Default.LIST_BQ_DATASETS:
         list_bq_tables = Utilities.list_bigquery_tables(bq_dataset)
         for bq_table in list_bq_tables:
@@ -1386,10 +1412,10 @@ def download_weather_data():
 
     # Start and end dates
     start_y = 1981
-    end_y = 2021
+    end_y = 2005
     start_m = 1
     end_m = 12
-    start_d = 1
+    start_d = 3
     end_d = 31
 
     # Community: Renewable energy, sustainable buildings, or climatology
@@ -1411,8 +1437,6 @@ def download_weather_data():
                 # List datasets could not be determined, skip
                 continue
 
-            #list_datasets = list_datasets[:1]  # DELETE =============================================================================
-
             # Performs requests on each dataset
             for dataset in list_datasets:
                 Utilities.write_to_log("log.txt", "DATASET: " + dataset["name"])
@@ -1423,7 +1447,7 @@ def download_weather_data():
 
                 # Table name which will be used for the BigQuery table
                 # and temporary CSV file
-                table_name = '{}_{}_{}'.format(
+                table_name = '{}_{}_{}_1981_2006'.format(
                     dataset_name,
                     community,
                     period
@@ -1441,7 +1465,6 @@ def download_weather_data():
                 )
 
                 file_name = table_name + '.csv'
-                file_dir = 'nasa_test/' + file_name  # Just used for testing to store file locally
                 first_column_done = False
 
                 list_field_names = []
@@ -1469,27 +1492,6 @@ def download_weather_data():
                             dataset_name,
                             start_date
                         )
-
-                        # FOR TESTING
-                        test_extent = [
-                            {
-                                "lat_min": "-30.623123169",  # bottom
-                                "lat_max": "-27.623123169",  # top
-                                "lon_min": "16.057872772",  # left
-                                "lon_max": "19.057872772"  # right
-                            },
-                            {
-                                "lat_min": "-33.623123168999996",  # bottom
-                                "lat_max": "-30.623123169",  # top
-                                "lon_min": "16.057872772",  # left
-                                "lon_max": "19.057872772"  # right
-                            },
-                            {
-                                "lat_min": "-36.623123168999996",  # bottom
-                                "lat_max": "-33.623123168999996",  # top
-                                "lon_min": "16.057872772",  # left
-                                "lon_max": "19.057872772"  # right
-                            }]
 
                         i = 0  # Used to retrieve pretext when adding more columns
                         for extent in Default.SA_GRID_EXTENTS:
@@ -1527,19 +1529,28 @@ def download_weather_data():
                                     lon_max
                                 )
 
-                            # Performs the requests and gets the contents from NASA POWER
-                            result = requests.get(link)
-                            content = result.content
+                            success = False
+                            max_requests = False
+                            request_count = 0
+                            while not success and not max_requests:
+                                # NASA POWER will on occasion respond with errorenous content,
+                                # or data could not be retrieved on their side. This is not a common issue, and
+                                # performing another request should solve the problem. This will allow downloading
+                                # to continue with no interruption.
+                                success, content = Utilities.get_data(link)
+                                request_count = request_count + 1
 
-                            #print('\n')
-                            #print("RESULT: " + str(result))
-                            #print("CONTENT: " + str(content))
-                            #print('\n')
+                                if request_count >= Default.MAX_REQUESTS:
+                                    # This is done to avoid a permanent loop (e.g. NASA POWER is down)
+                                    max_requests = True
+
+                            if max_requests:
+                                print("MAX REQUESTS")
+                                return
+                                # continue
 
                             # Newline not stored as '\n' character, so use r'\n'
                             split_content = str(content).split(r'\n')
-
-                            #print("SPLIT: " + str(split_content))
 
                             # Removes unwanted lines at the start and end of the data
                             split_content = split_content[skip_leading_rows:(len(split_content) - skip_trailing_rows)]
@@ -1608,8 +1619,6 @@ def download_weather_data():
                                     file_mem.write(write_to_mem)
                                     file_mem.write('\n')
                                 else:
-                                    #print("index: " + str(i))
-                                    #print("line: " + str(line))
                                     pretext = current_data[i]
                                     pretext = pretext.replace('\n', '')
 
@@ -1672,6 +1681,7 @@ def download_weather_data():
                         first_column_done = True
 
                     # FOR TESTING
+                    file_dir = 'nasa_test/' + file_name
                     test = file_mem.getvalue()
                     test = test.split('\n')
                     test = test[:len(test) - 1]
@@ -1693,20 +1703,24 @@ def download_weather_data():
                         bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
                         schema.append(bq_field)
 
+                    dataset = Utilities.get_bq_dataset(period)
+                    #dataset = 'hydro_test'
+
                     upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
-                    bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + table_name
+                    bq_table_uri = Default.PROJECT_ID + '.' + dataset + '.' + table_name
 
                     Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
 
                     bucket.delete_blob(file_name)
-                #return
+
+                    return
 
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     # data_added_to_bucket()
-    #download_weather_data()
-    create_bigquery_json_files()
+    download_weather_data()
+    #create_bigquery_json_files()
     #Utilities.append_to_bigquery_table('thermal-glazing-350010.hydro_test.Clear_sky_surface_shortwave_irradiance_RE_climatology',
     #                                   ['TEST1', 'TEST2'],
     #                                   '',
