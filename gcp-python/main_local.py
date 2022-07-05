@@ -33,7 +33,7 @@ class Default:
     REGION = 'us'
 
     # BigQuery
-    BIQGUERY_DATASET = 'hydro_test'
+    BIQGUERY_DATASET = 'hydro_test'  # TESTING
 
     BIQGUERY_DATASET_DAILY = 'weather_daily'
     BIQGUERY_DATASET_MONTHLY = 'weather_monthly'
@@ -44,9 +44,18 @@ class Default:
     # Request parameters
     NASA_POWER_URL = 'https://power.larc.nasa.gov/api/temporal'
     NASA_POWER_FORMAT = 'CSV'
-    NASA_POWER_COMMUNITY = ['RE', 'SB', 'AG']  # AG: Agroclimatology, RE: Renewable energy, or SB: Sustainable buildings
-    #NASA_POWER_TEMPORAL_AVE = ['daily', 'monthly', 'climatology']
-    NASA_POWER_TEMPORAL_AVE = ['daily']
+    # AG: Agroclimatology, RE: Renewable energy, or SB: Sustainable buildings
+    NASA_POWER_COMMUNITY = ['RE', 'SB', 'AG']
+    DEFAULT_TIMEOUT = 60  # Seconds
+    DEFAULT_SLEEP = 30  # Seconds
+    MAX_REQUESTS = 10  # Number of requests which will be done
+
+    # Temporal types
+    DAILY = 'daily'
+    MONTHLY = 'monthly'
+    CLIMATOLOGY = 'climatology'
+    #NASA_POWER_TEMPORAL_AVE = [DAILY, MONTHLY, CLIMATOLOGY]
+    NASA_POWER_TEMPORAL_AVE = [DAILY]
 
     # Grid tiles used for each request
     SA_GRID_EXTENTS = [
@@ -221,10 +230,6 @@ class Default:
         'Dec',
         'Annual'
     ]
-
-    DEFAULT_TIMEOUT = 120  # Seconds
-    DEFAULT_SLEEP = 240  # Seconds
-    MAX_REQUESTS = 5  # Number of requests which will be done
 
 
 class Definitions:
@@ -762,56 +767,6 @@ class Utilities:
         return True
 
     @staticmethod
-    def load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=1):
-        """Loads a CSV file stored in a bucket into BigQuery.
-
-        :param upload_uri: Google cloud storage directory (e.g. gs://bucket/folder/file)
-        :type upload_uri: String
-
-        :param bq_table_uri: Google cloud storage directory (e.g. gs://bucket/folder/file)
-        :type bq_table_uri: String
-
-        :param schema: Fields structure of the BigQuery table
-        :type schema: List
-
-        :param skip_leading_rows: Number of rows to skip at the start of the file
-        :type skip_leading_rows: Integer
-
-        :returns: True if the CSV data has been stored in BigQuery successful, false if it failed
-        :rtype: boolean
-        """
-        client_bq = bigquery.Client()
-        try:
-            table = bigquery.Table(bq_table_uri, schema=schema)
-            table = client_bq.create_table(table)
-        except Exception as e:
-            print("Could not create BigQuery table " + bq_table_uri)
-            print("EXCEPTION: " + str(e))
-            return False
-
-        try:
-            job_config = bigquery.LoadJobConfig(
-                schema=schema,
-                skip_leading_rows=skip_leading_rows,
-                source_format=bigquery.SourceFormat.CSV
-            )
-
-            load_job = client_bq.load_table_from_uri(
-                upload_uri, bq_table_uri, job_config=job_config
-            )
-            load_job.result()
-        except Exception as e:
-            # Loading from csv file into bigquery failed
-            # The newly created bigquery table will be deleted
-            print("Could not load " + upload_uri)
-            print("EXCEPTION: " + str(e))
-            client_bq.delete_table(bq_table_uri)
-            return False
-
-        # Returns True if loading the data into BigQuery succeeded
-        return True
-
-    @staticmethod
     def convert_json_to_newline_json(data_json):
         """Convert JSON/GEOJSON to newline JSON. This is required for BigQuery table creation.
 
@@ -984,27 +939,27 @@ class Utilities:
         """
         if community == 'RE':
             # Renewable energy
-            if temporal == 'daily':
+            if temporal == Default.DAILY:
                 return Definitions.LIST_NASA_POWER_DATASETS_RE_DAILY
-            elif temporal == 'monthly':
+            elif temporal == Default.MONTHLY:
                 return Definitions.LIST_NASA_POWER_DATASETS_RE_MONTHLY
-            elif temporal == 'climatology':
+            elif temporal == Default.CLIMATOLOGY:
                 return Definitions.LIST_NASA_POWER_DATASETS_RE_CLIMATOLOGY
         elif community == 'SB':
             # Sustainable buildings
-            if temporal == 'daily':
+            if temporal == Default.DAILY:
                 return Definitions.LIST_NASA_POWER_DATASETS_SB_DAILY
-            elif temporal == 'monthly':
+            elif temporal == Default.MONTHLY:
                 return Definitions.LIST_NASA_POWER_DATASETS_SB_MONTHLY
-            elif temporal == 'climatology':
+            elif temporal == Default.CLIMATOLOGY:
                 return Definitions.LIST_NASA_POWER_DATASETS_SB_CLIMATOLOGY
         elif community == 'AG':
             # Agroclimatology
-            if temporal == 'daily':
+            if temporal == Default.DAILY:
                 return Definitions.LIST_NASA_POWER_DATASETS_AG_DAILY
-            elif temporal == 'monthly':
+            elif temporal == Default.MONTHLY:
                 return Definitions.LIST_NASA_POWER_DATASETS_AG_MONTHLY
-            elif temporal == 'climatology':
+            elif temporal == Default.CLIMATOLOGY:
                 return Definitions.LIST_NASA_POWER_DATASETS_AG_CLIMATOLOGY
 
         # List could not be determined
@@ -1032,13 +987,13 @@ class Utilities:
         :rtype: list
         """
 
-        if period == 'daily':
+        if period == Default.DAILY:
             field_name = '{}_{}'.format(
                 name,
                 date
             )
             list_field_names.append(field_name)
-        elif period == 'monthly':
+        elif period == Default.MONTHLY:
             for field_prefix in Default.MONTHLY_PREFIX:
                 field_name = '{}_{}_{}'.format(
                     name,
@@ -1112,12 +1067,12 @@ class Utilities:
         :returns: value_index contains a list of indices for the values
         :rtype: list
         """
-        if period == 'daily':
+        if period == Default.DAILY:
             # Only a lat, long, and a single value
             lat_index = 0
             lon_index = 1
             value_index = [5]
-        elif period == 'monthly':
+        elif period == Default.MONTHLY:
             # Lat, lon, all months and monthly average
             lat_index = 2
             lon_index = 3
@@ -1163,7 +1118,7 @@ class Utilities:
         :returns: A list which contains the dates which will be used to perform requests
         :rtype: list
         """
-        if temporal == 'daily':
+        if temporal == Default.DAILY:
             # Converts all values to string
             # This is required for the pandas date_range method
             start_year = str(start_year)
@@ -1190,7 +1145,7 @@ class Utilities:
                     }
                 )
             dates_required = True
-        elif temporal == 'monthly':
+        elif temporal == Default.MONTHLY:
             list_years_temp = range(start_year, end_year + 1)
             list_dates = []
 
@@ -1212,9 +1167,9 @@ class Utilities:
 
     @staticmethod
     def get_bq_dataset(period):
-        if period == 'daily':
+        if period == Default.DAILY:
             return Default.LIST_BQ_DATASETS[0]
-        elif period == 'monthly':
+        elif period == Default.MONTHLY:
             return Default.LIST_BQ_DATASETS[1]
         else:
             return Default.LIST_BQ_DATASETS[22]
@@ -1304,54 +1259,97 @@ class Utilities:
         return True, content
 
     @staticmethod
-    def append_to_bigquery_table(table_id, list_field_names, csv_uri, skip_leading_rows=1):
+    def load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=1):
+        """Loads a CSV file stored in a bucket into BigQuery.
+
+        :param upload_uri: Google cloud storage directory (e.g. gs://bucket/folder/file)
+        :type upload_uri: String
+
+        :param bq_table_uri: Google cloud storage directory (e.g. gs://bucket/folder/file)
+        :type bq_table_uri: String
+
+        :param schema: Fields structure of the BigQuery table
+        :type schema: List
+
+        :param skip_leading_rows: Number of rows to skip at the start of the file
+        :type skip_leading_rows: Integer
+
+        :returns: True if the CSV data has been stored in BigQuery successful, false if it failed
+        :rtype: boolean
+        """
+        client_bq = bigquery.Client()
+        try:
+            table = bigquery.Table(bq_table_uri, schema=schema)
+            table = client_bq.create_table(table)
+        except Exception as e:
+            Utilities.write_to_log("log.txt", "Could not create BigQuery table " + bq_table_uri)
+            Utilities.write_to_log("log.txt", "EXCEPTION: " + str(e))
+            return False
+
+        try:
+            job_config = bigquery.LoadJobConfig(
+                schema=schema,
+                skip_leading_rows=skip_leading_rows,
+                source_format=bigquery.SourceFormat.CSV
+            )
+
+            load_job = client_bq.load_table_from_uri(
+                upload_uri, bq_table_uri, job_config=job_config
+            )
+            load_job.result()
+        except Exception as e:
+            # Loading from csv file into bigquery failed
+            # The newly created bigquery table will be deleted
+            Utilities.write_to_log("log.txt", "Could not load " + upload_uri)
+            Utilities.write_to_log("log.txt", "EXCEPTION: " + str(e))
+            client_bq.delete_table(bq_table_uri)
+            return False
+
+        # Returns True if loading the data into BigQuery succeeded
+        return True
+
+    @staticmethod
+    def append_to_bigquery_table(target_table_id, temp_table_id, list_field_names):
         """Append new columns to an existing table in BigQuery.
 
-        :param table_id: ID for the table in BigQuery: e.g. your-project.your_dataset.your_table_name
-        :type table_id: String
+        :param target_table_id: ID for the target table in BigQuery: e.g. your-project.your_dataset.your_table_name
+        :type target_table_id: str
+
+        :param temp_table_id: ID for the temporary table in BigQuery: e.g. your-project.your_dataset.your_table_name
+        :type temp_table_id: str
 
         :param list_field_names: Names for new field(s)
         :type list_field_names: list
 
-        :param csv_uri: URI for the CSV file stored in a Google Cloud Bucket
-        :type csv_uri: String
-
-        :param skip_leading_rows: Skips these rows at the top of the csv file
-        :type skip_leading_rows: int
         """
-        print("append")
-
         # Construct a BigQuery client object.
+        Utilities.write_to_log("log.txt", "APPEND")
         client = bigquery.Client()
 
         # Gets the table. table_id == "your-project.your_dataset.your_table_name"
-        table = client.get_table(table_id)  # Make an API request.
+        table = client.get_table(target_table_id)  # Make an API request.
 
         # Updates the table schema
         original_schema = table.schema
         new_schema = original_schema[:]  # Creates a copy of the schema.
         for field in list_field_names:
             bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
-            new_schema.append(bq_field)
 
+            if bq_field not in new_schema:
+                # Only adds the field if it does not exist
+                # If the field does exist, the contents will be overwritten
+                new_schema.append(bq_field)
+
+        # Adds the new fields
         table.schema = new_schema
-        table = client.update_table(table, ["schema"])  # Make an API request.
+        table = client.update_table(table, ["schema"])
 
-        print('bigquery')
-
-        job_config = bigquery.LoadJobConfig(
-            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
-            source_format=bigquery.SourceFormat.CSV,
-            skip_leading_rows=skip_leading_rows
-        )
-
-        load_job = client.load_table_from_uri(
-            csv_uri, table_id, job_config=job_config
-        )
-
-        load_job.result()
-
-        print('done')
+        # Performs a query to add the data to the new field
+        for field in list_field_names:
+            query_job = client.query(
+                "UPDATE " + target_table_id + " a SET a." + field + " = b." + field + " FROM " + temp_table_id + " b WHERE a.LAT = b.LAT AND a.LON = b.LON"
+            )
+            query_job.result()
 
 
 def create_bigquery_json_files():
@@ -1429,9 +1427,9 @@ def download_weather_data():
     start_y = 2019
     end_y = 2019
     start_m = 1
-    end_m = 1
+    end_m = 2
     start_d = 1
-    end_d = 3
+    end_d = 28
 
     # Google cloud platform
     client = storage.Client(project=Default.PROJECT_ID)
@@ -1456,6 +1454,10 @@ def download_weather_data():
             if len(list_datasets) == 0:
                 # List datasets could not be determined, skip
                 continue
+
+            #list_datasets = list_datasets[:2]
+            list_datasets = list_datasets[3:4]
+            #list_datasets = list_datasets[5:6]
 
             # Performs requests on each dataset
             for dataset in list_datasets:
@@ -1482,7 +1484,7 @@ def download_weather_data():
 
                     # Table name which will be used for the BigQuery table
                     # and temporary CSV file
-                    if period == 'daily':
+                    if period == Default.DAILY:
                         table_name = '{}_{}_{}_{}_{}'.format(
                             dataset_name,
                             community,
@@ -1502,14 +1504,15 @@ def download_weather_data():
                     # Quick test to see of the BigQuery table exists
                     try:
                         dataset = Utilities.get_bq_dataset(period)
+
+                        dataset = 'hydro_test'
+
                         client_bq.get_table(Default.PROJECT_ID + '.' + dataset + '.' + table_name)
                         table_exist = True
                     except NotFound:
                         table_exist = False
 
                     with io.StringIO() as file_mem:
-                        #current_data = []
-
                         # Sets the dates
                         if date_required:
                             # Daily and yearly
@@ -1535,7 +1538,6 @@ def download_weather_data():
                             start_date
                         )
 
-                        i = 0  # Used to retrieve pretext when adding more columns
                         for extent in Default.SA_GRID_EXTENTS:
                             lat_min = extent["lat_min"]
                             lat_max = extent["lat_max"]
@@ -1592,7 +1594,9 @@ def download_weather_data():
 
                             if max_requests:
                                 # Print errors to the text file for later use or reruns
-                                Utilities.write_to_log("date_skipped.txt", "\t\t\tDATASET: {}".format(dataset_name))
+                                Utilities.write_to_log("date_skipped.txt", "\t\t\tDATASET: {}".format(
+                                    dataset_name
+                                ))
                                 Utilities.write_to_log("date_skipped.txt", "\t\t\tMAX REQUESTS")
                                 Utilities.write_to_log("date_skipped.txt", "\t\t\tDATE SKIPPED: {} TO {}".format(
                                     start_date,
@@ -1614,121 +1618,76 @@ def download_weather_data():
                                     list_columns = line.split(',')
 
                                     # A check required only for climatology
-                                    if period == 'climatology':
+                                    if period == Default.CLIMATOLOGY:
                                         # This test is only required for climatology.
                                         # Climatology has a last row which equals '\\r'
                                         # This row will be ignored/skipped
                                         if len(list_columns) < 15:
                                             continue
 
-                                    if period == 'daily':
-                                        if not table_exist:
-                                            # Lat, lon and a single value
-                                            write_to_mem = '{},{},{}'.format(
-                                                list_columns[lat_index],
-                                                list_columns[lon_index],
-                                                list_columns[value_index[0]]
-                                            )
-                                        else:
-                                            # Value
-                                            write_to_mem = '{}'.format(
-                                                list_columns[value_index[0]]
-                                            )
-                                    elif period == 'monthly':
-                                        if not table_exist:
-                                            # Lat, lon, all months, and average monthly
-                                            write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                                                list_columns[lat_index],
-                                                list_columns[lon_index],
-                                                list_columns[value_index[0]],
-                                                list_columns[value_index[1]],
-                                                list_columns[value_index[2]],
-                                                list_columns[value_index[3]],
-                                                list_columns[value_index[4]],
-                                                list_columns[value_index[5]],
-                                                list_columns[value_index[6]],
-                                                list_columns[value_index[7]],
-                                                list_columns[value_index[8]],
-                                                list_columns[value_index[9]],
-                                                list_columns[value_index[10]],
-                                                list_columns[value_index[11]],
-                                                list_columns[value_index[12]]
-                                            )
-                                        else:
-                                            # All months and average monthly
-                                            write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                                                list_columns[value_index[0]],
-                                                list_columns[value_index[1]],
-                                                list_columns[value_index[2]],
-                                                list_columns[value_index[3]],
-                                                list_columns[value_index[4]],
-                                                list_columns[value_index[5]],
-                                                list_columns[value_index[6]],
-                                                list_columns[value_index[7]],
-                                                list_columns[value_index[8]],
-                                                list_columns[value_index[9]],
-                                                list_columns[value_index[10]],
-                                                list_columns[value_index[11]],
-                                                list_columns[value_index[12]]
-                                            )
+                                    if period == Default.DAILY:
+                                        # Lat, lon and a single value
+                                        write_to_mem = '{},{},{}'.format(
+                                            list_columns[lat_index],
+                                            list_columns[lon_index],
+                                            list_columns[value_index[0]]
+                                        )
+                                    elif period == Default.MONTHLY:
+                                        # Lat, lon, all months, and average monthly
+                                        write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                            list_columns[lat_index],
+                                            list_columns[lon_index],
+                                            list_columns[value_index[0]],
+                                            list_columns[value_index[1]],
+                                            list_columns[value_index[2]],
+                                            list_columns[value_index[3]],
+                                            list_columns[value_index[4]],
+                                            list_columns[value_index[5]],
+                                            list_columns[value_index[6]],
+                                            list_columns[value_index[7]],
+                                            list_columns[value_index[8]],
+                                            list_columns[value_index[9]],
+                                            list_columns[value_index[10]],
+                                            list_columns[value_index[11]],
+                                            list_columns[value_index[12]]
+                                        )
                                     else:
                                         # Climatology
-                                        if not table_exist:
-                                            # All months and annual
-                                            write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                                                list_columns[value_index[0]],
-                                                list_columns[value_index[1]],
-                                                list_columns[value_index[2]],
-                                                list_columns[value_index[3]],
-                                                list_columns[value_index[4]],
-                                                list_columns[value_index[5]],
-                                                list_columns[value_index[6]],
-                                                list_columns[value_index[7]],
-                                                list_columns[value_index[8]],
-                                                list_columns[value_index[9]],
-                                                list_columns[value_index[10]],
-                                                list_columns[value_index[11]],
-                                                list_columns[value_index[12]]
-                                            )
-                                        else:
-                                            # Lat, lon, all months, and annual
-                                            write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                                                list_columns[lat_index],
-                                                list_columns[lon_index],
-                                                list_columns[value_index[0]],
-                                                list_columns[value_index[1]],
-                                                list_columns[value_index[2]],
-                                                list_columns[value_index[3]],
-                                                list_columns[value_index[4]],
-                                                list_columns[value_index[5]],
-                                                list_columns[value_index[6]],
-                                                list_columns[value_index[7]],
-                                                list_columns[value_index[8]],
-                                                list_columns[value_index[9]],
-                                                list_columns[value_index[10]],
-                                                list_columns[value_index[11]],
-                                                list_columns[value_index[12]]
-                                            )
+                                        write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                            list_columns[lat_index],
+                                            list_columns[lon_index],
+                                            list_columns[value_index[0]],
+                                            list_columns[value_index[1]],
+                                            list_columns[value_index[2]],
+                                            list_columns[value_index[3]],
+                                            list_columns[value_index[4]],
+                                            list_columns[value_index[5]],
+                                            list_columns[value_index[6]],
+                                            list_columns[value_index[7]],
+                                            list_columns[value_index[8]],
+                                            list_columns[value_index[9]],
+                                            list_columns[value_index[10]],
+                                            list_columns[value_index[11]],
+                                            list_columns[value_index[12]]
+                                        )
 
                                     file_mem.write(write_to_mem)
                                     file_mem.write('\n')
-
-                                    first_column_done = True
                                 else:
-                                    #pretext = current_data[i]
-                                    #pretext = pretext.replace('\n', '')
-
                                     # Only the value(s) is now required
                                     line = line.replace('\n', '')
                                     list_columns = line.split(',')
-                                    if period == 'daily':
-                                        # Only one value for daily
-                                        write_to_mem = '{}'.format(
+                                    if period == Default.DAILY:
+                                        write_to_mem = '{},{},{}'.format(
+                                            list_columns[lat_index],
+                                            list_columns[lon_index],
                                             list_columns[value_index[0]]
                                         )
-                                    elif period == 'monthly':
+                                    elif period == Default.MONTHLY:
                                         # All months and average monthly
-                                        write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                        write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                            list_columns[lat_index],
+                                            list_columns[lon_index],
                                             list_columns[value_index[0]],
                                             list_columns[value_index[1]],
                                             list_columns[value_index[2]],
@@ -1746,7 +1705,9 @@ def download_weather_data():
                                     else:
                                         # Climatology
                                         # All months and annual
-                                        write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                        write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                            list_columns[lat_index],
+                                            list_columns[lon_index],
                                             list_columns[value_index[0]],
                                             list_columns[value_index[1]],
                                             list_columns[value_index[2]],
@@ -1762,23 +1723,14 @@ def download_weather_data():
                                             list_columns[value_index[12]]
                                         )
 
-                                    #file_mem.write(pretext + ',' + write_to_mem)
                                     file_mem.write(write_to_mem)
                                     file_mem.write('\n')
 
-                                i = i + 1  # Used to retrieve pretext when adding more columns
-
-                        # Writes the CSV file to GCP
+                        # Writes the CSV file to a bucket
                         data_in_mem = file_mem.getvalue()
                         data_in_mem = data_in_mem[:len(data_in_mem) - 1]
                         blob = bucket.blob(file_name)
                         blob.upload_from_string(data_in_mem)
-
-                        # Creates the schema which will be used for the BigQuery table
-                        schema = []
-                        for field in list_field_names:
-                            bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
-                            schema.append(bq_field)
 
                         dataset = Utilities.get_bq_dataset(period)
 
@@ -1788,31 +1740,53 @@ def download_weather_data():
                         upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
                         bq_table_uri = Default.PROJECT_ID + '.' + dataset + '.' + table_name
 
-                        # Create new table if it does not exist in BigQuery. Append columns if it does.
                         if not table_exist:
+                            # Create new table as it does not exist
+                            schema = []
+                            for field in list_field_names:
+                                bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
+                                schema.append(bq_field)
+
                             Utilities.load_csv_into_bigquery(
                                 upload_uri,
                                 bq_table_uri,
                                 schema,
                                 skip_leading_rows=0)
                         else:
+                            # Table exists, content will be appended as new columns
+                            schema = [
+                                bigquery.SchemaField('LAT', 'FLOAT', mode='NULLABLE'),
+                                bigquery.SchemaField('LON', 'FLOAT', mode='NULLABLE')
+                            ]
+                            for field in list_field_names:
+                                bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
+                                schema.append(bq_field)
+
+                            bq_temp_table_uri = Default.PROJECT_ID + '.' + dataset + '.temp_' + table_name
+                            Utilities.load_csv_into_bigquery(
+                                upload_uri,
+                                bq_temp_table_uri,
+                                schema,
+                                skip_leading_rows=0)
+
                             Utilities.append_to_bigquery_table(
                                 bq_table_uri,
-                                list_field_names,
-                                upload_uri,
-                                skip_leading_rows=0
+                                bq_temp_table_uri,
+                                list_field_names
                             )
+
+                            client_bq.delete_table(bq_temp_table_uri, not_found_ok=True)
 
                         # Removes the temporary CSV file stored in the bucket
                         bucket.delete_blob(file_name)
 
-                        # Stores the current state of the text
-                        #current_data = file_mem.getvalue()
-                        #current_data = current_data.split('\n')
-
                         # Closes the memory file
                         file_mem.close()
-                        # file_mem.seek(0)
+
+                    first_column_done = True
+
+            # FOR TESTING
+            return
 
                     # FOR TESTING
                     # file_dir = 'nasa_test/' + file_name
@@ -1846,9 +1820,6 @@ def download_weather_data():
                     # Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
                     #
                     # bucket.delete_blob(file_name)
-
-                    # FOR TESTING
-                    return
 
 
 if __name__ == '__main__':
