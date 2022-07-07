@@ -1405,20 +1405,49 @@ class Utilities:
         return True, content
 
     @staticmethod
+    def load_csv_into_bucket(bucket_name, contents, csv_name):
+        """Uploads string into a CSV file into a bucket.
+
+        :param bucket_name: Google cloud storage bucket name
+        :type bucket_name: str
+
+        :param contents: Contents to be written to the CSV file
+        :type contents: str
+
+        :param csv_name: Name to give to the CSV file
+        :type csv_name: str
+
+        :returns: True if the CSV data has been stored in the bucket successful, false if it failed
+        :rtype: boolean
+        """
+        try:
+            # Writes the CSV file to a bucket
+            client = storage.Client(project=Default.PROJECT_ID)
+            bucket = client.bucket(bucket_name)
+            blob = bucket.blob(csv_name)
+            blob.upload_from_string(contents)
+        except Exception as e:
+            Utilities.write_to_log("log.txt", "Could not create bucket CSV file " + csv_name)
+            Utilities.write_to_log("log.txt", "EXCEPTION: " + str(e))
+            return False
+
+        return True
+
+    @staticmethod
     def load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=1):
         """Loads a CSV file stored in a bucket into BigQuery.
 
         :param upload_uri: Google cloud storage directory (e.g. gs://bucket/folder/file)
-        :type upload_uri: String
+        :type upload_uri: uri
 
         :param bq_table_uri: Google cloud storage directory (e.g. gs://bucket/folder/file)
-        :type bq_table_uri: String
+        :type bq_table_uri: uri
 
         :param schema: Fields structure of the BigQuery table
-        :type schema: List
+        :type schema: list
 
         :param skip_leading_rows: Number of rows to skip at the start of the file
-        :type skip_leading_rows: Integer
+        :type skip_leading_rows: int
 
         :returns: True if the CSV data has been stored in BigQuery successful, false if it failed
         :rtype: boolean
@@ -1467,40 +1496,56 @@ class Utilities:
         :param list_field_names: Names for new field(s)
         :type list_field_names: list
 
+        :return: True if succeeded, False if not
+        :type: boolean
         """
         # Construct a BigQuery client object.
         client = bigquery.Client()
 
-        # Gets the table. table_id == "your-project.your_dataset.your_table_name"
-        table = client.get_table(target_table_id)  # Make an API request.
+        try:
+            # Gets the table. table_id == "your-project.your_dataset.your_table_name"
+            table = client.get_table(target_table_id)  # Make an API request.
 
-        # Updates the table schema
-        original_schema = table.schema
-        new_schema = original_schema[:]  # Copy of the original schema
-        for field in list_field_names:
-            bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
+            # Updates the table schema
+            original_schema = table.schema
+            new_schema = original_schema[:]  # Copy of the original schema
+            for field in list_field_names:
+                bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
 
-            if bq_field not in new_schema:
-                # Only adds the field if it does not exist
-                # If the field does exist, the contents will be overwritten
-                new_schema.append(bq_field)
+                if bq_field not in new_schema:
+                    # Only adds the field if it does not exist
+                    # If the field does exist, the contents will be overwritten
+                    new_schema.append(bq_field)
 
-        # Adds the new fields
-        table.schema = new_schema
-        client.update_table(table, ["schema"])
+            # Adds the new fields
+            table.schema = new_schema
+            client.update_table(table, ["schema"])
+        except Exception as e:
+            # Could not update the schema of the table
+            Utilities.write_to_log("log.txt", "Could not update the table schema")
+            Utilities.write_to_log("log.txt", "EXCEPTION: " + str(e))
+            return False
 
-        # Performs a query to add the data to the new field
-        for field in list_field_names:
-            query_job = client.query(
-                "UPDATE " + target_table_id +
-                " a SET a." + field + " = b." +
-                field + " FROM " + temp_table_id +
-                " b WHERE a." + Default.LAT_FIELD + " = b."
-                + Default.LAT_FIELD +
-                " AND a." + Default.LON_FIELD +
-                " = b." + Default.LON_FIELD
-            )
-            query_job.result()
+        try:
+            # Performs a query to add the data to the new field
+            for field in list_field_names:
+                query_job = client.query(
+                    "UPDATE " + target_table_id +
+                    " a SET a." + field + " = b." +
+                    field + " FROM " + temp_table_id +
+                    " b WHERE a." + Default.LAT_FIELD + " = b."
+                    + Default.LAT_FIELD +
+                    " AND a." + Default.LON_FIELD +
+                    " = b." + Default.LON_FIELD
+                )
+                query_job.result()
+        except Exception as e:
+            # Could not perform the query on the table
+            Utilities.write_to_log("log.txt", "Could not perform the query")
+            Utilities.write_to_log("log.txt", "EXCEPTION: " + str(e))
+            return False
+
+        return True
 
 
 def create_bigquery_json_files():
@@ -1811,7 +1856,7 @@ def download_weather_data_into_bigquery():
                             dataset_name,
                             community,
                             period,
-                            '1981',
+                            start_y,
                             end_y
                         )
                     else:
@@ -1847,7 +1892,7 @@ def download_weather_data_into_bigquery():
                             end_date = ''
 
                         if period != Default.CLIMATOLOGY:
-                            # Climatology does not dates
+                            # Climatology does not make use of dates
                             Utilities.write_to_log("log.txt", "DATE: " + start_date + " TO " + end_date)
 
                         # Lat long will be added only once to a table
@@ -2004,23 +2049,38 @@ def download_weather_data_into_bigquery():
                                 file_mem.write(write_to_mem)
                                 file_mem.write('\n')
 
-                        # Writes the CSV file to a bucket
                         data_in_mem = file_mem.getvalue()
                         data_in_mem = data_in_mem[:len(data_in_mem) - 1]
-                        blob = bucket.blob(file_name)
-                        blob.upload_from_string(data_in_mem)
+                        csv_upload_success = Utilities.load_csv_into_bucket(
+                            Default.BUCKET_TEMP,
+                            data_in_mem,
+                            file_name)
 
-                        dataset = Utilities.get_bq_dataset(period)
+                        if not csv_upload_success:
+                            # Print errors to the text file for later use or reruns
+                            Utilities.write_to_log("date_skipped.txt", "\t\t\tDATASET: {}".format(
+                                dataset_name
+                            ))
+                            Utilities.write_to_log("date_skipped.txt", "\t\t\tMAX REQUESTS")
+                            Utilities.write_to_log("date_skipped.txt", "\t\t\tDATE SKIPPED: {} TO {}".format(
+                                start_date,
+                                end_date
+                            ))
+                            # Skip this date range and go to the next date range
+                            break
+
+                        # BigQery dataset (e.g. weather_daily, weather_monthly, or weather_climatology)
+                        bq_dataset = Utilities.get_bq_dataset(period)
 
                         # FOR TESTING =========================================================================
-                        # dataset = 'hydro_test'
+                        # bq_dataset = 'hydro_test'
 
-                        upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
-                        bq_table_uri = Default.PROJECT_ID + '.' + dataset + '.' + table_name
+                        upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name  # Temporary CSV file
+                        bq_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name  # BigQuery table
 
+                        bq_upload_success = False
                         if not table_exist:
                             # Create new table as it does not exist
-
                             Utilities.write_to_log("log.txt", "CREATING TABLE")
 
                             schema = []
@@ -2028,7 +2088,7 @@ def download_weather_data_into_bigquery():
                                 bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
                                 schema.append(bq_field)
 
-                            Utilities.load_csv_into_bigquery(
+                            bq_upload_success = Utilities.load_csv_into_bigquery(
                                 upload_uri,
                                 bq_table_uri,
                                 schema,
@@ -2047,25 +2107,41 @@ def download_weather_data_into_bigquery():
 
                             # Creates a temporary table in BigQuery
                             # This table will be used to store the appending columns by making use of a query
-                            bq_temp_table_uri = Default.PROJECT_ID + '.' + dataset + '.temp_' + table_name
-                            Utilities.load_csv_into_bigquery(
+                            bq_temp_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.temp_' + table_name
+                            bq_temp_upload_success = Utilities.load_csv_into_bigquery(
                                 upload_uri,
                                 bq_temp_table_uri,
                                 schema,
                                 skip_leading_rows=0)
 
-                            # Appends to a BigQuery table using a query
-                            Utilities.append_to_bigquery_table(
-                                bq_table_uri,
-                                bq_temp_table_uri,
-                                list_field_names
-                            )
+                            # Skip if previous step failed
+                            if bq_temp_upload_success:
+                                # Appends to a BigQuery table using a query
+                                bq_upload_success = Utilities.append_to_bigquery_table(
+                                    bq_table_uri,
+                                    bq_temp_table_uri,
+                                    list_field_names
+                                )
 
                             # Deletes the temporary table created in BigQuery
                             client_bq.delete_table(bq_temp_table_uri, not_found_ok=True)
 
                         # Removes the temporary CSV file stored in the bucket
                         bucket.delete_blob(file_name)
+
+                        # If the table creation or field appending failed
+                        if not bq_upload_success:
+                            # Print errors to the text file for later use or reruns
+                            Utilities.write_to_log("date_skipped.txt", "\t\t\tDATASET: {}".format(
+                                dataset_name
+                            ))
+                            Utilities.write_to_log("date_skipped.txt", "\t\t\tMAX REQUESTS")
+                            Utilities.write_to_log("date_skipped.txt", "\t\t\tDATE SKIPPED: {} TO {}".format(
+                                start_date,
+                                end_date
+                            ))
+                            # Skip this date range and go to the next date range
+                            break
 
                         # Closes the memory file
                         file_mem.close()
