@@ -1571,10 +1571,18 @@ def run():
     bucket = client.bucket(Default.BUCKET_TEMP)
     client_bq = bigquery.Client()
 
+    project = '--project{0}'.format(Default.PROJECT_ID)
+    region = '--region={0}'.format(Default.REGION)
+    temp_location = '--temp_location=gs://{0}/pipeline_temp/'.format(Default.BUCKET_TEMP)
+    staging_location = '--staging_location=gs://{0}/pipeline_staging/'.format(Default.BUCKET_TEMP)
     # runner = '--runner={0}'.format('DirectRunner')
     runner = '--runner={0}'.format('DataFlowRunner')
     argv = [
-        runner
+        project,
+        staging_location,
+        temp_location,
+        runner,
+        region
     ]
 
     with beam.Pipeline(argv=argv) as p:
