@@ -1571,7 +1571,13 @@ def run():
     bucket = client.bucket(Default.BUCKET_TEMP)
     client_bq = bigquery.Client()
 
-    with beam.Pipeline() as p:
+    # runner = '--runner={0}'.format('DirectRunner')
+    runner = '--runner={0}'.format('DataFlowRunner')
+    argv = [
+        runner
+    ]
+
+    with beam.Pipeline(argv=argv) as p:
         print("beam")
         # Community: Renewable energy, sustainable buildings, or climatology
         for community in Default.NASA_POWER_COMMUNITY:
