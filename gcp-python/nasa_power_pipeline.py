@@ -12,27 +12,30 @@ import os
 import time
 from datetime import datetime
 
+import apache_beam as beam
+
 import requests
 from requests import get, post
 from requests.exceptions import Timeout
 
 
 class Default:
-    # For testing
-    #BUCKET_TEMP = 'wro-temp'
-    #PROJECT_ID = 'thermal-glazing-350010'
-
     # Projects
-    PROJECT_ID = 'wrc-wro'
+    #PROJECT_ID = 'wrc-wro'
+    PROJECT_ID = 'thermal-glazing-350010'  # FOR TESTING
 
     # Buckets
     BUCKET_TRIGGER = 'wro-trigger-test'
     BUCKET_DONE = 'wro-done'
     BUCKET_FAILED = 'wro-failed'
-    BUCKET_TEMP = 'wrc_wro_temp'
+    BUCKET_TEMP = 'wrc_wro_temp2'
 
     # Regions (e.g. us, us-east1, etc.)
-    REGION = 'us'
+    REGION = 'us-east1'
+    ZONE = 'us-east1-b'
+
+    # Compute engines
+    COMPUTE_ENGINE = 'nasaweatherdata'
 
     # BigQuery
     BIQGUERY_DATASET = 'hydro_test'  # TESTING
@@ -1548,247 +1551,10 @@ class Utilities:
         return True
 
 
-def create_bigquery_json_files():
-    for bq_dataset in Default.LIST_BQ_DATASETS:
-        list_bq_tables = Utilities.list_bigquery_tables(bq_dataset)
-        for bq_table in list_bq_tables:
-            table_name = bq_table.table_id
-            table_geojson = Utilities.table_to_geojson(bq_dataset, table_name)
-
-            Utilities.write_to_log('log.txt', 'BQ TABLE: ' + table_name)
-
-            client = storage.Client(project=Default.PROJECT_ID)
-            bucket = client.get_bucket(Default.BUCKET_TEMP)
-
-            blob = bucket.blob(table_name + '.geojson')
-            # upload the blob
-            blob.upload_from_string(
-                data=json.dumps(table_geojson),
-                content_type='application/json'
-            )
-
-
-def data_added_to_bucket():
-    """Trigger function to call when data has been uploaded to a bucket.
-    Deploy this function to a Google cloud storage bucket
-    """
-    client = storage.Client(project=Default.PROJECT_ID)
-    bucket = client.get_bucket(Default.BUCKET_TRIGGER)
-
-    list_csv, list_excel, list_archives, list_raster, list_vector = Utilities.list_bucket_data(
-        project=Default.PROJECT_ID,
-        bucket=Default.BUCKET_TRIGGER)
-
-    for csv_file in list_csv:
-        output_table_name = csv_file.replace('.csv', '')
-        upload_uri = 'gs://' + Default.BUCKET_TRIGGER + '/' + csv_file
-        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + output_table_name
-
-        schema = [
-            # bigquery.SchemaField('Date', 'Date', mode='NULLABLE'),
-            bigquery.SchemaField('Max_Temperature', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Min_Temperature', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Precipitation', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Relative_Humidity', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Solar', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Streamflow', 'FLOAT', mode='NULLABLE'),
-        ]
-
-        success = Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, 1)
-        if success:
-            Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_DONE, csv_file, csv_file)
-        else:
-            Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, csv_file, csv_file)
-
-    for archive_file in list_archives:
-        success = Utilities.unzip(archive_file)
-        if success:
-            bucket.delete_blob(archive_file)
-        else:
-            Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, archive_file, archive_file)
-
-    for shp_file in list_vector:
-        Utilities.shp_to_geojson(shp_file)
-
-
-def download_weather_date_into_csv(output_folder):
-    """Downloads data from NASA POWER and stores it in a CSV file. Nothing is loaded in BigQuery
-    """
-    skip_leading_rows = Default.SKIP_LEADING_ROWS  # Number of rows which will be skipped at the start of the file
-    skip_trailing_rows = Default.SKIP_TRAILING_ROWS  # Number of rows at the enc of the file which will be skipped
-
-    # Start and end dates
-    start_y = 1981
-    end_y = 2022
-    start_m = 1
-    end_m = 7
-    start_d = 3
-    end_d = 5
-
-    # Community: Renewable energy, sustainable buildings, or climatology
-    for community in Default.NASA_POWER_COMMUNITY:
-        Utilities.write_to_log("log.txt", "COMMUNITY: " + community)
-
-        # Period/temporal: Daily, monthly, or climatology
-        for period in Default.NASA_POWER_TEMPORAL_AVE:
-            Utilities.write_to_log("log.txt", "PERIOD: " + period)
-
-            # Gets the list of datasets to loop through
-            # Based on community and period
-            list_datasets = Utilities.get_dataset_list(community, period)
-
-            if len(list_datasets) == 0:
-                # List datasets could not be determined, skip
-                continue
-
-            # Performs requests on each dataset
-            for dataset in list_datasets:
-                Utilities.write_to_log("log.txt", "DATASET: " + dataset["name"])
-
-                dataset_key = dataset['key']
-                dataset_name = dataset['name']
-                # dataset_description = dataset['description']
-
-                # Gets a list of dates based on the start and end date
-                date_required, list_dates = Utilities.get_date_list(
-                    period,
-                    start_y,
-                    end_y,
-                    start_m,
-                    end_m,
-                    start_d,
-                    end_d
-                )
-
-                for date in list_dates:
-                    # Table name which will be used for the BigQuery table
-                    # and temporary CSV file
-                    if period == Default.DAILY:
-                        table_name = '{}_{}_{}_{}_{}'.format(
-                            dataset_name,
-                            community,
-                            period,
-                            start_y,
-                            end_y
-                        )
-                    else:
-                        # Climatology and monthly
-                        table_name = '{}_{}_{}'.format(
-                            dataset_name,
-                            community,
-                            period
-                        )
-                    file_name = table_name + '.csv'
-
-                    with io.StringIO() as file_mem:
-                        # Sets the dates
-                        if date_required:
-                            # Daily and yearly
-                            start_date = date['start_date']
-                            end_date = date['end_date']
-                        else:
-                            # Climatology period type does not require dates
-                            start_date = ''
-                            end_date = ''
-
-                        print('\n')
-                        Utilities.write_to_log("log.txt", "DATE: " + start_date)
-
-                        list_extents = [{
-                            "lat_min": "-27.623123169",  # bottom
-                            "lat_max": "-24.623123169",  # top
-                            "lon_min": "28.057872772",  # left
-                            "lon_max": "31.057872772"  # right
-                        }]
-
-                        for extent in list_extents:
-                            lat_min = extent["lat_min"]
-                            lat_max = extent["lat_max"]
-                            lon_min = extent["lon_min"]
-                            lon_max = extent["lon_max"]
-
-                            Utilities.write_to_log("log.txt", "EXTENT: " + str(extent))
-
-                            if date_required:
-                                link = '{}/{}/regional?parameters={}&start={}&end={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
-                                    Default.NASA_POWER_URL,
-                                    period,
-                                    dataset_key,
-                                    start_date,
-                                    end_date,
-                                    community,
-                                    Default.NASA_POWER_FORMAT,
-                                    lat_min,
-                                    lat_max,
-                                    lon_min,
-                                    lon_max
-                                )
-                            else:
-                                link = '{}/{}/regional?parameters={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
-                                    Default.NASA_POWER_URL,
-                                    period,
-                                    dataset_key,
-                                    community,
-                                    Default.NASA_POWER_FORMAT,
-                                    lat_min,
-                                    lat_max,
-                                    lon_min,
-                                    lon_max
-                                )
-
-                            success = False
-                            max_requests = False
-                            request_count = 0
-                            while not success and not max_requests:
-                                # NASA POWER will on occasion respond with errorenous content,
-                                # or data could not be retrieved on their side. This is not a common issue, and
-                                # performing another request should solve the problem. This will allow downloading
-                                # to continue with no interruption.
-                                success, content = Utilities.get_data(link)
-                                request_count = request_count + 1
-
-                                if not success:
-                                    # If the request did not succeed, the script will wait for a few minutes
-                                    # as the cause is likely from the server's side
-                                    time.sleep(Default.DEFAULT_SLEEP)
-                                if request_count >= Default.MAX_REQUESTS:
-                                    # This is done to avoid a permanent loop (e.g. NASA POWER is down)
-                                    max_requests = True
-
-                            if max_requests:
-                                # Print errors to the text file for later use or reruns
-                                Utilities.write_to_log("date_skipped.txt", "\t\t\tDATASET: {}".format(
-                                    dataset_name
-                                ))
-                                Utilities.write_to_log("date_skipped.txt", "\t\t\tMAX REQUESTS")
-                                Utilities.write_to_log("date_skipped.txt", "\t\t\tDATE SKIPPED: {} TO {}".format(
-                                    start_date,
-                                    end_date
-                                ))
-                                # Skip this date range and go to the next date range
-                                break
-
-                            # Newline not stored as '\n' character, so use r'\n'
-                            split_content = str(content).split(r'\n')
-
-                            # Removes unwanted lines at the start and end of the data
-                            split_content = split_content[skip_leading_rows:(len(split_content) - skip_trailing_rows)]
-
-                        # Writes to a local CSV
-                        csv_file = output_folder + '/' + file_name
-                        if os.path.exists(csv_file):
-                            Utilities.write_to_file(csv_file, split_content)
-                        else:
-                            # Add header if the file does not exist
-                            header_line = ['Lat,Lon,Year,Month,Day,{}'.format(table_name)] + split_content
-                            Utilities.write_to_file(csv_file, header_line)
-
-                        file_mem.close()
-
-
-def download_weather_data_into_bigquery():
+def run():
+    print("run")
     """Downloads data from NASA POWER and stores it in BigQuery
-    """
+        """
     skip_leading_rows = Default.SKIP_LEADING_ROWS  # Number of rows which will be skipped at the start of the file
     skip_trailing_rows = Default.SKIP_TRAILING_ROWS  # Number of rows at the enc of the file which will be skipped
 
@@ -1805,59 +1571,49 @@ def download_weather_data_into_bigquery():
     bucket = client.bucket(Default.BUCKET_TEMP)
     client_bq = bigquery.Client()
 
-    # Community: Renewable energy, sustainable buildings, or climatology
-    for community in Default.NASA_POWER_COMMUNITY:
-        Utilities.write_to_log("log.txt", "COMMUNITY: " + str(community))
+    with beam.Pipeline() as p:
+        print("beam")
+        # Community: Renewable energy, sustainable buildings, or climatology
+        for community in Default.NASA_POWER_COMMUNITY:
+            # Period/temporal: Daily, monthly, or climatology
+            for period in Default.NASA_POWER_TEMPORAL_AVE:
+                # BigQery dataset (e.g. weather_daily, weather_monthly, or weather_climatology)
+                bq_dataset = Utilities.get_bq_dataset(period)
 
-        # Period/temporal: Daily, monthly, or climatology
-        for period in Default.NASA_POWER_TEMPORAL_AVE:
-            # BigQery dataset (e.g. weather_daily, weather_monthly, or weather_climatology)
-            bq_dataset = Utilities.get_bq_dataset(period)
-            # FOR TESTING ================================================================================================
-            # bq_dataset = 'hydro_test'
+                # Indices for columns in request contents from NASA POWER
+                lat_index, lon_index, value_index = Utilities.get_request_content_indices(period)
 
-            # Indices for columns in request contents from NASA POWER
-            lat_index, lon_index, value_index = Utilities.get_request_content_indices(period)
+                # Gets the list of datasets to loop through
+                # Based on community and period
+                list_datasets = Utilities.get_dataset_list(community, period)
+                if community == 'AG':
+                    # The agriculture community data can also be obtained using the renewable community.
+                    # The advantage of this is data the RE community responds with lat, lon, year, month, day.
+                    # This agrees with other data field schemas. AG responds with lat, lon, year, day-in-year
+                    community = 'RE'
 
-            # Gets the list of datasets to loop through
-            # Based on community and period
-            list_datasets = Utilities.get_dataset_list(community, period)
-            if community == 'AG':
-                # The agriculture community data can also be obtained using the renewable community.
-                # The advantage of this is data the RE community responds with lat, lon, year, month, day.
-                # This agrees with other data field schemas. AG responds with lat, lon, year, day-in-year
-                community = 'RE'
+                if len(list_datasets) == 0:
+                    # List datasets could not be determined, skip
+                    continue
 
-            # FOR RUNNING IN BATCHES =====================================================================================
-            list_datasets = [Definitions.LIST_NASA_POWER_DATASETS_RE_DAILY[0]]
+                # Performs requests on each dataset
+                for dataset in list_datasets:
+                    print("DATASET: " + dataset["name"])
 
-            #list_datasets = [Definitions.LIST_NASA_POWER_DATASETS_AG_DAILY[0]]
+                    dataset_key = dataset['key']
+                    dataset_name = dataset['name']
+                    # dataset_description = dataset['description']
 
-            if len(list_datasets) == 0:
-                # List datasets could not be determined, skip
-                continue
-
-            print('\n')
-            Utilities.write_to_log("log.txt", "DATASETS: " + str(list_datasets))
-
-            # Performs requests on each dataset
-            for dataset in list_datasets:
-                Utilities.write_to_log("log.txt", "DATASET: " + dataset["name"])
-
-                dataset_key = dataset['key']
-                dataset_name = dataset['name']
-                # dataset_description = dataset['description']
-
-                # Gets a list of dates based on the start and end date
-                date_required, list_dates = Utilities.get_date_list(
-                    period,
-                    start_y,
-                    end_y,
-                    start_m,
-                    end_m,
-                    start_d,
-                    end_d
-                )
+                    # Gets a list of dates based on the start and end date
+                    date_required, list_dates = Utilities.get_date_list(
+                        period,
+                        start_y,
+                        end_y,
+                        start_m,
+                        end_m,
+                        start_d,
+                        end_d
+                    )
 
                 for date in list_dates:
                     list_field_names = []
@@ -1870,10 +1626,8 @@ def download_weather_data_into_bigquery():
                             dataset_name,
                             community,
                             period,
-                            # start_y, ======================================================================================
-                            '2006',
-                            #end_y
-                            '2022'
+                            start_y,
+                            end_y
                         )
                     else:
                         # Climatology and monthly will have much less than 10k columns
@@ -1904,7 +1658,7 @@ def download_weather_data_into_bigquery():
 
                         if period != Default.CLIMATOLOGY:
                             # Climatology does not make use of dates
-                            Utilities.write_to_log("log.txt", "DATE: " + start_date + " TO " + end_date)
+                            print("DATE: " + start_date + " TO " + end_date)
 
                         # Lat long will be added only once to a table
                         if not table_exist:
@@ -1927,7 +1681,7 @@ def download_weather_data_into_bigquery():
                             lon_min = extent["lon_min"]
                             lon_max = extent["lon_max"]
 
-                            Utilities.write_to_log("log.txt", "EXTENT: " + str(extent))
+                            print("EXTENT: " + str(extent))
 
                             # Request link
                             if date_required:
@@ -1995,181 +1749,12 @@ def download_weather_data_into_bigquery():
                                 # Skip this date range and go to the next date range
                                 break
 
-                            # Newline not stored as '\n' character, so use r'\n'
-                            split_content = str(content).split(r'\n')
+                            return
 
-                            # Removes unwanted lines at the start and end of the data
-                            split_content = split_content[skip_leading_rows:(len(split_content) - skip_trailing_rows)]
-
-                            if period == Default.DAILY:
-                                split_content = Utilities.transform_daily_data(split_content)
-
-                            # FOR TESTING
-                            # Utilities.write_to_file('nasa_test/' + file_name, split_content)
-
-                            for line in split_content:
-                                # Latitude, longitude and value
-                                line = line.replace('\n', '')
-                                list_columns = line.split(',')
-
-                                # A check required only for climatology
-                                if period == Default.CLIMATOLOGY:
-                                    # This test is only required for climatology.
-                                    # Climatology has a last row which equals '\\r'
-                                    # This row (or any other) will be ignored/skipped
-                                    if len(list_columns) < 15:
-                                        continue
-
-                                if period == Default.DAILY:
-                                    # Transformtion has been done for daily
-                                    write_to_mem = line
-                                elif period == Default.MONTHLY:
-                                    # Lat, lon, all months, and average monthly
-                                    write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                                        list_columns[lat_index],
-                                        list_columns[lon_index],
-                                        list_columns[value_index[0]],
-                                        list_columns[value_index[1]],
-                                        list_columns[value_index[2]],
-                                        list_columns[value_index[3]],
-                                        list_columns[value_index[4]],
-                                        list_columns[value_index[5]],
-                                        list_columns[value_index[6]],
-                                        list_columns[value_index[7]],
-                                        list_columns[value_index[8]],
-                                        list_columns[value_index[9]],
-                                        list_columns[value_index[10]],
-                                        list_columns[value_index[11]],
-                                        list_columns[value_index[12]]
-                                    )
-                                else:
-                                    # Climatology
-                                    write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                                        list_columns[lat_index],
-                                        list_columns[lon_index],
-                                        list_columns[value_index[0]],
-                                        list_columns[value_index[1]],
-                                        list_columns[value_index[2]],
-                                        list_columns[value_index[3]],
-                                        list_columns[value_index[4]],
-                                        list_columns[value_index[5]],
-                                        list_columns[value_index[6]],
-                                        list_columns[value_index[7]],
-                                        list_columns[value_index[8]],
-                                        list_columns[value_index[9]],
-                                        list_columns[value_index[10]],
-                                        list_columns[value_index[11]],
-                                        list_columns[value_index[12]]
-                                    )
-
-                                file_mem.write(write_to_mem)
-                                file_mem.write('\n')
-
-                        data_in_mem = file_mem.getvalue()
-                        data_in_mem = data_in_mem[:len(data_in_mem) - 1]
-                        csv_upload_success = Utilities.load_csv_into_bucket(
-                            Default.BUCKET_TEMP,
-                            data_in_mem,
-                            file_name)
-
-                        if not csv_upload_success:
-                            # Print errors to the text file for later use or reruns
-                            Utilities.write_to_log("date_skipped.txt", "\t\t\tDATASET: {}".format(
-                                dataset_name
-                            ))
-                            Utilities.write_to_log("date_skipped.txt", "\t\t\tMAX REQUESTS")
-                            Utilities.write_to_log("date_skipped.txt", "\t\t\tDATE SKIPPED: {} TO {}".format(
-                                start_date,
-                                end_date
-                            ))
-                            # Closes the memory file
-                            file_mem.close()
-                            # Skip this date range and go to the next date range
-                            break
-
-                        # Temporary CSV file URI and BigQuery table URI
-                        upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
-                        bq_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name
-
-                        bq_upload_success = False
-                        if not table_exist:
-                            # Create new table as it does not exist
-                            Utilities.write_to_log("log.txt", "CREATING TABLE")
-
-                            schema = []
-                            for field in list_field_names:
-                                bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
-                                schema.append(bq_field)
-
-                            bq_upload_success = Utilities.load_csv_into_bigquery(
-                                upload_uri,
-                                bq_table_uri,
-                                schema,
-                                skip_leading_rows=0)
-                        else:
-                            # Table exists, content will be appended as new columns
-                            Utilities.write_to_log("log.txt", "APPENDING")
-
-                            schema = [
-                                bigquery.SchemaField(Default.LAT_FIELD, 'FLOAT', mode='NULLABLE'),
-                                bigquery.SchemaField(Default.LON_FIELD, 'FLOAT', mode='NULLABLE')
-                            ]
-                            for field in list_field_names:
-                                bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
-                                schema.append(bq_field)
-
-                            # Creates a temporary table in BigQuery
-                            # This table will be used to store the appending columns by making use of a query
-                            bq_temp_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.temp_' + table_name
-                            bq_temp_upload_success = Utilities.load_csv_into_bigquery(
-                                upload_uri,
-                                bq_temp_table_uri,
-                                schema,
-                                skip_leading_rows=0)
-
-                            # Skip if previous step failed
-                            if bq_temp_upload_success:
-                                # Appends to a BigQuery table using a query
-                                bq_upload_success = Utilities.append_to_bigquery_table(
-                                    bq_table_uri,
-                                    bq_temp_table_uri,
-                                    list_field_names
-                                )
-
-                            # Deletes the temporary table created in BigQuery
-                            client_bq.delete_table(bq_temp_table_uri, not_found_ok=True)
-
-                        # Removes the temporary CSV file stored in the bucket
-                        bucket.delete_blob(file_name)
-
-                        # If the table creation or field appending failed
-                        if not bq_upload_success:
-                            # Print errors to the text file for later use or reruns
-                            Utilities.write_to_log("date_skipped.txt", "\t\t\tDATASET: {}".format(
-                                dataset_name
-                            ))
-                            Utilities.write_to_log("date_skipped.txt", "\t\t\tMAX REQUESTS")
-                            Utilities.write_to_log("date_skipped.txt", "\t\t\tDATE SKIPPED: {} TO {}".format(
-                                start_date,
-                                end_date
-                            ))
-                            # Closes the memory file
-                            file_mem.close()
-                            # Skip this date range and go to the next date range
-                            break
-
-                        # Closes the memory file when done with the current date
-                        file_mem.close()
-                # FOR TESTING ===========================================================================================
-                return
+    print("done")
 
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
 
-    # data_added_to_bucket()
-
-    download_weather_data_into_bigquery()
-    # download_weather_date_into_csv('christiaan')
-
-    # create_bigquery_json_files()
+    run()
