@@ -1759,8 +1759,6 @@ def run():
                             if period == Default.DAILY:
                                 split_content = Utilities.transform_daily_data(split_content)
 
-                            print(str(split_content))
-
                             for line in split_content:
                                 # Latitude, longitude and value
                                 line = line.replace('\n', '')
@@ -1825,6 +1823,95 @@ def run():
                                 Default.BUCKET_TEMP,
                                 data_in_mem,
                                 file_name)
+
+                            if not csv_upload_success:
+                                # Print errors to the text file for later use or reruns
+                                print("\t\t\tDATASET: {}".format(
+                                    dataset_name
+                                ))
+                                print("\t\t\tMAX REQUESTS")
+                                print("\t\t\tDATE SKIPPED: {} TO {}".format(
+                                    start_date,
+                                    end_date
+                                ))
+                                # Closes the memory file
+                                file_mem.close()
+                                # Skip this date range and go to the next date range
+                                break
+
+                                # Temporary CSV file URI and BigQuery table URI
+                            upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
+                            bq_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name
+
+                            bq_upload_success = False
+                            if not table_exist:
+                                # Create new table as it does not exist
+                                print("CREATING TABLE")
+
+                                schema = []
+                                for field in list_field_names:
+                                    bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
+                                    schema.append(bq_field)
+
+                                bq_upload_success = Utilities.load_csv_into_bigquery(
+                                    upload_uri,
+                                    bq_table_uri,
+                                    schema,
+                                    skip_leading_rows=0)
+                            else:
+                                # Table exists, content will be appended as new columns
+                                print("APPENDING")
+
+                                schema = [
+                                    bigquery.SchemaField(Default.LAT_FIELD, 'FLOAT', mode='NULLABLE'),
+                                    bigquery.SchemaField(Default.LON_FIELD, 'FLOAT', mode='NULLABLE')
+                                ]
+                                for field in list_field_names:
+                                    bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
+                                    schema.append(bq_field)
+
+                                # Creates a temporary table in BigQuery
+                                # This table will be used to store the appending columns by making use of a query
+                                bq_temp_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.temp_' + table_name
+                                bq_temp_upload_success = Utilities.load_csv_into_bigquery(
+                                    upload_uri,
+                                    bq_temp_table_uri,
+                                    schema,
+                                    skip_leading_rows=0)
+
+                                # Skip if previous step failed
+                                if bq_temp_upload_success:
+                                    # Appends to a BigQuery table using a query
+                                    bq_upload_success = Utilities.append_to_bigquery_table(
+                                        bq_table_uri,
+                                        bq_temp_table_uri,
+                                        list_field_names
+                                    )
+
+                                # Deletes the temporary table created in BigQuery
+                                client_bq.delete_table(bq_temp_table_uri, not_found_ok=True)
+
+                            # Removes the temporary CSV file stored in the bucket
+                            bucket.delete_blob(file_name)
+
+                            # If the table creation or field appending failed
+                            if not bq_upload_success:
+                                # Print errors to the text file for later use or reruns
+                                print("\t\t\tDATASET: {}".format(
+                                    dataset_name
+                                ))
+                                print("\t\t\tMAX REQUESTS")
+                                print("\t\t\tDATE SKIPPED: {} TO {}".format(
+                                    start_date,
+                                    end_date
+                                ))
+                                # Closes the memory file
+                                file_mem.close()
+                                # Skip this date range and go to the next date range
+                                break
+
+                            # Closes the memory file when done with the current date
+                            file_mem.close()
 
                             return
 
