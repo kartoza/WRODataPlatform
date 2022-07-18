@@ -1749,6 +1749,83 @@ def run():
                                 # Skip this date range and go to the next date range
                                 break
 
+                            # Newline not stored as '\n' character, so use r'\n'
+                            split_content = str(content).split(r'\n')
+
+                            # Removes unwanted lines at the start and end of the data
+                            split_content = split_content[
+                                            skip_leading_rows:(len(split_content) - skip_trailing_rows)]
+
+                            if period == Default.DAILY:
+                                split_content = Utilities.transform_daily_data(split_content)
+
+                            print(str(split_content))
+
+                            for line in split_content:
+                                # Latitude, longitude and value
+                                line = line.replace('\n', '')
+                                list_columns = line.split(',')
+
+                                # A check required only for climatology
+                                if period == Default.CLIMATOLOGY:
+                                    # This test is only required for climatology.
+                                    # Climatology has a last row which equals '\\r'
+                                    # This row (or any other) will be ignored/skipped
+                                    if len(list_columns) < 15:
+                                        continue
+
+                                if period == Default.DAILY:
+                                    # Transformtion has been done for daily
+                                    write_to_mem = line
+                                elif period == Default.MONTHLY:
+                                    # Lat, lon, all months, and average monthly
+                                    write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                        list_columns[lat_index],
+                                        list_columns[lon_index],
+                                        list_columns[value_index[0]],
+                                        list_columns[value_index[1]],
+                                        list_columns[value_index[2]],
+                                        list_columns[value_index[3]],
+                                        list_columns[value_index[4]],
+                                        list_columns[value_index[5]],
+                                        list_columns[value_index[6]],
+                                        list_columns[value_index[7]],
+                                        list_columns[value_index[8]],
+                                        list_columns[value_index[9]],
+                                        list_columns[value_index[10]],
+                                        list_columns[value_index[11]],
+                                        list_columns[value_index[12]]
+                                    )
+                                else:
+                                    # Climatology
+                                    write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                                        list_columns[lat_index],
+                                        list_columns[lon_index],
+                                        list_columns[value_index[0]],
+                                        list_columns[value_index[1]],
+                                        list_columns[value_index[2]],
+                                        list_columns[value_index[3]],
+                                        list_columns[value_index[4]],
+                                        list_columns[value_index[5]],
+                                        list_columns[value_index[6]],
+                                        list_columns[value_index[7]],
+                                        list_columns[value_index[8]],
+                                        list_columns[value_index[9]],
+                                        list_columns[value_index[10]],
+                                        list_columns[value_index[11]],
+                                        list_columns[value_index[12]]
+                                    )
+
+                                file_mem.write(write_to_mem)
+                                file_mem.write('\n')
+
+                            data_in_mem = file_mem.getvalue()
+                            data_in_mem = data_in_mem[:len(data_in_mem) - 1]
+                            csv_upload_success = Utilities.load_csv_into_bucket(
+                                Default.BUCKET_TEMP,
+                                data_in_mem,
+                                file_name)
+
                             return
 
     print("done")
