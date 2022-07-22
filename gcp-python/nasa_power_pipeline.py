@@ -1,6 +1,8 @@
 import sys
 from google.cloud import storage
 from google.cloud import bigquery
+from apache_beam.io.gcp.internal.clients import bigquery as bq_beam
+from apache_beam.io.gcp import bigquery_tools
 from google.cloud.exceptions import NotFound
 import zipfile
 import logging
@@ -1551,17 +1553,165 @@ class Utilities:
         return True
 
 
+class DailyTransform(beam.DoFn):
+    def process(self, lines, *args, **kwargs):
+        columns = []
+        column_contents = []
+        cur_day = None
+        for line in lines:
+            split_line = line.split(',')  # All columns of the row
+            day = int(split_line[4])
+
+            if cur_day is None:
+                # Only performed at the start of the transformation
+                cur_day = day
+
+            if day > cur_day:
+                # Next column (next day)
+                columns.append(column_contents)
+                column_contents = [line]
+                cur_day = day
+            else:
+                # Append to current column (continuation of the same day)
+                column_contents.append(line)
+        columns.append(column_contents)  # Appends the new columns
+
+        column_count = len(columns)  # Number of days in the month
+        transformed_lines = []
+        # Creates the new rows from the daily columns
+        if column_count > 0:
+            contents_count = len(columns[0])
+            i = 0
+            # Creates each row
+            while i < contents_count:
+                transformed_line = ''
+                for column in columns:
+                    column_line = column[i]
+                    if transformed_line == '':
+                        # Includes lat and lon if it's the start of a row
+                        column_line_split = column_line.split(',')
+                        lat = column_line_split[0]
+                        lon = column_line_split[1]
+                        value = column_line_split[5]
+                        transformed_line = "{},{},{}".format(
+                            lat,
+                            lon,
+                            value
+                        )
+                    else:
+                        # Lat and lon no longer required, as it exists in the row
+                        column_line_split = column_line.split(',')
+                        transformed_line = "{},{}".format(
+                            transformed_line,
+                            column_line_split[5]
+                        )
+                transformed_lines.append(transformed_line)  # Adds the transformed row
+                i = i + 1
+
+        return [transformed_lines]
+
+
+class CreateRows(beam.DoFn):
+    def __init__(self, period, lat_index, lon_index, value_index):
+        self.period = period
+        self.lat_index = lat_index
+        self.lon_index = lon_index
+        self.value_index = value_index
+
+    def process(self, split_content, *args, **kwargs):
+        lat_index = self.lat_index
+        lon_index = self.lon_index
+        value_index = self.value_index
+
+        string_mem = []
+        for line in split_content:
+            # Latitude, longitude and value
+            line = line.replace('\n', '')
+            list_columns = line.split(',')
+
+            # A check required only for climatology
+            if self.period == 'climatology':
+                # This test is only required for climatology.
+                # Climatology has a last row which equals '\\r'
+                # This row (or any other) will be ignored/skipped
+                if len(list_columns) < 15:
+                    continue
+
+            if self.period == 'daily':
+                # Transformtion has been done for daily
+                write_to_mem = line
+            elif self.period == 'monthly':
+                # Lat, lon, all months, and average monthly
+                write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                    list_columns[lat_index],
+                    list_columns[lon_index],
+                    list_columns[value_index[0]],
+                    list_columns[value_index[1]],
+                    list_columns[value_index[2]],
+                    list_columns[value_index[3]],
+                    list_columns[value_index[4]],
+                    list_columns[value_index[5]],
+                    list_columns[value_index[6]],
+                    list_columns[value_index[7]],
+                    list_columns[value_index[8]],
+                    list_columns[value_index[9]],
+                    list_columns[value_index[10]],
+                    list_columns[value_index[11]],
+                    list_columns[value_index[12]]
+                )
+            else:
+                # Climatology
+                write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
+                    list_columns[lat_index],
+                    list_columns[lon_index],
+                    list_columns[value_index[0]],
+                    list_columns[value_index[1]],
+                    list_columns[value_index[2]],
+                    list_columns[value_index[3]],
+                    list_columns[value_index[4]],
+                    list_columns[value_index[5]],
+                    list_columns[value_index[6]],
+                    list_columns[value_index[7]],
+                    list_columns[value_index[8]],
+                    list_columns[value_index[9]],
+                    list_columns[value_index[10]],
+                    list_columns[value_index[11]],
+                    list_columns[value_index[12]]
+                )
+
+            string_mem.append(write_to_mem)
+
+        return string_mem
+
+
+class ConvertLinesToNewlineJson(beam.DoFn):
+    def __init__(self, list_field_names):
+        self.list_field_names = list_field_names
+
+    def process(self, line, *args, **kwargs):
+        column_value = line.split(',')
+        newline_json = {}
+
+        i = 0
+        for field_name in self.list_field_names:
+            newline_json[field_name] = column_value[i]
+
+            i = i + 1
+
+        return [newline_json]
+
+
 def run():
-    print("run")
-    """Downloads data from NASA POWER and stores it in BigQuery
-        """
+    """Sets up all requirements for the pipeline using Apache Beam.
+    The pipeline downloads data from NASA POWER and stores it in BigQuery.
+    """
     skip_leading_rows = Default.SKIP_LEADING_ROWS  # Number of rows which will be skipped at the start of the file
     skip_trailing_rows = Default.SKIP_TRAILING_ROWS  # Number of rows at the enc of the file which will be skipped
 
     # Start and end dates
     start_y = 2007
     end_y = 2022
-    start_m = 1
+    start_m = 2
     end_m = 6
     start_d = 1
     end_d = 30
@@ -1571,22 +1721,24 @@ def run():
     bucket = client.bucket(Default.BUCKET_TEMP)
     client_bq = bigquery.Client()
 
+    # Options for the Apache Beam pipeline
     project = '--project={0}'.format(Default.PROJECT_ID)
     region = '--region={0}'.format(Default.REGION)
     temp_location = '--temp_location=gs://{0}/pipeline_temp/'.format(Default.BUCKET_TEMP)
     staging_location = '--staging_location=gs://{0}/pipeline_staging/'.format(Default.BUCKET_TEMP)
-    # runner = '--runner={0}'.format('DirectRunner')
-    runner = '--runner={0}'.format('DataFlowRunner')
+    # runner = '--runner={0}'.format('DirectRunner')  # Locally in VM
+    runner = '--runner={0}'.format('DataFlowRunner')  # Runs in the cloud a starts a pipeline process
+    experiment = '--experiment=use_unsupported_python_version'
     argv = [
         project,
         staging_location,
         temp_location,
         runner,
-        region
+        region,
+        experiment
     ]
 
     with beam.Pipeline(argv=argv) as p:
-        print("beam")
         # Community: Renewable energy, sustainable buildings, or climatology
         for community in Default.NASA_POWER_COMMUNITY:
             # Period/temporal: Daily, monthly, or climatology
@@ -1612,8 +1764,6 @@ def run():
 
                 # Performs requests on each dataset
                 for dataset in list_datasets:
-                    print("DATASET: " + dataset["name"])
-
                     dataset_key = dataset['key']
                     dataset_name = dataset['name']
                     # dataset_description = dataset['description']
@@ -1629,37 +1779,40 @@ def run():
                         end_d
                     )
 
-                for date in list_dates:
-                    list_field_names = []
+                    for date in list_dates:
+                        list_field_names = []
 
-                    # Table name which will be used for the BigQuery table
-                    # and temporary CSV file
-                    if period == Default.DAILY:
-                        # Daily has years added because of the 10k column limit of BigQuery tables
-                        table_name = '{}_{}_{}_{}_{}'.format(
-                            dataset_name,
-                            community,
-                            period,
-                            start_y,
-                            end_y
-                        )
-                    else:
-                        # Climatology and monthly will have much less than 10k columns
-                        table_name = '{}_{}_{}'.format(
-                            dataset_name,
-                            community,
-                            period
-                        )
-                    file_name = table_name + '.csv'
+                        # Table name which will be used for the BigQuery table
+                        # and temporary CSV file
+                        if period == Default.DAILY:
+                            # Daily has years added because of the 10k column limit of BigQuery tables
+                            table_name = '{}_{}_{}_{}_{}'.format(
+                                dataset_name,
+                                community,
+                                period,
+                                start_y,
+                                end_y
+                            )
+                        else:
+                            # Climatology and monthly will have much less than 10k columns
+                            table_name = '{}_{}_{}'.format(
+                                dataset_name,
+                                community,
+                                period
+                            )
 
-                    # Quick test to see of the BigQuery table exists
-                    try:
-                        client_bq.get_table(Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name)
-                        table_exist = True
-                    except NotFound:
-                        table_exist = False
+                        # Quick test to see of the BigQuery table exists
+                        try:
+                            client_bq.get_table(Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name)
+                            table_exist = True
+                        except NotFound:
+                            table_exist = False
 
-                    with io.StringIO() as file_mem:
+                        # Lat long will be added only once to a table
+                        if not table_exist:
+                            list_field_names.append(Default.LAT_FIELD)
+                            list_field_names.append(Default.LON_FIELD)
+
                         # Sets the dates
                         if date_required:
                             # Daily and yearly
@@ -1670,15 +1823,6 @@ def run():
                             start_date = ''
                             end_date = ''
 
-                        if period != Default.CLIMATOLOGY:
-                            # Climatology does not make use of dates
-                            print("DATE: " + start_date + " TO " + end_date)
-
-                        # Lat long will be added only once to a table
-                        if not table_exist:
-                            list_field_names.append(Default.LAT_FIELD)
-                            list_field_names.append(Default.LON_FIELD)
-
                         # Adds fields to the list for the next dataset/date
                         list_field_names = Utilities.append_field_names(
                             list_field_names,
@@ -1688,14 +1832,13 @@ def run():
                             end_date
                         )
 
+                        all_extent_lines = []
                         for extent in Default.SA_GRID_EXTENTS:
                             # Extent of the tile
                             lat_min = extent["lat_min"]
                             lat_max = extent["lat_max"]
                             lon_min = extent["lon_min"]
                             lon_max = extent["lon_max"]
-
-                            print("EXTENT: " + str(extent))
 
                             # Request link
                             if date_required:
@@ -1759,7 +1902,7 @@ def run():
                                     end_date
                                 ))
                                 # Closes the memory file
-                                file_mem.close()
+                                #file_mem.close()
                                 # Skip this date range and go to the next date range
                                 break
 
@@ -1770,164 +1913,119 @@ def run():
                             split_content = split_content[
                                             skip_leading_rows:(len(split_content) - skip_trailing_rows)]
 
+                            # Appends the content set to the collection which will be given as input to the pipeline
+                            all_extent_lines.append(split_content)
+
+                        bq_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name
+                        schemafields = []
+                        temp_schemafields = []
+                        if table_exist:
+                            # Populate the schema with the fields which is already stored in the BigQuery table
+                            table = client_bq.get_table(bq_table_uri)
+                            original_schema = table.schema
+                            original_schema_ = original_schema[:]  # Copy of the original schema
+
+                            for orig_field in original_schema_:
+                                orig_name = orig_field.name
+                                orig_type = orig_field.field_type
+                                orig_null = orig_field.is_nullable
+                                orig_field_ = {'name': orig_name,
+                                               'type': orig_type,
+                                               'mode': 'NULLABLE'}
+                                schemafields.append(orig_field_)
+                        # Populate the schema with the new fields
+                        for field in list_field_names:
+                            bq_field = {'name': field,
+                                        'type': 'FLOAT',
+                                        'mode': 'NULLABLE'}
+                            schemafields.append(bq_field)
+                            temp_schemafields.append(bq_field)
+                        # Create schema
+                        schema = {
+                            'fields': schemafields
+                        }
+                        temp_schema = {
+                            'fields': temp_schemafields
+                        }
+
+                        table_spec = bq_beam.TableReference(
+                            projectId=Default.PROJECT_ID,
+                            datasetId=bq_dataset,
+                            tableId=table_name)
+
+                        if not table_exist:
+                            print('create')
                             if period == Default.DAILY:
-                                split_content = Utilities.transform_daily_data(split_content)
-
-                            for line in split_content:
-                                # Latitude, longitude and value
-                                line = line.replace('\n', '')
-                                list_columns = line.split(',')
-
-                                # A check required only for climatology
-                                if period == Default.CLIMATOLOGY:
-                                    # This test is only required for climatology.
-                                    # Climatology has a last row which equals '\\r'
-                                    # This row (or any other) will be ignored/skipped
-                                    if len(list_columns) < 15:
-                                        continue
-
-                                if period == Default.DAILY:
-                                    # Transformtion has been done for daily
-                                    write_to_mem = line
-                                elif period == Default.MONTHLY:
-                                    # Lat, lon, all months, and average monthly
-                                    write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                                        list_columns[lat_index],
-                                        list_columns[lon_index],
-                                        list_columns[value_index[0]],
-                                        list_columns[value_index[1]],
-                                        list_columns[value_index[2]],
-                                        list_columns[value_index[3]],
-                                        list_columns[value_index[4]],
-                                        list_columns[value_index[5]],
-                                        list_columns[value_index[6]],
-                                        list_columns[value_index[7]],
-                                        list_columns[value_index[8]],
-                                        list_columns[value_index[9]],
-                                        list_columns[value_index[10]],
-                                        list_columns[value_index[11]],
-                                        list_columns[value_index[12]]
-                                    )
-                                else:
-                                    # Climatology
-                                    write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
-                                        list_columns[lat_index],
-                                        list_columns[lon_index],
-                                        list_columns[value_index[0]],
-                                        list_columns[value_index[1]],
-                                        list_columns[value_index[2]],
-                                        list_columns[value_index[3]],
-                                        list_columns[value_index[4]],
-                                        list_columns[value_index[5]],
-                                        list_columns[value_index[6]],
-                                        list_columns[value_index[7]],
-                                        list_columns[value_index[8]],
-                                        list_columns[value_index[9]],
-                                        list_columns[value_index[10]],
-                                        list_columns[value_index[11]],
-                                        list_columns[value_index[12]]
-                                    )
-
-                                file_mem.write(write_to_mem)
-                                file_mem.write('\n')
-
-                            data_in_mem = file_mem.getvalue()
-                            data_in_mem = data_in_mem[:len(data_in_mem) - 1]
-                            csv_upload_success = Utilities.load_csv_into_bucket(
-                                Default.BUCKET_TEMP,
-                                data_in_mem,
-                                file_name)
-
-                            if not csv_upload_success:
-                                # Print errors to the text file for later use or reruns
-                                print("\t\t\tDATASET: {}".format(
-                                    dataset_name
-                                ))
-                                print("\t\t\tMAX REQUESTS")
-                                print("\t\t\tDATE SKIPPED: {} TO {}".format(
-                                    start_date,
-                                    end_date
-                                ))
-                                # Closes the memory file
-                                file_mem.close()
-                                # Skip this date range and go to the next date range
-                                break
-
-                                # Temporary CSV file URI and BigQuery table URI
-                            upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
-                            bq_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name
-
-                            bq_upload_success = False
-                            if not table_exist:
-                                # Create new table as it does not exist
-                                print("CREATING TABLE")
-
-                                schema = []
-                                for field in list_field_names:
-                                    bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
-                                    schema.append(bq_field)
-
-                                bq_upload_success = Utilities.load_csv_into_bigquery(
-                                    upload_uri,
-                                    bq_table_uri,
-                                    schema,
-                                    skip_leading_rows=0)
+                                # Daily requires transformations
+                                collection = (p | 'ReadDaily' >> beam.Create(all_extent_lines)
+                                              | 'TransformDaily' >> beam.ParDo(DailyTransform())
+                                              | 'TransformRows' >> beam.ParDo(CreateRows(period,
+                                                                                         lat_index,
+                                                                                         lon_index,
+                                                                                         value_index))
+                                              | 'NewlineJson' >> beam.ParDo(ConvertLinesToNewlineJson(list_field_names))
+                                              | 'WriteToBigQuery' >> beam.io.Write(beam.io.WriteToBigQuery(table_spec,
+                                                                                                           schema=schema,
+                                                                                                           create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+                                                                                                           write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND))
+                                              )
                             else:
-                                # Table exists, content will be appended as new columns
-                                print("APPENDING")
+                                # Monthly and climatology requires no initial transformations
+                                collection = (p | 'ReadMonthly' >> beam.Create(all_extent_lines)
+                                              | 'TransformRows' >> beam.ParDo(CreateRows(period,
+                                                                                         lat_index,
+                                                                                         lon_index,
+                                                                                         value_index))
+                                              | 'NewlineJson' >> beam.ParDo(ConvertLinesToNewlineJson(list_field_names))
+                                              | 'WriteToBigQuery' >> beam.io.Write(beam.io.WriteToBigQuery(table_spec,
+                                                                                                           schema=schema,
+                                                                                                           create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+                                                                                                           write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND))
+                                              )
+                        else:
+                            print('append')
 
-                                schema = [
-                                    bigquery.SchemaField(Default.LAT_FIELD, 'FLOAT', mode='NULLABLE'),
-                                    bigquery.SchemaField(Default.LON_FIELD, 'FLOAT', mode='NULLABLE')
-                                ]
-                                for field in list_field_names:
-                                    bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
-                                    schema.append(bq_field)
+                            table_temp = bq_beam.TableReference(
+                                projectId=Default.PROJECT_ID,
+                                datasetId=bq_dataset,
+                                tableId='temp_' + table_name)
 
-                                # Creates a temporary table in BigQuery
-                                # This table will be used to store the appending columns by making use of a query
-                                bq_temp_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.temp_' + table_name
-                                bq_temp_upload_success = Utilities.load_csv_into_bigquery(
-                                    upload_uri,
-                                    bq_temp_table_uri,
-                                    schema,
-                                    skip_leading_rows=0)
+                            target_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name
+                            bq_temp_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.temp_' + table_name
 
-                                # Skip if previous step failed
-                                if bq_temp_upload_success:
-                                    # Appends to a BigQuery table using a query
-                                    bq_upload_success = Utilities.append_to_bigquery_table(
-                                        bq_table_uri,
-                                        bq_temp_table_uri,
-                                        list_field_names
-                                    )
+                            append_query = "UPDATE " + target_table_uri + " a SET a." + field + " = b." + field + " FROM " + bq_temp_table_uri + " b WHERE a." + Default.LAT_FIELD + " = b." + Default.LAT_FIELD + " AND a." + Default.LON_FIELD + " = b." + Default.LON_FIELD
 
-                                # Deletes the temporary table created in BigQuery
-                                client_bq.delete_table(bq_temp_table_uri, not_found_ok=True)
+                            #bigquery_tools
+                            # | 'AppendToBigQuery' >> beam.io.Write(beam.io.BigQuerySource(query=))
 
-                            # Removes the temporary CSV file stored in the bucket
-                            bucket.delete_blob(file_name)
-
-                            # If the table creation or field appending failed
-                            if not bq_upload_success:
-                                # Print errors to the text file for later use or reruns
-                                print("\t\t\tDATASET: {}".format(
-                                    dataset_name
-                                ))
-                                print("\t\t\tMAX REQUESTS")
-                                print("\t\t\tDATE SKIPPED: {} TO {}".format(
-                                    start_date,
-                                    end_date
-                                ))
-                                # Closes the memory file
-                                file_mem.close()
-                                # Skip this date range and go to the next date range
-                                break
-
-                            # Closes the memory file when done with the current date
-                            file_mem.close()
-
-                            return
+                            if period == Default.DAILY:
+                                collection = (p | 'ReadDaily' >> beam.Create(all_extent_lines)
+                                              | 'TransformDaily' >> beam.ParDo(DailyTransform())
+                                              | 'TransformRows' >> beam.ParDo(CreateRows(period,
+                                                                                         lat_index,
+                                                                                         lon_index,
+                                                                                         value_index))
+                                              | 'NewlineJson' >> beam.ParDo(ConvertLinesToNewlineJson(list_field_names))
+                                              | 'CreateTempTable' >> beam.io.Write(beam.io.WriteToBigQuery(table_temp,
+                                                                                                           schema=temp_schema,
+                                                                                                           create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+                                                                                                           write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND))
+                                              #| 'AppendToBigQuery' >> beam.io.Write(beam.io.BigQuerySource(query=append_query))
+                                              )
+                            else:
+                                # Monthly and climatology requires no initial transformations
+                                collection = (p | 'ReadMonthly' >> beam.Create(all_extent_lines)
+                                              | 'TransformRows' >> beam.ParDo(CreateRows(period,
+                                                                                         lat_index,
+                                                                                         lon_index,
+                                                                                         value_index))
+                                              | 'NewlineJson' >> beam.ParDo(ConvertLinesToNewlineJson(list_field_names))
+                                              | 'CreateTempTable' >> beam.io.Write(beam.io.WriteToBigQuery(table_temp,
+                                                                                                           schema=temp_schema,
+                                                                                                           create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+                                                                                                           write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND))
+                                              )
+                        return
 
     print("done")
 
