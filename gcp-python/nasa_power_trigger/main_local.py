@@ -56,7 +56,7 @@ class Default:
     MONTHLY = 'monthly'
     CLIMATOLOGY = 'climatology'
     NASA_POWER_TEMPORAL_AVE = [DAILY, MONTHLY, CLIMATOLOGY]
-    NUMBER_OF_PREVIOUS_DAY = 4  # This will be the number of days prior to the current/today date
+    NUMBER_OF_PREVIOUS_DAY = 5  # This will be the number of days prior to the current/today date
     SKIP_CLIMATOLOGY = True  # These datasets will likely not change
     # 'D' for daily downloads, 'M' for all days on a monthly basis
     # 'M' will be useful for bulk downloads, but set to 'D' for the Cloud trigger as it should only
@@ -536,7 +536,7 @@ class Definitions:
 
     # Dataset lists
     LIST_NASA_POWER_DATASETS_RE_DAILY = [
-        SKY_SURFACE_SW_IRRADIANCE,  # include
+        # SKY_SURFACE_SW_IRRADIANCE,  # include
         # CLEAR_SKY_SURFACE_SW_IRRADIANCE,
         # SKY_INSOLATION_CLEARNESS_INDEX,
         # SKY_SURFACE_LW_IRRADIANCE,
@@ -547,17 +547,17 @@ class Definitions:
         # SKY_SURFACE_UV_INDEX,
         WINDSPEED_2M,  # include
         TEMP,  # include
-        DEW_FROST,  # include
-        WET_TEMP,  # include
-        EARTH_SKIN_TEMP,  # include
+        # DEW_FROST,  # include
+        # WET_TEMP,  # include
+        # EARTH_SKIN_TEMP,  # include
         # TEMP_RANGE,
-        TEMP_MAX,  # include
-        TEMP_MIN,  # include
+        # TEMP_MAX,  # include
+        # TEMP_MIN,  # include
         # SPECIFIC_HUMIDITY,
-        RELATIVE_HUMIDITY,  # include
-        PRECIPITATION,  # include
+        # RELATIVE_HUMIDITY,  # include
+        # PRECIPITATION,  # include
         # SURFACE_PRESSURE,
-        WINDSPEED_10M,  # include
+        # WINDSPEED_10M,  # include
         # WINDSPEED_10M_MAX,
         # WINDSPEED_10M_MIN,
         # WINDSPEED_10M_RANGE,
@@ -577,8 +577,8 @@ class Definitions:
         # HEATING_DEGREE_DAYS_BELOW_18
     ]
     LIST_NASA_POWER_DATASETS_AG_DAILY = [
-        SURFACE_SOIL_WETNESS,  # include
-        ROOT_SOIL_WETNESS,  # include
+        # SURFACE_SOIL_WETNESS,  # include
+        # ROOT_SOIL_WETNESS,  # include
         PROFILE_SOIL_MOISTURE  # include
     ]
 
@@ -765,36 +765,35 @@ class Utilities:
         """
 
         if period == Default.DAILY:
-            if period == Default.DAILY:
-                if Default.DAILY_DATES_FREQUENCY == 'D':
-                    # If daily, then only one date
-                    # Used when the code is deployed as a cloud function
+            if Default.DAILY_DATES_FREQUENCY == 'D':
+                # If daily, then only one date
+                # Used when the code is deployed as a cloud function
+                field_name = '{}_{}'.format(
+                    name,
+                    start_date
+                )
+                list_field_names.append(field_name)
+            else:
+                # If monthly, then all days of the month
+                # Used for bulk downloading of daily data
+                day_count = Utilities.get_day_count(
+                    start_date,
+                    end_date
+                )
+
+                i = 1
+                while i <= day_count:
+                    if i <= 9:
+                        # For the first 9 numbers a '0' is added (e.g. 19980109)
+                        date = start_date[:len(start_date) - 2] + '0' + str(i)
+                    else:
+                        date = start_date[:len(start_date) - 2] + str(i)
                     field_name = '{}_{}'.format(
                         name,
-                        start_date
+                        date
                     )
                     list_field_names.append(field_name)
-                else:
-                    # If monthly, then all days of the month
-                    # Used for bulk downloading of daily data
-                    day_count = Utilities.get_day_count(
-                        start_date,
-                        end_date
-                    )
-
-                    i = 1
-                    while i <= day_count:
-                        if i <= 9:
-                            # For the first 9 numbers a '0' is added (e.g. 19980109)
-                            date = start_date[:len(start_date) - 2] + '0' + str(i)
-                        else:
-                            date = start_date[:len(start_date) - 2] + str(i)
-                        field_name = '{}_{}'.format(
-                            name,
-                            date
-                        )
-                        list_field_names.append(field_name)
-                        i = i + 1
+                    i = i + 1
         elif period == Default.MONTHLY:
             for field_prefix in Default.MONTHLY_PREFIX:
                 field_name = '{}_{}_{}'.format(
@@ -1220,7 +1219,7 @@ class Utilities:
         return True
 
 
-def download_weather_data_into_bigquery(event, context):
+def download_weather_data_into_bigquery():
     """Downloads data from NASA POWER and stores it in BigQuery
     """
     print("DOWNLOADER STARTED")
@@ -1278,6 +1277,9 @@ def download_weather_data_into_bigquery(event, context):
                 # This agrees with other data field schemas. AG responds with lat, lon, year, day-in-year
                 community = 'RE'
 
+            # FOR RUNNING IN BATCHES =====================================================================================
+            #list_datasets = [Definitions.LIST_NASA_POWER_DATASETS_RE_MONTHLY[1]]
+
             if len(list_datasets) == 0:
                 # List datasets could not be determined, skip
                 continue
@@ -1313,10 +1315,8 @@ def download_weather_data_into_bigquery(event, context):
                             dataset_name,
                             community,
                             period,
-                            '2022',
-                            '2022'
-                            # start_y,
-                            # end_y
+                            start_y,
+                            end_y
                         )
                     else:
                         # Climatology and monthly will have much less than 10k columns
@@ -1571,4 +1571,15 @@ def download_weather_data_into_bigquery(event, context):
 
                         # Closes the memory file when done with the current date
                         file_mem.close()
+
+                    return
+                # FOR TESTING ===========================================================================================
+                #return
     print("END")
+
+
+if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.INFO)
+
+    download_weather_data_into_bigquery()
+
