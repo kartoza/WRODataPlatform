@@ -63,7 +63,7 @@ class Default:
     MONTHLY = 'monthly'
     CLIMATOLOGY = 'climatology'
     # NASA_POWER_TEMPORAL_AVE = [DAILY, MONTHLY, CLIMATOLOGY]
-    NASA_POWER_TEMPORAL_AVE = [DAILY]
+    NASA_POWER_TEMPORAL_AVE = [MONTHLY]
 
     LAT_FIELD = 'LAT'
     LON_FIELD = 'LON'
@@ -554,12 +554,12 @@ class Definitions:
         # EARTH_SKIN_TEMP,  # include, done 2
         # TEMP_RANGE,
         # TEMP_MAX,  # include, done 2
-        # TEMP_MIN,  # include, running 2
+        # TEMP_MIN,  # include, done 2
         # SPECIFIC_HUMIDITY,
-        RELATIVE_HUMIDITY,  # include, running 2
-        # PRECIPITATION,  # include, done 1
+        # RELATIVE_HUMIDITY,  # include, running 2
+        # PRECIPITATION,  # include, running 2
         # SURFACE_PRESSURE,
-        # WINDSPEED_10M,  # include, done 1
+        # WINDSPEED_10M,  # include, running 2
         # WINDSPEED_10M_MAX,
         # WINDSPEED_10M_MIN,
         # WINDSPEED_10M_RANGE,
@@ -580,8 +580,8 @@ class Definitions:
     ]
     LIST_NASA_POWER_DATASETS_AG_DAILY = [
         #SURFACE_SOIL_WETNESS,  # include, done 2
-        #ROOT_SOIL_WETNESS,  # include, running 2
-        PROFILE_SOIL_MOISTURE  # include, running 1
+        #ROOT_SOIL_WETNESS,  # include, done 2
+        PROFILE_SOIL_MOISTURE  # include, done 2
     ]
 
     LIST_NASA_POWER_DATASETS_RE_MONTHLY = [
@@ -1793,11 +1793,11 @@ def download_weather_data_into_bigquery():
     skip_trailing_rows = Default.SKIP_TRAILING_ROWS  # Number of rows at the enc of the file which will be skipped
 
     # Start and end dates
-    start_y = 2007
+    start_y = 1988
     end_y = 2022
     start_m = 1
     end_m = 6
-    start_d = 1
+    start_d = 3
     end_d = 30
 
     # Google cloud platform
@@ -1829,9 +1829,7 @@ def download_weather_data_into_bigquery():
                 community = 'RE'
 
             # FOR RUNNING IN BATCHES =====================================================================================
-            list_datasets = [Definitions.LIST_NASA_POWER_DATASETS_RE_DAILY[0]]
-
-            #list_datasets = [Definitions.LIST_NASA_POWER_DATASETS_AG_DAILY[0]]
+            list_datasets = [Definitions.LIST_NASA_POWER_DATASETS_RE_MONTHLY[1]]
 
             if len(list_datasets) == 0:
                 # List datasets could not be determined, skip
@@ -1870,10 +1868,8 @@ def download_weather_data_into_bigquery():
                             dataset_name,
                             community,
                             period,
-                            # start_y, ======================================================================================
-                            '2006',
-                            #end_y
-                            '2022'
+                            start_y,
+                            end_y
                         )
                     else:
                         # Climatology and monthly will have much less than 10k columns
@@ -2140,7 +2136,7 @@ def download_weather_data_into_bigquery():
                             client_bq.delete_table(bq_temp_table_uri, not_found_ok=True)
 
                         # Removes the temporary CSV file stored in the bucket
-                        bucket.delete_blob(file_name)
+                        #bucket.delete_blob(file_name)
 
                         # If the table creation or field appending failed
                         if not bq_upload_success:

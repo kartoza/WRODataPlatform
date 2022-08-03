@@ -3,6 +3,7 @@ from google.cloud import storage
 from google.cloud import bigquery
 from apache_beam.io.gcp.internal.clients import bigquery as bq_beam
 from apache_beam.io.gcp import bigquery_tools
+from apache_beam.transforms.sql import SqlTransform
 from google.cloud.exceptions import NotFound
 import zipfile
 import logging
@@ -1701,6 +1702,48 @@ class ConvertLinesToNewlineJson(beam.DoFn):
         return [newline_json]
 
 
+class AppendColumns(beam.DoFn):
+    def __init__(self, target_table_id, temp_table_id, list_field_names):
+        self.target_table_id = target_table_id
+        self.temp_table_id = temp_table_id
+        self.list_field_names = list_field_names
+
+    def process(self, element, *args, **kwargs):
+        # Construct a BigQuery client object.
+        client = bigquery.Client()
+
+        # Gets the table. table_id == "your-project.your_dataset.your_table_name"
+        table = client.get_table(self.target_table_id)  # Make an API request.
+
+        # Updates the table schema
+        original_schema = table.schema
+        new_schema = original_schema[:]  # Copy of the original schema
+        for field in self.list_field_names:
+            bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
+
+            if bq_field not in new_schema:
+                # Only adds the field if it does not exist
+                # If the field does exist, the contents will be overwritten
+                new_schema.append(bq_field)
+
+        # Adds the new fields
+        table.schema = new_schema
+        client.update_table(table, ["schema"])
+
+        # Performs a query to add the data to the new field
+        for field in self.list_field_names:
+            query_job = client.query(
+                "UPDATE " + self.target_table_id +
+                " a SET a." + field + " = b." +
+                field + " FROM " + self.temp_table_id +
+                " b WHERE a." + Default.LAT_FIELD + " = b."
+                + Default.LAT_FIELD +
+                " AND a." + Default.LON_FIELD +
+                " = b." + Default.LON_FIELD
+            )
+            query_job.result()
+
+
 def run():
     """Sets up all requirements for the pipeline using Apache Beam.
     The pipeline downloads data from NASA POWER and stores it in BigQuery.
@@ -1809,9 +1852,11 @@ def run():
                             table_exist = False
 
                         # Lat long will be added only once to a table
-                        if not table_exist:
-                            list_field_names.append(Default.LAT_FIELD)
-                            list_field_names.append(Default.LON_FIELD)
+                        # if not table_exist:
+                        #     list_field_names.append(Default.LAT_FIELD)
+                        #     list_field_names.append(Default.LON_FIELD)
+                        list_field_names.append(Default.LAT_FIELD)
+                        list_field_names.append(Default.LON_FIELD)
 
                         # Sets the dates
                         if date_required:
@@ -1891,18 +1936,6 @@ def run():
                                     max_requests = True
 
                             if max_requests:
-                                # The data could not be retrieved
-                                # Print errors to the text file for later use or reruns
-                                Utilities.write_to_log("date_skipped.txt", "\t\t\tDATASET: {}".format(
-                                    dataset_name
-                                ))
-                                Utilities.write_to_log("date_skipped.txt", "\t\t\tMAX REQUESTS")
-                                Utilities.write_to_log("date_skipped.txt", "\t\t\tDATE SKIPPED: {} TO {}".format(
-                                    start_date,
-                                    end_date
-                                ))
-                                # Closes the memory file
-                                #file_mem.close()
                                 # Skip this date range and go to the next date range
                                 break
 
@@ -1985,32 +2018,45 @@ def run():
                         else:
                             print('append')
 
+                            target_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name
+                            bq_temp_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.temp_' + table_name
+
                             table_temp = bq_beam.TableReference(
                                 projectId=Default.PROJECT_ID,
                                 datasetId=bq_dataset,
                                 tableId='temp_' + table_name)
 
-                            target_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name
-                            bq_temp_table_uri = Default.PROJECT_ID + '.' + bq_dataset + '.temp_' + table_name
+                            # Deletes the temporary table prior to starting the pipeline
+                            #client_bq.delete_table(bq_temp_table_uri, not_found_ok=True)
 
                             append_query = "UPDATE " + target_table_uri + " a SET a." + field + " = b." + field + " FROM " + bq_temp_table_uri + " b WHERE a." + Default.LAT_FIELD + " = b." + Default.LAT_FIELD + " AND a." + Default.LON_FIELD + " = b." + Default.LON_FIELD
+                            select_query = "SELECT a.*, b.Relative_humidity_20070202 from `weather_daily.Relative_humidity_RE_daily_2007_2022` as a, `weather_daily.temp_Relative_humidity_RE_daily_2007_2022` as b where a.LAT = b.LAT and b.LON = b.LON"
 
                             #bigquery_tools
                             # | 'AppendToBigQuery' >> beam.io.Write(beam.io.BigQuerySource(query=))
-
+                            #bigquery_tools.BigQueryWrapper.run_query(project_id=Default.PROJECT_ID, query=append_query)
                             if period == Default.DAILY:
-                                collection = (p | 'ReadDaily' >> beam.Create(all_extent_lines)
-                                              | 'TransformDaily' >> beam.ParDo(DailyTransform())
-                                              | 'TransformRows' >> beam.ParDo(CreateRows(period,
-                                                                                         lat_index,
-                                                                                         lon_index,
-                                                                                         value_index))
-                                              | 'NewlineJson' >> beam.ParDo(ConvertLinesToNewlineJson(list_field_names))
-                                              | 'CreateTempTable' >> beam.io.Write(beam.io.WriteToBigQuery(table_temp,
-                                                                                                           schema=temp_schema,
-                                                                                                           create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
-                                                                                                           write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND))
-                                              #| 'AppendToBigQuery' >> beam.io.Write(beam.io.BigQuerySource(query=append_query))
+                                #collection = (p | 'ReadDaily' >> beam.Create(all_extent_lines)
+                                              # | 'TransformDaily' >> beam.ParDo(DailyTransform())
+                                              # | 'TransformRows' >> beam.ParDo(CreateRows(period,
+                                              #                                            lat_index,
+                                              #                                            lon_index,
+                                              #                                            value_index))
+                                              # | 'NewlineJson' >> beam.ParDo(ConvertLinesToNewlineJson(list_field_names))
+                                              # | 'CreateTempTable' >> beam.io.Write(beam.io.WriteToBigQuery(table_temp,
+                                              #                                                              schema=temp_schema,
+                                              #                                                              create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+                                              #                                                              write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND))
+                                              #| 'AppendColumns' >> beam.ParDo(AppendColumns(bq_table_uri,
+                                              #                                              bq_temp_table_uri,
+                                              #                                              list_field_names))
+                                              #| 'ReadBQ' >> beam.io.Read(beam.io.BigQuerySource(query=append_query, use_standard_sql=True))
+                                              #| 'TEST' >> SqlTransform(query=append_query, dialect='zetasql')
+                                              #)
+                                #test = (p | 'ReadBQ' >> beam.io.Read(beam.io.BigQuerySource(query=append_query, use_standard_sql=True)))
+                                collection = (p | 'AppendColumns' >> beam.ParDo(AppendColumns(bq_table_uri,
+                                                                                            bq_temp_table_uri,
+                                                                                            list_field_names))
                                               )
                             else:
                                 # Monthly and climatology requires no initial transformations
