@@ -1,32 +1,77 @@
-import io
-import os
-import zipfile
-import geopandas
-import json
-import requests
-
+import sys
 from google.cloud import storage
 from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
+import zipfile
+import logging
+import io
+import geopandas
+import pandas as pd
+import json
+import os
+import time
+from datetime import datetime
+
+import requests
+from requests import get, post
+from requests.exceptions import Timeout
 
 
 class Default:
-    # Projects
+    # For testing
+    BUCKET_TEMP = 'wrc_wro_temp2'
     PROJECT_ID = 'thermal-glazing-350010'
+
+    # Projects
+    #PROJECT_ID = 'wrc-wro'
 
     # Buckets
     BUCKET_TRIGGER = 'wro-trigger-test'
     BUCKET_DONE = 'wro-done'
-    BUCKET_TEMP = 'wro-temp'
     BUCKET_FAILED = 'wro-failed'
+    #BUCKET_TEMP = 'wrc_wro_temp'
+
+    # Regions (e.g. us, us-east1, etc.)
+    REGION = 'us-east1'
 
     # BigQuery
-    BIQGUERY_DATASET = 'hydro_test'
+    BIGQUERY_DATASET_DAILY = 'weather_daily'
+    BIGQUERY_DATASET_MONTHLY = 'weather_monthly'
+    BIGQUERY_DATASET_CLIMATOLOGY = 'weather_climatology'
+    BIGQUERY_DATASET = ''
+    LIST_BQ_DATASETS = [
+        BIGQUERY_DATASET_DAILY,
+        BIGQUERY_DATASET_MONTHLY,
+        BIGQUERY_DATASET_CLIMATOLOGY
+    ]
 
+    # Request parameters
     NASA_POWER_URL = 'https://power.larc.nasa.gov/api/temporal'
     NASA_POWER_FORMAT = 'CSV'
-    NASA_POWER_COMMUNITY = 'RE'  # AG, RE, or SB
-    NASA_POWER_TEMPORAL_AVE = ['daily', 'monthly', 'climatology']
+    # AG: Agroclimatology, RE: Renewable energy, or SB: Sustainable buildings
+    NASA_POWER_COMMUNITY = ['RE', 'SB', 'AG']
+    DEFAULT_TIMEOUT = 60  # Timeout in seconds for requests
+    DEFAULT_SLEEP = 30  # Sleep time in seconds for when a request fails
+    MAX_REQUESTS = 10  # Number of attempts a request will be done if it fails
+    SKIP_LEADING_ROWS = 10  # Rows to skip at the start of the received request content (e.g. headers)
+    SKIP_TRAILING_ROWS = 1  # Rows to skip at the e of the reveived request content (e.g. headers)
 
+    # Temporal types and settings
+    DAILY = 'daily'
+    MONTHLY = 'monthly'
+    CLIMATOLOGY = 'climatology'
+    NASA_POWER_TEMPORAL_AVE = [DAILY, MONTHLY, CLIMATOLOGY]
+    NUMBER_OF_PREVIOUS_DAY = 5  # This will be the number of days prior to the current/today date
+    SKIP_CLIMATOLOGY = True  # These datasets will likely not change
+    # 'D' for daily downloads, 'M' for all days on a monthly basis
+    # 'M' will be useful for bulk downloads, but set to 'D' for the Cloud trigger as it should only
+    # download on a daily basis.
+    DAILY_DATES_FREQUENCY = 'D'
+
+    LAT_FIELD = 'LAT'
+    LON_FIELD = 'LON'
+
+    # Grid tiles used for each request
     SA_GRID_EXTENTS = [
         {
             "lat_min": "-30.623123169",  # bottom
@@ -168,18 +213,160 @@ class Default:
         }
     ]
 
-    SCHEMA = [
-        # bigquery.SchemaField('Date', 'Date', mode='NULLABLE'),
-        bigquery.SchemaField('Max_Temperature', 'FLOAT', mode='NULLABLE'),
-        bigquery.SchemaField('Min_Temperature', 'FLOAT', mode='NULLABLE'),
-        bigquery.SchemaField('Precipitation', 'FLOAT', mode='NULLABLE'),
-        bigquery.SchemaField('Relative_Humidity', 'FLOAT', mode='NULLABLE'),
-        bigquery.SchemaField('Solar', 'FLOAT', mode='NULLABLE'),
-        bigquery.SchemaField('Streamflow', 'FLOAT', mode='NULLABLE'),
+    # Prefixes used for temporal types
+    MONTHLY_PREFIX = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+        'Monthly_ave'
+    ]
+    CLIMATOLOGY_PREFIX = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+        'Annual'
     ]
 
 
 class Definitions:
+    # Solar fluxes and related
+    SKY_SURFACE_SW_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_SW_DWN',
+        'name': 'Sky_surface_shortwave_irradiance',
+        'description': 'All sky surface shortwave downward irradiance'
+    }
+    SKY_SURFACE_SW_IRRADIANCE_GMT = {
+        'key': 'ALLSKY_SFC_SW_DWN_HR',
+        'name': 'Sky_surface_shortwave_irradiance_GMT',
+        'description': 'All sky surface shortwave downward irradiance at GMT times'
+    }
+    CLEAR_SKY_SURFACE_SW_IRRADIANCE = {
+        'key': 'CLRSKY_SFC_SW_DWN',
+        'name': 'Clear_sky_surface_shortwave_irradiance',
+        'description': 'Clear sky surface shortwave'
+    }
+    SKY_INSOLATION_CLEARNESS_INDEX = {
+        'key': 'ALLSKY_KT',
+        'name': 'Sky_insolation_clearness_index',
+        'description': 'All sky insolation clearness index'
+    }
+    CLEAR_SKY_INSOLATION_CLEARNESS_INDEX = {
+        'key': 'CLRSKY_KT',
+        'name': 'Clear_sky_insolation_clearness_index',
+        'description': 'Clear sky insolation clearness index'
+    }
+    SKY_SURFACE_LW_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_LW_DWN',
+        'name': 'Sky_surface_longwave',
+        'description': 'All sky surface longwave downward irradiance (thermal infrared)'
+    }
+    SKY_SURFACE_PS_ACTIVE_RADIATION = {
+        'key': 'ALLSKY_SFC_PAR_TOT',
+        'name': 'Sky_surface_PAR_total',
+        'description': 'All sky surface photosynthetically active radiation (PAR) total'
+    }
+    CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION = {
+        'key': 'CLRSKY_SFC_PAR_TOT',
+        'name': 'Clear_sky_surface_PAR_total',
+        'description': 'Clear sky surface photosynthetically active radiation (PAR) total'
+    }
+    SKY_SURFACE_UVA_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_UVA',
+        'name': 'Sky_surface_UVA',
+        'description': 'All sky surface UVA irradiance'
+    }
+    SKY_SURFACE_UVB_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_UVB',
+        'name': 'Sky_surface_UVB',
+        'description': 'All sky surface UVB irradiance'
+    }
+    SKY_SURFACE_UV_INDEX = {
+        'key': 'ALLSKY_SFC_UV_INDEX',
+        'name': 'Sky_surface_UV_index',
+        'description': 'All sky surface UV index'
+    }
+    SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_SW_DNI',
+        'name': 'Sky_surface_shortwave_direct_normal_irradiance',
+        'description': 'All sky surface shortwave downward direct normal irradiance'
+    }
+    SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MAX = {
+        'key': 'ALLSKY_SFC_SW_DNI_MAX',
+        'name': 'Sky_surface_shortwave_direct_normal_irradiance_max',
+        'description': 'All sky surface shortwave direct normal irradiance maximum'
+    }
+    SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MIN = {
+        'key': 'ALLSKY_SFC_SW_DNI_MIN',
+        'name': 'Sky_surface_shortwave_direct_normal_irradiance_min',
+        'description': 'All sky surface shortwave direct normal irradiance minimum'
+    }
+    SKY_SURFACE_SW_DIFFUSE_IRRADIANCE = {
+        'key': 'ALLSKY_SFC_SW_DIFF',
+        'name': 'Sky_surface_shortwave_diffuse_irradiance',
+        'description': 'All sky surface shortwave diffuse irradiance'
+    }
+    SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MAX = {
+        'key': 'ALLSKY_SFC_SW_DIFF_MAX',
+        'name': 'Sky_surface_shortwave_diffuse_irradiance_max',
+        'description': 'All sky surface shortwave diffuse irradiance maximum'
+    }
+    SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MIN = {
+        'key': 'ALLSKY_SFC_SW_DIFF_MIN',
+        'name': 'Sky_surface_shortwave_diffuse_irradiance_min',
+        'description': 'All sky surface shortwave diffuse irradiance minimum'
+    }
+    SKY_SURFACE_ALBEDO = {
+        'key': 'ALLSKY_SRF_ALB',
+        'name': 'Sky_surface_albedo',
+        'description': 'All sky surface albedo'
+    }
+    TOA_SW_IRRADIANCE = {
+        'key': 'TOA_SW_DWN',
+        'name': 'TOA_shortwave_irradiance',
+        'description': 'Top-of-atmosphere shortwave downward irradiance'
+    }
+    CLOUD_AMOUNT = {
+        'key': 'CLOUD_AMT',
+        'name': 'Cloud_amount',
+        'description': 'Cloud amount'
+    }
+    CLOUD_AMOUNT_GMT = {
+        'key': 'CLOUD_AMT_HR',
+        'name': '',
+        'description': 'Cloud amount at GMT times'
+    }
+
+    # Parameters for solar cooking
+    WINDSPEED_2M = {
+        'key': 'WS2M',
+        'name': 'Windspeed_02m',
+        'description': 'Windspeed at 2 meters'
+    }
+    MIDDAY_INSOLATION_INCIDENT = {
+        'key': 'MIDDAY_INSOL',
+        'name': 'Midday_insolation',
+        'description': 'Midday insolation incident'
+    }
+
+    # Temperature/Precipitation
     TEMP = {
         'key': 'T2M',
         'name': 'Temperature',
@@ -199,6 +386,16 @@ class Definitions:
         'key': 'TS',
         'name': 'Earth_skin_temperature',
         'description': 'Earth skin temperature'
+    }
+    EARTH_SKIN_TEMP_MAX = {
+        'key': 'TS_MAX',
+        'name': 'Earth_skin_temperature_max',
+        'description': 'Earth skin temperature maximum'
+    }
+    EARTH_SKIN_TEMP_MIN = {
+        'key': 'TS_MIN',
+        'name': 'Earth_skin_temperature_min',
+        'description': 'Earth skin temperature minimum'
     }
     TEMP_RANGE = {
         'key': 'T2M_RANGE',
@@ -227,9 +424,16 @@ class Definitions:
     }
     PRECIPITATION = {
         'key': 'PRECTOTCORR',
-        'name': 'Precipitation',
-        'description': 'Precipitation'
+        'name': 'Precipitation_ave',
+        'description': 'Average precipitation'
     }
+    PRECIPITATION_SUM = {
+        'key': 'PRECTOTCORR_SUM',
+        'name': 'Precipitation_ave_sum',
+        'description': 'Precipitation sum average'
+    }
+
+    # Wind/Pressure
     SURFACE_PRESSURE = {
         'key': 'PS',
         'name': 'Surface_pressure',
@@ -286,28 +490,215 @@ class Definitions:
         'description': 'Wind direction at 50 meters'
     }
 
-    LIST_NASA_POWER_DATASETS = [
-        TEMP,
-        DEW_FROST,
-        WET_TEMP,
-        EARTH_SKIN_TEMP,
-        TEMP_RANGE,
-        TEMP_MAX,
-        TEMP_MIN,
-        SPECIFIC_HUMIDITY,
-        RELATIVE_HUMIDITY,
-        PRECIPITATION,
-        SURFACE_PRESSURE,
-        WINDSPEED_10M,
-        WINDSPEED_10M_MAX,
-        WINDSPEED_10M_MIN,
-        WINDSPEED_10M_RANGE,
-        WIND_DIRECTION_10M,
-        WINDSPEED_50M,
-        WINDSPEED_50M_MAX,
-        WINDSPEED_50M_MIN,
-        WINDSPEED_50M_RANGE,
-        WIND_DIRECTION_50M,
+    # DOE/ASHRAE climate building
+    COOLING_DEGREE_DAYS_ABOVE_ZERO = {
+        'key': 'CDD0',
+        'name': 'Cooling_degree_days_above_00',
+        'description': 'Cooling degree days above 0 celcius'
+    }
+    COOLING_DEGREE_DAYS_ABOVE_10 = {
+        'key': 'CDD10',
+        'name': 'Cooling_degree_days_above_10',
+        'description': 'Cooling degree days above 10 celcius'
+    }
+    COOLING_DEGREE_DAYS_ABOVE_18 = {
+        'key': 'CDD18_3',
+        'name': 'Cooling_degree_days_above_18_3',
+        'description': 'Cooling degree days above 18.3 celcius'
+    }
+    HEATING_DEGREE_DAYS_BELOW_ZERO = {
+        'key': 'HDD0',
+        'name': 'Heating_degree_days_below_00',
+        'description': 'Heating degree days below 0 celcius'
+    }
+    HEATING_DEGREE_DAYS_BELOW_10 = {
+        'key': 'HDD10',
+        'name': 'Heating_degree_days_below_10',
+        'description': 'Heating degree days below 10 celcius'
+    }
+    HEATING_DEGREE_DAYS_BELOW_18 = {
+        'key': 'HDD18_3',
+        'name': 'Heating_degree_days_below_18_3',
+        'description': 'Heating degree days below 18.3 celcius'
+    }
+
+    # Soil properties
+    SURFACE_SOIL_WETNESS = {
+        'key': 'GWETTOP',
+        'name': 'Surface_soil_wetness',
+        'description': 'Surface soil wetness (surface to 5 cm below)'
+    }
+    ROOT_SOIL_WETNESS = {
+        'key': 'GWETROOT',
+        'name': 'Root_soil_wetness',
+        'description': 'Root zone soil wetness (surface to 100 cm below)'
+    }
+    PROFILE_SOIL_MOISTURE = {
+        'key': 'GWETPROF',
+        'name': 'Profile_soil_moisture',
+        'description': 'Profile soil moisture (surface to bedrock)'
+    }
+
+    # Dataset lists
+    LIST_NASA_POWER_DATASETS_RE_DAILY = [
+        # SKY_SURFACE_SW_IRRADIANCE,  # include
+        # CLEAR_SKY_SURFACE_SW_IRRADIANCE,
+        # SKY_INSOLATION_CLEARNESS_INDEX,
+        # SKY_SURFACE_LW_IRRADIANCE,
+        # SKY_SURFACE_PS_ACTIVE_RADIATION,
+        # CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
+        # SKY_SURFACE_UVA_IRRADIANCE,
+        # SKY_SURFACE_UVB_IRRADIANCE,
+        # SKY_SURFACE_UV_INDEX,
+        WINDSPEED_2M,  # include
+        TEMP,  # include
+        # DEW_FROST,  # include
+        # WET_TEMP,  # include
+        # EARTH_SKIN_TEMP,  # include
+        # TEMP_RANGE,
+        # TEMP_MAX,  # include
+        # TEMP_MIN,  # include
+        # SPECIFIC_HUMIDITY,
+        # RELATIVE_HUMIDITY,  # include
+        # PRECIPITATION,  # include
+        # SURFACE_PRESSURE,
+        # WINDSPEED_10M,  # include
+        # WINDSPEED_10M_MAX,
+        # WINDSPEED_10M_MIN,
+        # WINDSPEED_10M_RANGE,
+        # WIND_DIRECTION_10M,
+        # WINDSPEED_50M,
+        # WINDSPEED_50M_MAX,
+        # WINDSPEED_50M_MIN,
+        # WINDSPEED_50M_RANGE,
+        # WIND_DIRECTION_50M,
+    ]
+    LIST_NASA_POWER_DATASETS_SB_DAILY = [
+        # COOLING_DEGREE_DAYS_ABOVE_ZERO,
+        # COOLING_DEGREE_DAYS_ABOVE_10,
+        # COOLING_DEGREE_DAYS_ABOVE_18,
+        # HEATING_DEGREE_DAYS_BELOW_ZERO,
+        # HEATING_DEGREE_DAYS_BELOW_10,
+        # HEATING_DEGREE_DAYS_BELOW_18
+    ]
+    LIST_NASA_POWER_DATASETS_AG_DAILY = [
+        # SURFACE_SOIL_WETNESS,  # include
+        # ROOT_SOIL_WETNESS,  # include
+        PROFILE_SOIL_MOISTURE  # include
+    ]
+
+    LIST_NASA_POWER_DATASETS_RE_MONTHLY = [
+        #SKY_SURFACE_SW_IRRADIANCE,
+        # CLEAR_SKY_SURFACE_SW_IRRADIANCE,
+        # SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
+        # SKY_SURFACE_SW_DIFFUSE_IRRADIANCE,
+        # SKY_INSOLATION_CLEARNESS_INDEX,
+        # CLEAR_SKY_INSOLATION_CLEARNESS_INDEX,
+        # SKY_SURFACE_ALBEDO,
+        # TOA_SW_IRRADIANCE,
+        CLOUD_AMOUNT,  # include
+        #SKY_SURFACE_PS_ACTIVE_RADIATION,
+        # CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
+        # SKY_SURFACE_UVA_IRRADIANCE,
+        # SKY_SURFACE_UVB_IRRADIANCE,
+        # SKY_SURFACE_UV_INDEX,
+        #WINDSPEED_2M,  # include
+        TEMP,  # include
+        #DEW_FROST,  # include
+        #WET_TEMP,  # include
+        #EARTH_SKIN_TEMP,  # include
+        # TEMP_RANGE,
+        #TEMP_MAX,  # include
+        #TEMP_MIN,  # include
+        # SKY_SURFACE_LW_IRRADIANCE,
+        #SPECIFIC_HUMIDITY,  # include
+        #RELATIVE_HUMIDITY,  # include
+        #PRECIPITATION,  # include
+        #PRECIPITATION_SUM,  # include
+        # SURFACE_PRESSURE,
+        #WINDSPEED_10M,  # include
+        # WINDSPEED_10M_MAX,
+        # WINDSPEED_10M_MIN,
+        # WINDSPEED_10M_RANGE,
+        # WIND_DIRECTION_10M,
+        # WINDSPEED_50M,
+        # WINDSPEED_50M_MAX,
+        # WINDSPEED_50M_MIN,
+        # WINDSPEED_50M_RANGE,
+        # WIND_DIRECTION_50M
+    ]
+    LIST_NASA_POWER_DATASETS_SB_MONTHLY = [
+        # COOLING_DEGREE_DAYS_ABOVE_ZERO,
+        # COOLING_DEGREE_DAYS_ABOVE_10,
+        # COOLING_DEGREE_DAYS_ABOVE_18,
+        # HEATING_DEGREE_DAYS_BELOW_ZERO,
+        # HEATING_DEGREE_DAYS_BELOW_10,
+        # HEATING_DEGREE_DAYS_BELOW_18
+    ]
+    LIST_NASA_POWER_DATASETS_AG_MONTHLY = [
+        #SURFACE_SOIL_WETNESS,  # include
+        #ROOT_SOIL_WETNESS,  # include
+        PROFILE_SOIL_MOISTURE  # include
+    ]
+
+    LIST_NASA_POWER_DATASETS_RE_CLIMATOLOGY = [
+        #SKY_SURFACE_SW_IRRADIANCE,  # include
+        # SKY_SURFACE_SW_IRRADIANCE_GMT,
+        # CLEAR_SKY_SURFACE_SW_IRRADIANCE,
+        # SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
+        # SKY_SURFACE_SW_DIFFUSE_IRRADIANCE,
+        # SKY_INSOLATION_CLEARNESS_INDEX,
+        # SKY_SURFACE_ALBEDO,
+        # TOA_SW_IRRADIANCE,
+        CLOUD_AMOUNT,  # include
+        #SKY_SURFACE_PS_ACTIVE_RADIATION,  # include
+        #CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,  # include
+        # SKY_SURFACE_UVA_IRRADIANCE,
+        # SKY_SURFACE_UVB_IRRADIANCE,
+        # SKY_SURFACE_UV_INDEX,
+        # SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MAX,
+        # SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE_MIN,
+        # SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MAX,
+        # SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MIN,
+        # MIDDAY_INSOLATION_INCIDENT,
+        #WINDSPEED_2M,  # include
+        TEMP,  # include
+        #DEW_FROST,  # include
+        #WET_TEMP,  # include
+        #EARTH_SKIN_TEMP,  # include
+        # TEMP_RANGE,
+        #TEMP_MAX,  # include
+        #TEMP_MIN,  # include
+        # EARTH_SKIN_TEMP_MAX,
+        # EARTH_SKIN_TEMP_MIN,
+        # SKY_SURFACE_LW_IRRADIANCE,
+        #SPECIFIC_HUMIDITY,  # include
+        #RELATIVE_HUMIDITY,  # include
+        #PRECIPITATION,  # include
+        #PRECIPITATION_SUM,  # include
+        # SURFACE_PRESSURE,
+        #WINDSPEED_10M,  # include
+        # WINDSPEED_10M_MAX,
+        # WINDSPEED_10M_MIN,
+        # WINDSPEED_10M_RANGE,
+        # WINDSPEED_50M,
+        # WINDSPEED_50M_MAX,
+        # WINDSPEED_50M_MIN,
+        # WINDSPEED_50M_RANGE,
+        # CLOUD_AMOUNT_GMT
+    ]
+    LIST_NASA_POWER_DATASETS_SB_CLIMATOLOGY = [
+        # COOLING_DEGREE_DAYS_ABOVE_ZERO,
+        # COOLING_DEGREE_DAYS_ABOVE_10,
+        # COOLING_DEGREE_DAYS_ABOVE_18,
+        # HEATING_DEGREE_DAYS_BELOW_ZERO,
+        # HEATING_DEGREE_DAYS_BELOW_10,
+        # HEATING_DEGREE_DAYS_BELOW_18
+    ]
+    LIST_NASA_POWER_DATASETS_AG_CLIMATOLOGY = [
+        #SURFACE_SOIL_WETNESS,  # include
+        #ROOT_SOIL_WETNESS,  # include
+        PROFILE_SOIL_MOISTURE  # include
     ]
 
 
@@ -327,13 +718,13 @@ class Utilities:
         """
         # Storage client
         client = storage.Client(project=project)
-        buckets = client.list_buckets()
         bucket = client.get_bucket(bucket)
 
         list_csv = []
         list_excel = []
         list_archives = []
         list_raster = []
+        list_vector = []
 
         for blob in bucket.list_blobs():
             content_name = blob.name
@@ -341,8 +732,10 @@ class Utilities:
                 list_csv.append(content_name)
             elif content_name.endswith('.zip') or content_name.endswith('.7z'):
                 list_archives.append(content_name)
+            elif content_name.endswith('.shp'):
+                list_vector.append(content_name)
 
-        return list_csv, list_excel, list_archives, list_raster
+        return list_csv, list_excel, list_archives, list_raster, list_vector
 
     @staticmethod
     def move_data(source_bucket, destination_bucket, source_file, destination_file):
@@ -369,7 +762,7 @@ class Utilities:
             destination_bucket = client.bucket(destination_bucket)
 
             blob_to_move = bucket.blob(source_file)
-            blob_copy = bucket.copy_blob(
+            bucket.copy_blob(
                 blob_to_move,
                 destination_bucket,
                 destination_file
@@ -384,57 +777,7 @@ class Utilities:
         # Deletes the source file if the file has been copied to the destination
         bucket.delete_blob(source_file)
 
-        # Returns True if the file has been moved
-        return True
-
-    @staticmethod
-    def load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=1):
-        """Loads a CSV file stored in a bucket into BigQuery.
-
-        :param upload_uri: Google cloud storage directory (e.g. gs://bucket/folder/file)
-        :type upload_uri: String
-
-        :param bq_table_uri: Google cloud storage directory (e.g. gs://bucket/folder/file)
-        :type bq_table_uri: String
-
-        :param schema: Fields structure of the BigQuery table
-        :type schema: List
-
-        :param skip_leading_rows: Number of rows to skip at the start of the file
-        :type skip_leading_rows: Integer
-
-        :returns: True if the CSV data has been stored in BigQuery successful, false if it failed
-        :rtype: boolean
-        """
-        client_bq = bigquery.Client()
-        try:
-            table = bigquery.Table(bq_table_uri, schema=schema)
-            table = client_bq.create_table(table)
-        except Exception as e:
-            print("Could not create BigQuery table " + bq_table_uri)
-            print("EXCEPTION: " + str(e))
-            return False
-
-        try:
-            job_config = bigquery.LoadJobConfig(
-                schema=schema,
-                skip_leading_rows=skip_leading_rows,
-                source_format=bigquery.SourceFormat.CSV
-            )
-
-            load_job = client_bq.load_table_from_uri(
-                upload_uri, bq_table_uri, job_config=job_config
-            )
-            load_job.result()
-        except Exception as e:
-            # Loading from csv file into bigquery failed
-            # The newly created bigquery table will be deleted
-            print("Could not load " + upload_uri)
-            print("EXCEPTION: " + str(e))
-            client_bq.delete_table(bq_table_uri)
-            return False
-
-        # Returns True if loading the data into BigQuery succeeded
+        # Returns if the file has been moved
         return True
 
     @staticmethod
@@ -447,8 +790,6 @@ class Utilities:
         :returns: Newline JSON formatted string
         :rtype: Newline JSON
         """
-        print('json to newline')
-
         list_newline_json = []
 
         list_features = data_json['features']
@@ -475,25 +816,19 @@ class Utilities:
         :type shp_file: Shapefile
         """
 
+        print('shp found')
+
         gc_shp = 'gs://' + Default.BUCKET_TRIGGER + '/' + shp_file
 
-        print('shp: ' + str(gc_shp))
-
         shp_geopandas = geopandas.read_file(gc_shp)
-        #shp_geopandas = gp.read_file(gc_shp)
-
-        print("AFTER shp")
-
-        print(str(shp_geopandas))
-
         shp_json = json.loads(shp_geopandas.to_json())
         newline_json = Utilities.convert_json_to_newline_json(shp_json)
 
-        print('data read')
+        print('newline json created')
 
         client_bq = bigquery.Client()
 
-        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + shp_file.replace('.shp', '')
+        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET + '.' + shp_file.replace('.shp', '')
 
         schema = [
             bigquery.SchemaField('id', 'INTEGER', mode='NULLABLE'),
@@ -502,7 +837,7 @@ class Utilities:
         ]
 
         table = bigquery.Table(bq_table_uri, schema=schema)
-        table = client_bq.create_table(table)
+        client_bq.create_table(table)
 
         print('table created')
 
@@ -511,10 +846,12 @@ class Utilities:
             source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         )
 
-        print('load')
+        print('start load')
 
         load_job = client_bq.load_table_from_json(newline_json, bq_table_uri, job_config=job_config)
         load_job.result()
+
+        print('done')
 
     @staticmethod
     def write_to_file(file, lines):
@@ -528,7 +865,7 @@ class Utilities:
         """
         if not os.path.exists(file):
             # File does not exist, create it
-            with open(file, 'w') as f:
+            with open(file, 'w+') as f:
                 for line in lines:
                     f.write(line)
                     f.write('\n')
@@ -538,7 +875,36 @@ class Utilities:
                 for line in lines:
                     f.write(line)
                     f.write('\n')
+
         f.close()
+
+    @staticmethod
+    def write_to_log(file, line):
+        """Writes to a log text file.
+
+        :param file: Output/target file
+        :type file: String
+
+        :param line: Variable which contains a list of the lines which needs to be written to the log file
+        :type line: List
+        """
+        if True:
+            now = datetime.now()
+            line = '[' + str(now) + '] ' + line
+            print(line)
+
+            if not os.path.exists(file):
+                # File does not exist, create it
+                with open(file, 'w+') as f:
+                    f.write(line)
+                    f.write('\n')
+            else:
+                # File exists, append to it
+                with open(file, 'a') as f:
+                    f.write(line)
+                    f.write('\n')
+
+            f.close()
 
     @staticmethod
     def unzip(zip_file):
@@ -557,27 +923,652 @@ class Utilities:
             blob = bucket.blob(zip_file)
             zipbytes = io.BytesIO(blob.download_as_string())
 
-            # Checks if the file is a zip file
             if zipfile.is_zipfile(zipbytes):
-                # Opens the zip file
                 with zipfile.ZipFile(zipbytes, 'r') as myzip:
                     for contentfilename in myzip.namelist():
                         contentfile = myzip.read(contentfilename)
 
-                        # Uploads the file in the zip file to the bucket
                         blob_upload = bucket.blob(contentfilename)
                         blob_upload.upload_from_string(contentfile)
         except Exception as e:
-            # Unpacking the zip file failed
-            print("Could not unzip " + zip_file)
+            # Loading from csv file into bigquery failed
+            # The newly created bigquery table will be deleted
+            print("Could unzip " + zip_file)
             print("EXCEPTION: " + str(e))
             return False
 
         # Returns True if the file unzipped correctly
         return True
 
+    @staticmethod
+    def get_dataset_list(community, temporal):
+        """Unzips a zip file stored in a Google cloud storage bucket.
 
-# [START functions_bucket_storage]
+        :param community: Renewable energy ('RE'), sustainable buildings ('SB'), or agroclimatology ('AG')
+        :type community: String
+
+        :param temporal: 'daily', 'monthly', or 'climatology'
+        :type temporal: String
+
+        :returns: A list contains the datasets which will be downloaded from NASA POWER
+        :rtype: list
+        """
+        if community == 'RE':
+            # Renewable energy
+            if temporal == Default.DAILY:
+                return Definitions.LIST_NASA_POWER_DATASETS_RE_DAILY
+            elif temporal == Default.MONTHLY:
+                return Definitions.LIST_NASA_POWER_DATASETS_RE_MONTHLY
+            elif temporal == Default.CLIMATOLOGY:
+                return Definitions.LIST_NASA_POWER_DATASETS_RE_CLIMATOLOGY
+        elif community == 'SB':
+            # Sustainable buildings
+            if temporal == Default.DAILY:
+                return Definitions.LIST_NASA_POWER_DATASETS_SB_DAILY
+            elif temporal == Default.MONTHLY:
+                return Definitions.LIST_NASA_POWER_DATASETS_SB_MONTHLY
+            elif temporal == Default.CLIMATOLOGY:
+                return Definitions.LIST_NASA_POWER_DATASETS_SB_CLIMATOLOGY
+        elif community == 'AG':
+            # Agroclimatology
+            if temporal == Default.DAILY:
+                return Definitions.LIST_NASA_POWER_DATASETS_AG_DAILY
+            elif temporal == Default.MONTHLY:
+                return Definitions.LIST_NASA_POWER_DATASETS_AG_MONTHLY
+            elif temporal == Default.CLIMATOLOGY:
+                return Definitions.LIST_NASA_POWER_DATASETS_AG_CLIMATOLOGY
+
+        # List could not be determined
+        return []
+
+    @staticmethod
+    def append_field_names(list_field_names, period, name, start_date, end_date):
+        """Appends field names to an existing list. Daily only requires a single field,
+        monthly requires 13 (Jan to Dec and average monthly), and climatology also
+        requires 13 (Jan to Dec and annual).
+
+        :param list_field_names: List of fieldnames
+        :type list_field_names: list
+
+        :param period: 'daily', 'monthly', or 'climatology'
+        :type period: String
+
+        :param name: The prefix to add to the field name
+        :type name: String
+
+        :param start_date: Start of the date range
+        :type start_date: String
+
+        :param end_date: End of the date range
+        :type end_date: String
+
+        :returns: Contains the updated fields list
+        :rtype: list
+        """
+
+        if period == Default.DAILY:
+            if Default.DAILY_DATES_FREQUENCY == 'D':
+                # If daily, then only one date
+                # Used when the code is deployed as a cloud function
+                field_name = '{}_{}'.format(
+                    name,
+                    start_date
+                )
+                list_field_names.append(field_name)
+            else:
+                # If monthly, then all days of the month
+                # Used for bulk downloading of daily data
+                day_count = Utilities.get_day_count(
+                    start_date,
+                    end_date
+                )
+
+                i = 1
+                while i <= day_count:
+                    if i <= 9:
+                        # For the first 9 numbers a '0' is added (e.g. 19980109)
+                        date = start_date[:len(start_date) - 2] + '0' + str(i)
+                    else:
+                        date = start_date[:len(start_date) - 2] + str(i)
+                    field_name = '{}_{}'.format(
+                        name,
+                        date
+                    )
+                    list_field_names.append(field_name)
+                    i = i + 1
+        elif period == Default.MONTHLY:
+            for field_prefix in Default.MONTHLY_PREFIX:
+                field_name = '{}_{}_{}'.format(
+                    name,
+                    field_prefix,
+                    start_date
+                )
+                list_field_names.append(field_name)
+        else:
+            # Climatology
+            for field_prefix in Default.CLIMATOLOGY_PREFIX:
+                field_name = '{}_{}'.format(
+                    name,
+                    field_prefix
+                )
+                list_field_names.append(field_name)
+
+        return list_field_names
+
+    @staticmethod
+    def table_to_geojson(dataset_id, table_name):
+        client = bigquery.Client()
+
+        table_json = table_name + ".json"
+        destination_uri = "gs://{}/{}".format(Default.BUCKET_TEMP, table_json)
+        dataset_ref = bigquery.DatasetReference(Default.PROJECT_ID, dataset_id)
+        table_ref = dataset_ref.table(table_name)
+        job_config = bigquery.job.ExtractJobConfig()
+        job_config.destination_format = bigquery.DestinationFormat.NEWLINE_DELIMITED_JSON
+
+        extract_job = client.extract_table(
+            table_ref,
+            destination_uri,
+            job_config=job_config,
+            # Location must match that of the source table.
+            location=Default.REGION,
+        )  # API request
+        extract_job.result()  # Waits for job to complete.
+
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(Default.BUCKET_TEMP)
+        blob = bucket.blob(table_json)
+
+        blob_string = str(blob.download_as_string(client=None))
+        blob_string = blob_string.replace('\'b', '')
+        blob_string = blob_string[2:]  # Removes '\b' at the start of the string
+        split_json = blob_string.split(r'\n')  # Creates a list
+        split_json = split_json[:len(split_json) - 1]  # Removes the last element of the list
+
+        blob_json = [json.loads(line) for line in split_json]
+        data_geojson = Utilities.json_to_geojson(blob_json, 0, 1)
+
+        bucket.delete_blob(table_json)
+
+        return data_geojson
+
+    @staticmethod
+    def get_request_content_indices(period):
+        """Gets the latitude index, longitude index, and a list of indices for the
+        CSV file contents received from NASA POWER when a request is done. These indices
+        differs for daily, monthly, and climatology.
+
+        :param period: 'daily', 'monthly', or 'climatology'
+        :type period: String
+
+        :returns: lat_index contains the latitude index
+        :rtype: integer
+
+        :returns: lon_index contains the longitude index
+        :rtype: integer
+
+        :returns: value_index contains a list of indices for the values
+        :rtype: list
+        """
+        if period == Default.DAILY:
+            # Only a lat, long, and a single value
+            lat_index = 0
+            lon_index = 1
+            value_index = [5]
+        elif period == Default.MONTHLY:
+            # Lat, lon, all months and monthly average
+            lat_index = 2
+            lon_index = 3
+            value_index = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        else:
+            # Climatology. Lat, lon, all months, and annual
+            lat_index = 1
+            lon_index = 2
+            value_index = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+        return lat_index, lon_index, value_index
+
+    @staticmethod
+    def get_day_count(start_date, end_date):
+        """Get the number of days in the given date range.
+
+        :param start_date: Start date of the date range (YYYYMMDD)
+        :type start_date: str
+
+        :param end_date: End date of the date range (YYYYMMDD)
+        :type end_date: str
+
+        :returns: Number of days in the given date range
+        :rtype: int
+        """
+        frequency = 'D'  # Daily
+        date_format = "%Y%m%d"  # YYYYMMDD
+        list_dates = pd.date_range(start_date, end_date, freq=frequency).strftime(date_format).tolist()
+        number_of_days = len(list_dates)
+
+        return number_of_days
+
+    @staticmethod
+    def get_date_list(temporal, start_year, end_year, start_month, end_month, start_day, end_day):
+        """Based on the temporal type and dates provided, this function returns a list of dates.
+        For daily, it will return all days, monthly all the months, and for climatology it will return no dates.
+        Climatology does not require dates.
+
+        :param temporal: 'daily', 'monthly', or 'climatology'
+        :type temporal: String
+
+        :param start_year: Start year
+        :type start_year: int
+
+        :param end_year: End year
+        :type end_year: int
+
+        :param start_month: Start month
+        :type start_month: int
+
+        :param end_month: End month
+        :type end_month: int
+
+        :param start_day: Start day
+        :type start_day: int
+
+        :param end_day: End day
+        :type end_day: int
+
+        :returns: True if a date will be required for the request, otherwise False
+        :rtype: boolean
+
+        :returns: A list which contains the dates which will be used to perform requests
+        :rtype: list
+        """
+        if temporal == Default.DAILY:
+            if Default.DAILY_DATES_FREQUENCY == 'D':
+                if start_month < 10:
+                    s_month = '0' + str(start_month)
+                else:
+                    s_month = str(start_month)
+                if start_day < 10:
+                    s_day = '0' + str(start_day)
+                else:
+                    s_day = str(start_day)
+                # Downloads on a daily basis. Use for Cloud function
+                daily_date = '{}{}{}'.format(start_year, s_month, s_day)
+                list_dates = [
+                    {
+                        'start_date': daily_date,
+                        'end_date': daily_date
+                    }
+                ]
+                dates_required = True
+            else:
+                # Used for bulk downloading. When set to 'M'
+                # Converts all values to string
+                # This is required for the pandas date_range method
+                start_year = str(start_year)
+                end_year = str(end_year)
+                start_month = str(start_month)
+                end_month = str(end_month)
+                start_day = str(start_day)
+                end_day = str(end_day)
+
+                list_dates = []
+
+                # YYYYMMDD
+                pd_start_date = "{}-{}-{}".format(start_year, start_month, start_day)
+                pd_end_date = "{}-{}-{}".format(end_year, end_month, end_day)
+
+                frequency = 'M'  # All days in a month
+                date_format = "%Y%m%d"
+                list_days_temp = pd.date_range(pd_start_date, pd_end_date, freq=frequency).strftime(
+                    date_format).tolist()
+
+                for day in list_days_temp:
+                    list_dates.append(
+                        {
+                            'start_date': day[:len(day) - 2] + '01',
+                            'end_date': day
+                        }
+                    )
+                dates_required = True
+        elif temporal == Default.MONTHLY:
+            list_years_temp = range(start_year, end_year + 1)
+            list_dates = []
+
+            for year in list_years_temp:
+                dates = {
+                    'start_date': str(year),
+                    'end_date': str(year)
+                }
+                list_dates.append(dates)
+            dates_required = True
+        else:
+            # Climatology requires no date
+            # A single item added so that it enters the loop
+            # Value will not be used
+            list_dates = [-1]
+            dates_required = False
+
+        return dates_required, list_dates
+
+    @staticmethod
+    def transform_daily_data(lines):
+        """Transforms the contents received from NASA POWER by creating columns for each day from the
+        received contents.
+
+        :param lines: The lines received from NASA POWER
+        :type lines: list
+
+        :returns: List which contains each of the transformed rows. The rows will now consist of columns
+        :rtype: list
+        """
+        columns = []
+        column_contents = []
+        cur_day = None
+        for line in lines:
+            split_line = line.split(',')  # All columns of the row
+            day = int(split_line[4])
+
+            if cur_day is None:
+                # Only performed at the start of the transformation
+                cur_day = day
+
+            if day > cur_day:
+                # Next column (next day)
+                columns.append(column_contents)
+                column_contents = [line]
+                cur_day = day
+            else:
+                # Append to current column (continuation of the same day)
+                column_contents.append(line)
+        columns.append(column_contents)  # Appends the new columns
+
+        column_count = len(columns)  # Number of days in the month
+        transformed_lines = []
+        # Creates the new rows from the daily columns
+        if column_count > 0:
+            contents_count = len(columns[0])
+            i = 0
+            # Creates each row
+            while i < contents_count:
+                transformed_line = ''
+                for column in columns:
+                    column_line = column[i]
+                    if transformed_line == '':
+                        # Includes lat and lon if it's the start of a row
+                        column_line_split = column_line.split(',')
+                        lat = column_line_split[0]
+                        lon = column_line_split[1]
+                        value = column_line_split[5]
+                        transformed_line = "{},{},{}".format(
+                            lat,
+                            lon,
+                            value
+                        )
+                    else:
+                        # Lat and lon no longer required, as it exists in the row
+                        column_line_split = column_line.split(',')
+                        transformed_line = "{},{}".format(
+                            transformed_line,
+                            column_line_split[5]
+                        )
+                transformed_lines.append(transformed_line)  # Adds the transformed row
+                i = i + 1
+
+        return transformed_lines
+
+    @staticmethod
+    def get_bq_dataset(period):
+        """Gets the list of datasets associated with the provided temporal type.
+
+        :param period: Temporal period (e.g. daily, monthly, or climatology)
+        :type period: str
+
+        :returns: All the datasets (e.g. windspeed) with the given temporal type
+        :rtype: str
+        """
+        if period == Default.DAILY:
+            return Default.LIST_BQ_DATASETS[0]
+        elif period == Default.MONTHLY:
+            return Default.LIST_BQ_DATASETS[1]
+        else:
+            return Default.LIST_BQ_DATASETS[2]
+
+    @staticmethod
+    def json_to_geojson(data_json, lat_index, lon_index):
+        """Takes newline json as input and converts it to geojson. The index in the attribute table
+        of the latitude and longitude fields needs to be provided.
+        Currently for POINT data, but can be changed to include other types.
+
+        :param data_json: Newline json which contains the spatial data
+        :type data_json: Newline json
+
+        :param lat_index: Index field which contains the latitude
+        :type lat_index: int
+
+        :param lon_index: Index field which contains the longitude
+        :type lon_index: int
+
+        :returns: Geojson version of the newline json data
+        :rtype: geojson
+        """
+        list_elements = []
+        for element in data_json:
+            lat = 0
+            lon = 0
+            list_properties = {}
+            i = 0
+            for field in element:
+                if i == lat_index:
+                    # Latitude field
+                    lat = element[field]
+                elif i == lon_index:
+                    # Longitude field
+                    lon = element[field]
+                else:
+                    # Other fields (e.g. temperature)
+                    list_properties[field] = element[field]
+
+                i = i + 1
+
+            new_element = {
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': [lat, lon]
+                },
+                'properties': list_properties
+            }
+            list_elements.append(new_element)
+
+        data_geojson = {
+            'type': 'FeatureCollection',
+            'features': list_elements
+        }
+
+        return data_geojson
+
+    @staticmethod
+    def list_bigquery_tables(bq_dataset):
+        """Lists all BigQuery tables in the given dataset.
+
+        :param bq_dataset: BigQuery dataset
+        :type bq_dataset: str
+
+        :returns: List of tables found in the provided dataset
+        :rtype: list
+        """
+
+        client = bigquery.Client()
+        tables = client.list_tables(bq_dataset)
+
+        return tables
+
+    @staticmethod
+    def get_data(link):
+        """Performs a get request on the provided link. Several checks and try/exceptoions is done
+        to avoid unexpected errors and to keep the code running.
+
+        :param link: Address for the request
+        :type link: str
+
+        :returns: True if the request succeeded, False if it failed
+        :rtype: boolean
+
+        :returns: Received request contents
+        :rtype: str
+        """
+        try:
+            # Performs the requests and gets the contents from NASA POWER
+            result = requests.get(link, timeout=Default.DEFAULT_TIMEOUT)
+            result_status = result.status_code
+            if result_status == 200:
+                # Contents received from NASA POWER
+                content = result.content
+            else:
+                # Errorenous response from NASA POWER
+                return False, ''
+        except Timeout:
+            return False, ''
+        except Exception as e:
+            print(str(e))
+            return False, ''
+
+        return True, content
+
+    @staticmethod
+    def load_csv_into_bucket(bucket_name, contents, csv_name):
+        """Uploads string into a CSV file into a bucket.
+
+        :param bucket_name: Google cloud storage bucket name
+        :type bucket_name: str
+
+        :param contents: Contents to be written to the CSV file
+        :type contents: str
+
+        :param csv_name: Name to give to the CSV file
+        :type csv_name: str
+
+        :returns: True if the CSV data has been stored in the bucket successful, false if it failed
+        :rtype: boolean
+        """
+        try:
+            # Writes the CSV file to a bucket
+            client = storage.Client(project=Default.PROJECT_ID)
+            bucket = client.bucket(bucket_name)
+            blob = bucket.blob(csv_name)
+            blob.upload_from_string(contents)
+        except Exception as e:
+            return False
+
+        return True
+
+    @staticmethod
+    def load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=1):
+        """Loads a CSV file stored in a bucket into BigQuery.
+
+        :param upload_uri: Google cloud storage directory (e.g. gs://bucket/folder/file)
+        :type upload_uri: uri
+
+        :param bq_table_uri: Google cloud storage directory (e.g. gs://bucket/folder/file)
+        :type bq_table_uri: uri
+
+        :param schema: Fields structure of the BigQuery table
+        :type schema: list
+
+        :param skip_leading_rows: Number of rows to skip at the start of the file
+        :type skip_leading_rows: int
+
+        :returns: True if the CSV data has been stored in BigQuery successful, false if it failed
+        :rtype: boolean
+        """
+        client_bq = bigquery.Client()
+        try:
+            table = bigquery.Table(bq_table_uri, schema=schema)
+            client_bq.create_table(table)
+        except Exception as e:
+            return False
+
+        try:
+            job_config = bigquery.LoadJobConfig(
+                schema=schema,
+                skip_leading_rows=skip_leading_rows,
+                source_format=bigquery.SourceFormat.CSV
+            )
+
+            load_job = client_bq.load_table_from_uri(
+                upload_uri, bq_table_uri, job_config=job_config
+            )
+            load_job.result()
+        except Exception as e:
+            # Loading from csv file into bigquery failed
+            # The newly created bigquery table will be deleted
+            client_bq.delete_table(bq_table_uri)
+            return False
+
+        # Returns True if loading the data into BigQuery succeeded
+        return True
+
+    @staticmethod
+    def append_to_bigquery_table(target_table_id, temp_table_id, list_field_names):
+        """Append new columns to an existing table in BigQuery.
+
+        :param target_table_id: ID for the target table in BigQuery: e.g. your-project.your_dataset.your_table_name
+        :type target_table_id: str
+
+        :param temp_table_id: ID for the temporary table in BigQuery: e.g. your-project.your_dataset.your_table_name
+        :type temp_table_id: str
+
+        :param list_field_names: Names for new field(s)
+        :type list_field_names: list
+
+        :return: True if succeeded, False if not
+        :type: boolean
+        """
+        # Construct a BigQuery client object.
+        client = bigquery.Client()
+
+        try:
+            # Gets the table. table_id == "your-project.your_dataset.your_table_name"
+            table = client.get_table(target_table_id)  # Make an API request.
+
+            # Updates the table schema
+            original_schema = table.schema
+            new_schema = original_schema[:]  # Copy of the original schema
+            for field in list_field_names:
+                bq_field = bigquery.SchemaField(field, 'FLOAT', mode='NULLABLE')
+
+                if bq_field not in new_schema:
+                    # Only adds the field if it does not exist
+                    # If the field does exist, the contents will be overwritten
+                    new_schema.append(bq_field)
+
+            # Adds the new fields
+            table.schema = new_schema
+            client.update_table(table, ["schema"])
+        except Exception as e:
+            # Could not update the schema of the table
+            return False
+
+        try:
+            # Performs a query to add the data to the new field
+            for field in list_field_names:
+                query_job = client.query(
+                    "UPDATE " + target_table_id +
+                    " a SET a." + field + " = b." +
+                    field + " FROM " + temp_table_id +
+                    " b WHERE a." + Default.LAT_FIELD + " = b."
+                    + Default.LAT_FIELD +
+                    " AND a." + Default.LON_FIELD +
+                    " = b." + Default.LON_FIELD
+                )
+                query_job.result()
+        except Exception as e:
+            # Could not perform the query on the table
+            return False
+
+        return True
+
+
 def data_added_to_bucket(event, context):
     """Trigger function to call when data has been uploaded to a bucket.
     Deploy this function to a Google cloud storage bucket
@@ -624,118 +1615,4 @@ def data_added_to_bucket(event, context):
             moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, uploaded_file, uploaded_file)
     elif uploaded_file.endswith('.shp'):
         Utilities.shp_to_geojson(uploaded_file)
-# [END functions_bucket_storage]
 
-
-# [START functions_download_weather_date]
-def download_weather_data():
-    """Downloads data from NASA POWER
-    """
-    skip_leading_rows = 10  # Number of rows which will be skipped at the start of the file
-    skip_trailing_rows = 1  # Number of rows at the enc of the file which will be skipped
-
-    for period in Default.NASA_POWER_TEMPORAL_AVE:
-        if period == 'daily':
-            # YYYYMMDD for 'daily'
-            date_required = True
-            start_date = '20210101'
-            end_date = '20210131'
-        elif period == 'monthly':
-            # YYYY for 'monthly'
-            date_required = True
-            start_date = '2021'
-            end_date = '2022'
-        else:
-            # Date not required for 'climatology'
-            date_required = False
-            start_date = ''  # YYYYMMDD
-            end_date = ''  # YYYYMMDD
-
-        for dataset in Definitions.LIST_NASA_POWER_DATASETS:
-            dataset_key = dataset['key']
-            dataset_name = dataset['name']
-            dataset_description = dataset['description']
-
-            table_name = '{}_{}_{}_{}'.format(
-                dataset_name,
-                period,
-                start_date,
-                end_date
-            )
-
-            file_name = table_name + '.csv'
-            file_dir = 'nasa_test/' + file_name
-            with io.StringIO() as file_mem:
-                for extent in Default.SA_GRID_EXTENTS:
-                    lat_min = extent["lat_min"]
-                    lat_max = extent["lat_max"]
-                    lon_min = extent["lon_min"]
-                    lon_max = extent["lon_max"]
-
-                    if date_required:
-                        link = '{}/{}/regional?parameters={}&start={}&end={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
-                            Default.NASA_POWER_URL,
-                            period,
-                            dataset_key,
-                            start_date,
-                            end_date,
-                            Default.NASA_POWER_COMMUNITY,
-                            Default.NASA_POWER_FORMAT,
-                            lat_min,
-                            lat_max,
-                            lon_min,
-                            lon_max
-                        )
-                    else:
-                        link = '{}/{}/regional?parameters={}&community={}&format={}&latitude-min={}&latitude-max={}&longitude-min={}&longitude-max={}'.format(
-                            Default.NASA_POWER_URL,
-                            period,
-                            dataset_key,
-                            Default.NASA_POWER_COMMUNITY,
-                            Default.NASA_POWER_FORMAT,
-                            lat_min,
-                            lat_max,
-                            lon_min,
-                            lon_max
-                        )
-
-                    result = requests.get(link)
-                    content = result.content
-
-                    # Newline not stored as '\n' character, so use r'\n'
-                    split_content = str(content).split(r'\n')
-
-                    # Removes unwanted lines
-                    split_content = split_content[skip_leading_rows:(len(split_content) - skip_trailing_rows)]
-
-                    for line in split_content:
-                        file_mem.write(line)
-                        file_mem.write('\n')
-
-                    # Utilities.write_to_file(file_dir, split_content)
-
-                client = storage.Client(project=Default.PROJECT_ID)
-                bucket = client.bucket(Default.BUCKET_TEMP)
-
-                blob = bucket.blob(file_name)
-                blob.upload_from_string(file_mem.getvalue())
-
-                schema = [
-                    bigquery.SchemaField('LAT', 'FLOAT', mode='NULLABLE'),
-                    bigquery.SchemaField('LON', 'FLOAT', mode='NULLABLE'),
-                    bigquery.SchemaField('YEAR', 'INTEGER', mode='NULLABLE'),
-                    bigquery.SchemaField('MONTH', 'INTEGER', mode='NULLABLE'),
-                    bigquery.SchemaField('DAY', 'INTEGER', mode='NULLABLE'),
-                    bigquery.SchemaField(table_name, 'FLOAT', mode='NULLABLE')
-                ]
-
-                upload_uri = 'gs://' + Default.BUCKET_TEMP + '/' + file_name
-                bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + table_name
-
-                Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=0)
-
-                bucket.delete_blob(file_name)
-
-            # remove
-            return
-# [END functions_download_weather_date]

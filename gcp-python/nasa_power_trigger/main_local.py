@@ -30,14 +30,13 @@ class Default:
     REGION = 'us-east1'
 
     # BigQuery
-    BIQGUERY_DATASET_DAILY = 'weather_daily'
-    BIQGUERY_DATASET_MONTHLY = 'weather_monthly'
-    BIQGUERY_DATASET_CLIMATOLOGY = 'weather_climatology'
-    BIQGUERY_DATASET_TEMP = 'weather_temp'  # Only used for temporary storage
+    BIGQUERY_DATASET_DAILY = 'weather_daily'
+    BIGQUERY_DATASET_MONTHLY = 'weather_monthly'
+    BIGQUERY_DATASET_CLIMATOLOGY = 'weather_climatology'
     LIST_BQ_DATASETS = [
-        BIQGUERY_DATASET_DAILY,
-        BIQGUERY_DATASET_MONTHLY,
-        BIQGUERY_DATASET_CLIMATOLOGY
+        BIGQUERY_DATASET_DAILY,
+        BIGQUERY_DATASET_MONTHLY,
+        BIGQUERY_DATASET_CLIMATOLOGY
     ]
 
     # Request parameters
