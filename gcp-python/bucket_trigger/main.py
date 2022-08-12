@@ -38,7 +38,7 @@ class Default:
     BIGQUERY_DATASET_DAILY = 'weather_daily'
     BIGQUERY_DATASET_MONTHLY = 'weather_monthly'
     BIGQUERY_DATASET_CLIMATOLOGY = 'weather_climatology'
-    BIGQUERY_DATASET = ''
+    BIGQUERY_DATASET_BUCKET = 'bucket_data'
     LIST_BQ_DATASETS = [
         BIGQUERY_DATASET_DAILY,
         BIGQUERY_DATASET_MONTHLY,
@@ -828,7 +828,7 @@ class Utilities:
 
         client_bq = bigquery.Client()
 
-        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET + '.' + shp_file.replace('.shp', '')
+        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET_BUCKET + '.' + shp_file.replace('.shp', '')
 
         schema = [
             bigquery.SchemaField('id', 'INTEGER', mode='NULLABLE'),
@@ -1590,7 +1590,7 @@ def data_added_to_bucket(event, context):
     if uploaded_file.endswith('.csv'):
         output_table_name = uploaded_file.replace('.csv', '')
         upload_uri = 'gs://' + bucket_name + '/' + uploaded_file
-        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIQGUERY_DATASET + '.' + output_table_name
+        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET_BUCKET + '.' + output_table_name
 
         schema = [
             # bigquery.SchemaField('Date', 'Date', mode='NULLABLE'),

@@ -1,3 +1,5 @@
+import sys
+
 from google.cloud import storage
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
@@ -5,6 +7,7 @@ import io
 import pandas as pd
 import time
 import datetime
+from datetime import date, timedelta
 import logging
 
 import requests
@@ -54,8 +57,12 @@ class Default:
     DAILY = 'daily'
     MONTHLY = 'monthly'
     CLIMATOLOGY = 'climatology'
-    NASA_POWER_TEMPORAL_AVE = [DAILY, MONTHLY, CLIMATOLOGY]
-    NUMBER_OF_PREVIOUS_DAY = 5  # This will be the number of days prior to the current/today date
+    NASA_POWER_TEMPORAL_AVE = [
+        DAILY,
+        #MONTHLY,
+        #CLIMATOLOGY
+    ]
+    NUMBER_OF_PREVIOUS_DAY = 1  # This will be the number of days prior to the current/today date
     SKIP_CLIMATOLOGY = True  # These datasets will likely not change
     # 'D' for daily downloads, 'M' for all days on a monthly basis
     # 'M' will be useful for bulk downloads, but set to 'D' for the Cloud trigger as it should only
@@ -535,7 +542,7 @@ class Definitions:
 
     # Dataset lists
     LIST_NASA_POWER_DATASETS_RE_DAILY = [
-        # SKY_SURFACE_SW_IRRADIANCE,  # include
+        SKY_SURFACE_SW_IRRADIANCE,  # include
         # CLEAR_SKY_SURFACE_SW_IRRADIANCE,
         # SKY_INSOLATION_CLEARNESS_INDEX,
         # SKY_SURFACE_LW_IRRADIANCE,
@@ -546,17 +553,17 @@ class Definitions:
         # SKY_SURFACE_UV_INDEX,
         WINDSPEED_2M,  # include
         TEMP,  # include
-        # DEW_FROST,  # include
-        # WET_TEMP,  # include
-        # EARTH_SKIN_TEMP,  # include
+        DEW_FROST,  # include
+        WET_TEMP,  # include
+        EARTH_SKIN_TEMP,  # include
         # TEMP_RANGE,
-        # TEMP_MAX,  # include
-        # TEMP_MIN,  # include
+        TEMP_MAX,  # include
+        TEMP_MIN,  # include
         # SPECIFIC_HUMIDITY,
-        # RELATIVE_HUMIDITY,  # include
-        # PRECIPITATION,  # include
+        RELATIVE_HUMIDITY,  # include
+        PRECIPITATION,  # include
         # SURFACE_PRESSURE,
-        # WINDSPEED_10M,  # include
+        WINDSPEED_10M,  # include
         # WINDSPEED_10M_MAX,
         # WINDSPEED_10M_MIN,
         # WINDSPEED_10M_RANGE,
@@ -903,22 +910,34 @@ class Utilities:
         """
         if temporal == Default.DAILY:
             if Default.DAILY_DATES_FREQUENCY == 'D':
-                if start_month < 10:
-                    s_month = '0' + str(start_month)
-                else:
-                    s_month = str(start_month)
-                if start_day < 10:
-                    s_day = '0' + str(start_day)
-                else:
-                    s_day = str(start_day)
-                # Downloads on a daily basis. Use for Cloud function
-                daily_date = '{}{}{}'.format(start_year, s_month, s_day)
-                list_dates = [
-                    {
-                        'start_date': daily_date,
-                        'end_date': daily_date
-                    }
-                ]
+                s_date = date(start_year, start_month, start_day) + timedelta(days=1)
+                e_date = date(end_year, end_month, end_day)
+                delta = e_date - s_date
+
+                list_dates = []
+                for value in range(delta.days + 1):
+                    day = s_date + timedelta(days=value)
+                    day_val = day.day
+                    month_val = day.month
+                    year_val = day.year
+
+                    if month_val < 10:
+                        s_month = '0' + str(month_val)
+                    else:
+                        s_month = str(month_val)
+                    if day_val < 10:
+                        s_day = '0' + str(day_val)
+                    else:
+                        s_day = str(day_val)
+                    # Downloads on a daily basis. Use for Cloud function
+                    daily_date = '{}{}{}'.format(year_val, s_month, s_day)
+
+                    list_dates.append(
+                        {
+                            'start_date': daily_date,
+                            'end_date': daily_date
+                        }
+                    )
                 dates_required = True
             else:
                 # Used for bulk downloading. When set to 'M'
@@ -1225,17 +1244,6 @@ def download_weather_data_into_bigquery():
     skip_leading_rows = Default.SKIP_LEADING_ROWS  # Number of rows which will be skipped at the start of the file
     skip_trailing_rows = Default.SKIP_TRAILING_ROWS  # Number of rows at the enc of the file which will be skipped
 
-    # Start and end dates
-    today_date = datetime.datetime.today()
-    # Weather data will always be downloaded for the previous day, to be sure the data is available
-    previous_date = today_date - datetime.timedelta(days=Default.NUMBER_OF_PREVIOUS_DAY)
-    start_y = int(previous_date.strftime("%Y"))
-    end_y = int(previous_date.strftime("%Y"))
-    start_m = int(previous_date.strftime("%m"))
-    end_m = int(previous_date.strftime("%m"))
-    start_d = int(previous_date.strftime("%d"))
-    end_d = int(previous_date.strftime("%d"))
-
     # start_y = 2022
     # end_y = 2022
     # start_m = 8
@@ -1254,12 +1262,20 @@ def download_weather_data_into_bigquery():
         # Period/temporal: Daily, monthly, or climatology
         for period in Default.NASA_POWER_TEMPORAL_AVE:
             print("PERIOD: " + period)
-            if period == Default.MONTHLY and start_d != 1:
-                # Monthly will only be downloaded after the end of a month, otherwise it will be skipped
-                continue
-            if period == Default.CLIMATOLOGY and Default.SKIP_CLIMATOLOGY:
-                # Climatology datasets will be skipped as it will likely require no change
-                continue
+            if period == Default.MONTHLY or period == Default.CLIMATOLOGY:
+                # Monthly/Annual and climatology will only be downloaded at the end of January
+                # NASA POWER only updates monthly/annual data after a year's end
+                today_date = datetime.datetime.today()
+                cur_m = int(today_date.strftime("%m"))
+                cur_d = int(today_date.strftime("%d"))
+
+                if cur_m == 1 and cur_d == 31:
+                    # Will perform climatology and monthly/annual downloads
+                    # Only happens on the 31st of January
+                    pass
+                else:
+                    # Climatology and monthly/annual will be skipped
+                    continue
 
             # BigQery dataset (e.g. weather_daily, weather_monthly, or weather_climatology)
             bq_dataset = Utilities.get_bq_dataset(period)
@@ -1276,20 +1292,95 @@ def download_weather_data_into_bigquery():
                 # This agrees with other data field schemas. AG responds with lat, lon, year, day-in-year
                 community = 'RE'
 
-            # FOR RUNNING IN BATCHES =====================================================================================
-            #list_datasets = [Definitions.LIST_NASA_POWER_DATASETS_RE_MONTHLY[1]]
-
             if len(list_datasets) == 0:
                 # List datasets could not be determined, skip
                 continue
 
             # Performs requests on each dataset
             for dataset in list_datasets:
+                # This variable is used if the dataset needs to be skipped, likely when the data is
+                # not available on NASA POWER
+                flag_break = False
+
                 dataset_key = dataset['key']
                 dataset_name = dataset['name']
                 # dataset_description = dataset['description']
 
                 print("DATASET: " + dataset_key)
+
+                # Table name which will be used for the BigQuery table
+                # and temporary CSV file
+                if period == Default.DAILY:
+                    # Daily has years added because of the 10k column limit of BigQuery tables
+                    table_name = '{}_{}_{}_{}_{}'.format(
+                        dataset_name,
+                        community,
+                        period,
+                        '2022',
+                        '2022'
+                        # start_y,
+                        # end_y
+                    )
+                else:
+                    # Climatology and monthly will have much less than 10k columns
+                    table_name = '{}_{}_{}'.format(
+                        dataset_name,
+                        community,
+                        period
+                    )
+                file_name = table_name + '.csv'
+
+                # Quick test to see of the BigQuery table exists
+                target_table_id = Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name
+                try:
+                    table_bq = client_bq.get_table(target_table_id)
+                    table_exist = True
+
+                    if period == Default.DAILY:
+                        # Gets the last date from the last field in the existing table
+                        current_schema = table_bq.schema
+                        last_field = current_schema[len(current_schema) - 1:]  # Last field in the table
+                        last_field = last_field[0]
+
+                        # Gets the date from the field name
+                        last_field_name = last_field.name
+                        last_date = last_field_name.split('_')
+                        last_date = last_date[len(last_date) - 1:][0]
+
+                        # Start and end dates
+                        today_date = datetime.datetime.today()
+                        # Weather data will always be downloaded for the previous day, to be sure the data is available
+                        previous_date = today_date - datetime.timedelta(days=Default.NUMBER_OF_PREVIOUS_DAY)
+                        start_y = int(last_date[:4])
+                        end_y = int(previous_date.strftime("%Y"))
+                        start_m = int(last_date[4:6])
+                        end_m = int(previous_date.strftime("%m"))
+                        start_d = int(last_date[6:])
+                        end_d = int(previous_date.strftime("%d"))
+                    else:
+                        # Start and end dates
+                        today_date = datetime.datetime.today()
+                        # Weather data will always be downloaded for the previous day, to be sure the data is available
+                        previous_date = today_date - datetime.timedelta(days=Default.NUMBER_OF_PREVIOUS_DAY)
+                        start_y = int(previous_date.strftime("%Y"))
+                        end_y = int(previous_date.strftime("%Y"))
+                        start_m = int(previous_date.strftime("%m"))
+                        end_m = int(previous_date.strftime("%m"))
+                        start_d = int(previous_date.strftime("%d"))
+                        end_d = int(previous_date.strftime("%d"))
+                except NotFound:
+                    table_exist = False
+
+                    # Start and end dates
+                    today_date = datetime.datetime.today()
+                    # Weather data will always be downloaded for the previous day, to be sure the data is available
+                    previous_date = today_date - datetime.timedelta(days=Default.NUMBER_OF_PREVIOUS_DAY)
+                    start_y = int(previous_date.strftime("%Y"))
+                    end_y = int(previous_date.strftime("%Y"))
+                    start_m = int(previous_date.strftime("%m"))
+                    end_m = int(previous_date.strftime("%m"))
+                    start_d = int(previous_date.strftime("%d"))
+                    end_d = int(previous_date.strftime("%d"))
 
                 # Gets a list of dates based on the start and end date
                 date_required, list_dates = Utilities.get_date_list(
@@ -1302,43 +1393,16 @@ def download_weather_data_into_bigquery():
                     end_d
                 )
 
-                for date in list_dates:
-                    print("DATE: " + str(date))
+                for date_ in list_dates:
+                    print("DATE: " + str(date_))
                     list_field_names = []
-
-                    # Table name which will be used for the BigQuery table
-                    # and temporary CSV file
-                    if period == Default.DAILY:
-                        # Daily has years added because of the 10k column limit of BigQuery tables
-                        table_name = '{}_{}_{}_{}_{}'.format(
-                            dataset_name,
-                            community,
-                            period,
-                            start_y,
-                            end_y
-                        )
-                    else:
-                        # Climatology and monthly will have much less than 10k columns
-                        table_name = '{}_{}_{}'.format(
-                            dataset_name,
-                            community,
-                            period
-                        )
-                    file_name = table_name + '.csv'
-
-                    # Quick test to see of the BigQuery table exists
-                    try:
-                        client_bq.get_table(Default.PROJECT_ID + '.' + bq_dataset + '.' + table_name)
-                        table_exist = True
-                    except NotFound:
-                        table_exist = False
 
                     with io.StringIO() as file_mem:
                         # Sets the dates
                         if date_required:
                             # Daily and yearly
-                            start_date = date['start_date']
-                            end_date = date['end_date']
+                            start_date = date_['start_date']
+                            end_date = date_['end_date']
                         else:
                             # Climatology period type does not require dates
                             start_date = ''
@@ -1448,8 +1512,18 @@ def download_weather_data_into_bigquery():
                                         continue
 
                                 if period == Default.DAILY:
+                                    # Daily. First does a test to see if the data is available for the date
+                                    # If not, the dataset is skipped as it does not have the data available for
+                                    # those dates. The nodata value for NASA POWER is -999.0
+                                    value_test = float(list_columns[2])
+                                    if value_test == -999:
+                                        print('val: ' + str(value_test))
+                                        print('not add: ' + date_['start_date'])
+                                        flag_break = True
+                                        break
                                     # Transformtion has been done for daily
                                     write_to_mem = line
+
                                 elif period == Default.MONTHLY:
                                     # Lat, lon, all months, and average monthly
                                     write_to_mem = '{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}'.format(
@@ -1491,6 +1565,15 @@ def download_weather_data_into_bigquery():
 
                                 file_mem.write(write_to_mem)
                                 file_mem.write('\n')
+
+                            if flag_break:
+                                # Dataset date has no available data
+                                break
+
+                        if flag_break:
+                            # Dataset date has no available data
+                            file_mem.close()
+                            break
 
                         print("CREATE CSV")
                         data_in_mem = file_mem.getvalue()
@@ -1571,9 +1654,7 @@ def download_weather_data_into_bigquery():
                         # Closes the memory file when done with the current date
                         file_mem.close()
 
-                    return
-                # FOR TESTING ===========================================================================================
-                #return
+            return
     print("END")
 
 

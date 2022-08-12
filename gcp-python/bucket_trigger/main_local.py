@@ -11,6 +11,8 @@ import json
 import os
 import time
 from datetime import datetime
+import gcsfs
+from dateutil.parser import parse
 
 import requests
 from requests import get, post
@@ -21,12 +23,13 @@ class Default:
     # For testing
     BUCKET_TEMP = 'wrc_wro_temp2'
     PROJECT_ID = 'thermal-glazing-350010'
+    BUCKET_TRIGGER = 'wrc_wro_temp2'
 
     # Projects
     #PROJECT_ID = 'wrc-wro'
 
     # Buckets
-    BUCKET_TRIGGER = 'wro-trigger-test'
+    #BUCKET_TRIGGER = 'wro-trigger-test'
     BUCKET_DONE = 'wro-done'
     BUCKET_FAILED = 'wro-failed'
     #BUCKET_TEMP = 'wrc_wro_temp'
@@ -38,14 +41,23 @@ class Default:
     BIGQUERY_DATASET_DAILY = 'weather_daily'
     BIGQUERY_DATASET_MONTHLY = 'weather_monthly'
     BIGQUERY_DATASET_CLIMATOLOGY = 'weather_climatology'
-    BIGQUERY_DATASET = ''
+    BIGQUERY_DATASET_BUCKET = 'bucket_data'
     LIST_BQ_DATASETS = [
         BIGQUERY_DATASET_DAILY,
         BIGQUERY_DATASET_MONTHLY,
         BIGQUERY_DATASET_CLIMATOLOGY
     ]
+    BIGQUERY_DATETIME_STRUCTURE = '%Y-%m-%d'
 
-    # Request parameters
+    # CSV parsing
+    CHARS_TO_REMOVE = [' ', '\n', '\t']  # Characters to remove from field contents
+    # Characters to remove from field names
+    FIELD_NAME_INVALID_CHARS = [
+        ' ', '-', '.', '!', '@', '#', '$',
+        '%', '&', '*', '\n', '\t', '\'', '\"'
+    ]
+
+    # NASA POWER request parameters
     NASA_POWER_URL = 'https://power.larc.nasa.gov/api/temporal'
     NASA_POWER_FORMAT = 'CSV'
     # AG: Agroclimatology, RE: Renewable energy, or SB: Sustainable buildings
@@ -55,6 +67,8 @@ class Default:
     MAX_REQUESTS = 10  # Number of attempts a request will be done if it fails
     SKIP_LEADING_ROWS = 10  # Rows to skip at the start of the received request content (e.g. headers)
     SKIP_TRAILING_ROWS = 1  # Rows to skip at the e of the reveived request content (e.g. headers)
+    LAT_FIELD = 'LAT'  # Latitude field name
+    LON_FIELD = 'LON'  # Longitude field name
 
     # Temporal types and settings
     DAILY = 'daily'
@@ -67,9 +81,6 @@ class Default:
     # 'M' will be useful for bulk downloads, but set to 'D' for the Cloud trigger as it should only
     # download on a daily basis.
     DAILY_DATES_FREQUENCY = 'D'
-
-    LAT_FIELD = 'LAT'
-    LON_FIELD = 'LON'
 
     # Grid tiles used for each request
     SA_GRID_EXTENTS = [
@@ -704,6 +715,61 @@ class Definitions:
 
 class Utilities:
     @staticmethod
+    def is_float(string):
+        try:
+            float(string)
+        except ValueError:
+            return False
+        return True
+
+    @staticmethod
+    def is_date(string):
+        try:
+            parse(string, fuzzy=False)
+            return True
+        except ValueError:
+            return False
+
+    @staticmethod
+    def remove_unwanted_chars(string):
+        for char in Default.CHARS_TO_REMOVE:
+            string = string.replace(char, '')
+        return string
+
+    @staticmethod
+    def parse_column_names(list_column_names):
+        parsed_names = []
+        for name in list_column_names:
+            new_name = name
+            for char in Default.FIELD_NAME_INVALID_CHARS:
+                # Removes all wanted characters
+                new_name = new_name.replace(char, '_')
+
+            if new_name[0].isdigit():
+                # Field name cannot start with a digit
+                new_name = '_' + new_name
+
+            parsed_names.append(new_name)
+        return parsed_names
+
+    # THIS NEEDS IMPROVEMENT =====================================================================================================
+    @staticmethod
+    def parse_date(date):
+        if '/' in date:
+            structure = '%Y/%m/%d'
+        elif '\\' in date:
+            structure = '%Y\\%m\\%d'
+        elif '-' in date:
+            structure = '%Y-%m-%d'
+        else:
+            if len(date) == 8:
+                structure = '%Y%m%d'
+            return date
+
+        bigquery_datetime = datetime.strptime(date, structure).strftime(Default.BIGQUERY_DATETIME_STRUCTURE)
+        return bigquery_datetime
+
+    @staticmethod
     def list_bucket_data(project, bucket):
         """Lists files contained in a bucket.
 
@@ -828,7 +894,7 @@ class Utilities:
 
         client_bq = bigquery.Client()
 
-        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET + '.' + shp_file.replace('.shp', '')
+        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET_BUCKET + '.' + shp_file.replace('.shp', '')
 
         schema = [
             bigquery.SchemaField('id', 'INTEGER', mode='NULLABLE'),
@@ -1486,6 +1552,7 @@ class Utilities:
             table = bigquery.Table(bq_table_uri, schema=schema)
             client_bq.create_table(table)
         except Exception as e:
+            print(e)
             return False
 
         try:
@@ -1503,6 +1570,7 @@ class Utilities:
             # Loading from csv file into bigquery failed
             # The newly created bigquery table will be deleted
             client_bq.delete_table(bq_table_uri)
+            print(e)
             return False
 
         # Returns True if loading the data into BigQuery succeeded
@@ -1568,6 +1636,147 @@ class Utilities:
 
         return True
 
+    @staticmethod
+    def parse_csv_table(upload_uri):
+        schema = []
+        column_types = []
+
+        csv_name = os.path.basename(upload_uri)
+        temp_name = 'zzzzztemp_' + csv_name
+        temp_uri = 'gs://' + Default.BUCKET_TRIGGER + '/' + temp_name
+
+        bucket_csv = gcsfs.GCSFileSystem(project=Default.PROJECT_ID)
+        with bucket_csv.open(upload_uri, 'r', errors='ignore') as f:
+            print("READ")
+            lines = f.readlines()
+            print("READ DONE")
+
+            # Gets the column names and parses it
+            # Any unwanted characters are removed from the column names
+            column_names = lines[0]
+            column_names = column_names.split(',')
+            column_names = Utilities.parse_column_names(column_names)
+            column_count = len(column_names)
+
+            j = 0
+            column_names_str = None
+            while j < column_count:
+                # Creates the first line (columns) to be written to the CSV file
+                new_name = column_names[j]
+                if column_names_str is None:
+                    column_names_str = new_name
+                else:
+                    column_names_str = '{}{}{}'.format(
+                        column_names_str,
+                        ',',
+                        new_name
+                    )
+
+                # Sets all column types to None at first
+                column_types.append(None)
+
+                j = j + 1
+
+            with io.StringIO() as file_mem:
+                file_mem.write(column_names_str)
+                file_mem.write('\n')
+
+                cur_row = 2  # Row counter will start at row 2 as the first row is the column names
+                # Parsing of all the table content
+                for line in lines[1:]:
+                    line = line.replace('\n', '')
+
+                    line_contents = line.split(',')
+
+                    line_contents_count = len(line_contents)
+                    if column_count != line_contents_count:
+                        now = datetime.now()
+                        print('[' + str(now) + '] ' + "WARNING: Row length does not agree with column count: " + str(cur_row))
+                        continue
+
+                    i = 0
+                    updated_line = None
+                    for element in line_contents:
+                        cur_column_type = column_types[i]
+
+                        if updated_line is None:
+                            # First element in the line
+                            if element == '':
+                                updated_line = element
+                            elif cur_column_type == 'STRING':
+                                updated_line = element
+                            else:
+                                element_ = Utilities.remove_unwanted_chars(element)
+                                if Utilities.is_date(element_):
+                                    #column_types[i] = 'DATE'
+                                    #updated_line = Utilities.parse_date(element_)
+                                    column_types[i] = 'STRING'
+                                    updated_line = element_
+                                elif Utilities.is_float(element_):
+                                    column_types[i] = 'FLOAT'
+                                    updated_line = element_
+                                else:
+                                    column_types[i] = 'STRING'
+                                    updated_line = element
+                        else:
+                            # Not the first element in the line
+                            if cur_column_type == 'STRING':
+                                # If a column type has been set to string there will be no change
+                                updated_line = updated_line + ',' + element
+                            elif element == '':
+                                # Empty values allowed. No change will be made to the column type
+                                updated_line = updated_line + ',' + element
+                            else:
+                                # Sets the column type
+                                element_ = Utilities.remove_unwanted_chars(element)
+                                if Utilities.is_date(element_):
+                                    #column_types[i] = 'DATE'
+                                    #updated_line = updated_line + ',' + Utilities.parse_date(element_)
+                                    column_types[i] = 'STRING'
+                                    updated_line = updated_line + ',' + element_
+                                elif Utilities.is_float(element_):
+                                    column_types[i] = 'FLOAT'
+                                    updated_line = updated_line + ',' + element_
+                                else:
+                                    column_types[i] = 'STRING'
+                                    updated_line = updated_line + ',' + element
+                        i = i + 1
+
+                    file_mem.write(updated_line)
+                    file_mem.write('\n')
+
+                    cur_row = cur_row + 1
+
+                data_in_mem = file_mem.getvalue()
+                data_in_mem = data_in_mem[:len(data_in_mem) - 1]
+                csv_upload_success = Utilities.load_csv_into_bucket(
+                    Default.BUCKET_TEMP,
+                    data_in_mem,
+                    temp_name)
+
+                file_mem.close()
+
+        j = 0
+        while j < column_count:
+            # Sets all unidentified cases to STRING
+            # This will likely happen if a column is empty
+            if column_types[j] is None:
+                column_types[j] = 'STRING'
+            j = j + 1
+
+        now = datetime.now()
+        print('[' + str(now) + '] ' + str(column_types))
+
+        j = 0
+        for column_name in column_names:
+            data_type = column_types[j]
+            schema.append(
+                bigquery.SchemaField(column_name, data_type, mode='NULLABLE')
+            )
+            j = j + 1
+
+        return temp_uri, schema
+
 
 def create_bigquery_json_files():
     for bq_dataset in Default.LIST_BQ_DATASETS:
@@ -1595,31 +1804,43 @@ def data_added_to_bucket():
     """
     client = storage.Client(project=Default.PROJECT_ID)
     bucket = client.get_bucket(Default.BUCKET_TRIGGER)
+    bucket_temp = client.get_bucket(Default.BUCKET_TEMP)
 
     list_csv, list_excel, list_archives, list_raster, list_vector = Utilities.list_bucket_data(
         project=Default.PROJECT_ID,
-        bucket=Default.BUCKET_TRIGGER)
+        bucket=Default.BUCKET_TRIGGER
+    )
 
     for csv_file in list_csv:
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "CSV: " + str(csv_file))
+
+        # REMOVE JUST FOR TESTING ======================================================================================================
+        if csv_file != "weather.csv":
+            continue
+
         output_table_name = csv_file.replace('.csv', '')
         upload_uri = 'gs://' + Default.BUCKET_TRIGGER + '/' + csv_file
-        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET + '.' + output_table_name
+        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET_BUCKET + '.' + output_table_name
 
-        schema = [
-            # bigquery.SchemaField('Date', 'Date', mode='NULLABLE'),
-            bigquery.SchemaField('Max_Temperature', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Min_Temperature', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Precipitation', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Relative_Humidity', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Solar', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Streamflow', 'FLOAT', mode='NULLABLE'),
-        ]
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "PARSING")
 
-        success = Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, 1)
-        if success:
-            Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_DONE, csv_file, csv_file)
-        else:
-            Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, csv_file, csv_file)
+        temp_uri, schema = Utilities.parse_csv_table(upload_uri)
+
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "LOADING CSV INTO BIGQUERY")
+        success = Utilities.load_csv_into_bigquery(temp_uri, bq_table_uri, schema, 1)
+
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "DONE")
+
+        #bucket_temp.delete_blob(os.path.basename(temp_uri))
+
+        # if success:
+        #     Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_DONE, csv_file, csv_file)
+        # else:
+        #     Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, csv_file, csv_file)
 
     for archive_file in list_archives:
         success = Utilities.unzip(archive_file)
@@ -1635,4 +1856,4 @@ def data_added_to_bucket():
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
 
-
+    data_added_to_bucket()
