@@ -1358,16 +1358,15 @@ def download_weather_data_into_bigquery():
                         start_d = int(last_date[6:])
                         end_d = int(previous_date.strftime("%d"))
                     else:
-                        # Start and end dates
+                        # Start and end dates for monthly/annual and climatology
                         today_date = datetime.datetime.today()
-                        # Weather data will always be downloaded for the previous day, to be sure the data is available
-                        previous_date = today_date - datetime.timedelta(days=Default.NUMBER_OF_PREVIOUS_DAY)
-                        start_y = int(previous_date.strftime("%Y"))
-                        end_y = int(previous_date.strftime("%Y"))
-                        start_m = int(previous_date.strftime("%m"))
-                        end_m = int(previous_date.strftime("%m"))
-                        start_d = int(previous_date.strftime("%d"))
-                        end_d = int(previous_date.strftime("%d"))
+
+                        start_y = int(today_date.strftime("%Y")) - 1
+                        end_y = int(today_date.strftime("%Y")) - 1
+                        start_m = 1
+                        end_m = 12
+                        start_d = 1
+                        end_d = 31
                 except NotFound:
                     table_exist = False
 
