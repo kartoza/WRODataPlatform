@@ -22,7 +22,7 @@ from requests.exceptions import Timeout
 class Default:
     # For testing
     BUCKET_TEMP = 'wrc_wro_temp2'
-    PROJECT_ID = 'thermal-glazing-350010'
+    PROJECT_ID = 'static-webbing-359410'
     BUCKET_TRIGGER = 'wrc_wro_temp2'
 
     # Projects
@@ -1816,7 +1816,7 @@ def data_added_to_bucket():
         print('[' + str(now) + '] ' + "CSV: " + str(csv_file))
 
         # REMOVE JUST FOR TESTING ======================================================================================================
-        if csv_file != "weather.csv":
+        if csv_file != "test_weather2.csv":
             continue
 
         output_table_name = csv_file.replace('.csv', '')

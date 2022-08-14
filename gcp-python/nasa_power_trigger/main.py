@@ -1291,6 +1291,8 @@ def download_weather_data_into_bigquery(event, context):
                 # List datasets could not be determined, skip
                 continue
 
+            list_datasets = [list_datasets[1]]
+
             # Performs requests on each dataset
             for dataset in list_datasets:
                 # This variable is used if the dataset needs to be skipped, likely when the data is
@@ -1648,4 +1650,5 @@ def download_weather_data_into_bigquery(event, context):
 
                         # Closes the memory file when done with the current date
                         file_mem.close()
+                return
     print("END")
