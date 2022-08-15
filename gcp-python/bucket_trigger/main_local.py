@@ -755,16 +755,17 @@ class Utilities:
     # THIS NEEDS IMPROVEMENT =====================================================================================================
     @staticmethod
     def parse_date(date):
+        structure = None
         if '/' in date:
             structure = '%Y/%m/%d'
         elif '\\' in date:
             structure = '%Y\\%m\\%d'
         elif '-' in date:
             structure = '%Y-%m-%d'
-        else:
-            if len(date) == 8:
-                structure = '%Y%m%d'
-            return date
+
+        if structure is None:
+            # Date structure could not be determined
+            return None
 
         bigquery_datetime = datetime.strptime(date, structure).strftime(Default.BIGQUERY_DATETIME_STRUCTURE)
         return bigquery_datetime
@@ -1692,7 +1693,10 @@ class Utilities:
                     if column_count != line_contents_count:
                         now = datetime.now()
                         print('[' + str(now) + '] ' + "WARNING: Row length does not agree with column count: " + str(cur_row))
+                        print("\t\t\t" + str(line_contents))
                         continue
+
+                    #print("\tLINE: " + str(line_contents))
 
                     i = 0
                     updated_line = None
@@ -1704,14 +1708,20 @@ class Utilities:
                             if element == '':
                                 updated_line = element
                             elif cur_column_type == 'STRING':
+                                # If the column type is already set to string, no changes will be made
                                 updated_line = element
                             else:
                                 element_ = Utilities.remove_unwanted_chars(element)
                                 if Utilities.is_date(element_):
-                                    #column_types[i] = 'DATE'
-                                    #updated_line = Utilities.parse_date(element_)
-                                    column_types[i] = 'STRING'
-                                    updated_line = element_
+                                    updated_line = Utilities.parse_date(element_)
+                                    if updated_line is None:
+                                        # The date structure could not be determined
+                                        # Set to type string
+                                        column_types[i] = 'STRING'
+                                        updated_line = element_
+                                    else:
+                                        # The date structure could be determined
+                                        column_types[i] = 'DATE'
                                 elif Utilities.is_float(element_):
                                     column_types[i] = 'FLOAT'
                                     updated_line = element_
@@ -1720,20 +1730,26 @@ class Utilities:
                                     updated_line = element
                         else:
                             # Not the first element in the line
-                            if cur_column_type == 'STRING':
-                                # If a column type has been set to string there will be no change
-                                updated_line = updated_line + ',' + element
-                            elif element == '':
+                            if element == '':
                                 # Empty values allowed. No change will be made to the column type
+                                updated_line = updated_line + ',' + element
+                            elif cur_column_type == 'STRING':
+                                # If a column type has been set to string there will be no change
                                 updated_line = updated_line + ',' + element
                             else:
                                 # Sets the column type
                                 element_ = Utilities.remove_unwanted_chars(element)
                                 if Utilities.is_date(element_):
-                                    #column_types[i] = 'DATE'
-                                    #updated_line = updated_line + ',' + Utilities.parse_date(element_)
-                                    column_types[i] = 'STRING'
-                                    updated_line = updated_line + ',' + element_
+                                    element_ = Utilities.parse_date(element_)
+                                    if element_ is None:
+                                        # The date structure could not be determined
+                                        # Set to type string
+                                        column_types[i] = 'STRING'
+                                        updated_line = updated_line + ',' + element
+                                    else:
+                                        # The date structure could be determined
+                                        column_types[i] = 'DATE'
+                                        updated_line = updated_line + ',' + element_
                                 elif Utilities.is_float(element_):
                                     column_types[i] = 'FLOAT'
                                     updated_line = updated_line + ',' + element_
@@ -1741,6 +1757,8 @@ class Utilities:
                                     column_types[i] = 'STRING'
                                     updated_line = updated_line + ',' + element
                         i = i + 1
+
+                    #print("\t\t\tupdated: " + updated_line)
 
                     file_mem.write(updated_line)
                     file_mem.write('\n')
@@ -1767,6 +1785,7 @@ class Utilities:
         now = datetime.now()
         print('[' + str(now) + '] ' + str(column_types))
 
+        # Creates the BigQuery table schema
         j = 0
         for column_name in column_names:
             data_type = column_types[j]
@@ -1816,7 +1835,7 @@ def data_added_to_bucket():
         print('[' + str(now) + '] ' + "CSV: " + str(csv_file))
 
         # REMOVE JUST FOR TESTING ======================================================================================================
-        if csv_file != "test_weather2.csv":
+        if csv_file != "weather_divan.csv":
             continue
 
         output_table_name = csv_file.replace('.csv', '')

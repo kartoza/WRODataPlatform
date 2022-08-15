@@ -1291,7 +1291,7 @@ def download_weather_data_into_bigquery(event, context):
                 # List datasets could not be determined, skip
                 continue
 
-            list_datasets = [list_datasets[1]]
+            #list_datasets = [list_datasets[1]]
 
             # Performs requests on each dataset
             for dataset in list_datasets:
@@ -1313,7 +1313,7 @@ def download_weather_data_into_bigquery(event, context):
                         dataset_name,
                         community,
                         period,
-                        '2022',
+                        '2006',
                         '2022'
                         # start_y,
                         # end_y
@@ -1650,5 +1650,5 @@ def download_weather_data_into_bigquery(event, context):
 
                         # Closes the memory file when done with the current date
                         file_mem.close()
-                return
+                #return
     print("END")

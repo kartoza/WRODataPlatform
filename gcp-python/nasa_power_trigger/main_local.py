@@ -17,17 +17,17 @@ from requests.exceptions import Timeout
 
 class Default:
     # For testing
-    BUCKET_TEMP = 'wrc_wro_temp2'
-    PROJECT_ID = 'thermal-glazing-350010'
+    #BUCKET_TEMP = 'wrc_wro_temp2'
+    #PROJECT_ID = 'thermal-glazing-350010'
 
     # Projects
-    #PROJECT_ID = 'wrc-wro'
+    PROJECT_ID = 'wrc-wro'
 
     # Buckets
     BUCKET_TRIGGER = 'wro-trigger-test'
     BUCKET_DONE = 'wro-done'
     BUCKET_FAILED = 'wro-failed'
-    #BUCKET_TEMP = 'wrc_wro_temp'
+    BUCKET_TEMP = 'wrc_wro_temp'
 
     # Regions (e.g. us, us-east1, etc.)
     REGION = 'us-east1'
@@ -583,13 +583,13 @@ class Definitions:
         # HEATING_DEGREE_DAYS_BELOW_18
     ]
     LIST_NASA_POWER_DATASETS_AG_DAILY = [
-        # SURFACE_SOIL_WETNESS,  # include
-        # ROOT_SOIL_WETNESS,  # include
+        SURFACE_SOIL_WETNESS,  # include
+        ROOT_SOIL_WETNESS,  # include
         PROFILE_SOIL_MOISTURE  # include
     ]
 
     LIST_NASA_POWER_DATASETS_RE_MONTHLY = [
-        #SKY_SURFACE_SW_IRRADIANCE,
+        SKY_SURFACE_SW_IRRADIANCE,  # include
         # CLEAR_SKY_SURFACE_SW_IRRADIANCE,
         # SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
         # SKY_SURFACE_SW_DIFFUSE_IRRADIANCE,
@@ -598,26 +598,26 @@ class Definitions:
         # SKY_SURFACE_ALBEDO,
         # TOA_SW_IRRADIANCE,
         CLOUD_AMOUNT,  # include
-        #SKY_SURFACE_PS_ACTIVE_RADIATION,
+        # SKY_SURFACE_PS_ACTIVE_RADIATION,
         # CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
         # SKY_SURFACE_UVA_IRRADIANCE,
         # SKY_SURFACE_UVB_IRRADIANCE,
         # SKY_SURFACE_UV_INDEX,
-        #WINDSPEED_2M,  # include
+        WINDSPEED_2M,  # include
         TEMP,  # include
-        #DEW_FROST,  # include
-        #WET_TEMP,  # include
-        #EARTH_SKIN_TEMP,  # include
+        DEW_FROST,  # include
+        WET_TEMP,  # include
+        EARTH_SKIN_TEMP,  # include
         # TEMP_RANGE,
-        #TEMP_MAX,  # include
-        #TEMP_MIN,  # include
+        TEMP_MAX,  # include
+        TEMP_MIN,  # include
         # SKY_SURFACE_LW_IRRADIANCE,
-        #SPECIFIC_HUMIDITY,  # include
-        #RELATIVE_HUMIDITY,  # include
-        #PRECIPITATION,  # include
-        #PRECIPITATION_SUM,  # include
+        SPECIFIC_HUMIDITY,  # include
+        RELATIVE_HUMIDITY,  # include
+        PRECIPITATION,  # include
+        PRECIPITATION_SUM,  # include
         # SURFACE_PRESSURE,
-        #WINDSPEED_10M,  # include
+        WINDSPEED_10M,  # include
         # WINDSPEED_10M_MAX,
         # WINDSPEED_10M_MIN,
         # WINDSPEED_10M_RANGE,
@@ -637,13 +637,13 @@ class Definitions:
         # HEATING_DEGREE_DAYS_BELOW_18
     ]
     LIST_NASA_POWER_DATASETS_AG_MONTHLY = [
-        #SURFACE_SOIL_WETNESS,  # include
-        #ROOT_SOIL_WETNESS,  # include
+        SURFACE_SOIL_WETNESS,  # include
+        ROOT_SOIL_WETNESS,  # include
         PROFILE_SOIL_MOISTURE  # include
     ]
 
     LIST_NASA_POWER_DATASETS_RE_CLIMATOLOGY = [
-        #SKY_SURFACE_SW_IRRADIANCE,  # include
+        # SKY_SURFACE_SW_IRRADIANCE,  # include
         # SKY_SURFACE_SW_IRRADIANCE_GMT,
         # CLEAR_SKY_SURFACE_SW_IRRADIANCE,
         # SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
@@ -652,8 +652,8 @@ class Definitions:
         # SKY_SURFACE_ALBEDO,
         # TOA_SW_IRRADIANCE,
         CLOUD_AMOUNT,  # include
-        #SKY_SURFACE_PS_ACTIVE_RADIATION,  # include
-        #CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,  # include
+        SKY_SURFACE_PS_ACTIVE_RADIATION,  # include
+        CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,  # include
         # SKY_SURFACE_UVA_IRRADIANCE,
         # SKY_SURFACE_UVB_IRRADIANCE,
         # SKY_SURFACE_UV_INDEX,
@@ -662,23 +662,23 @@ class Definitions:
         # SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MAX,
         # SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MIN,
         # MIDDAY_INSOLATION_INCIDENT,
-        #WINDSPEED_2M,  # include
+        WINDSPEED_2M,  # include
         TEMP,  # include
-        #DEW_FROST,  # include
-        #WET_TEMP,  # include
-        #EARTH_SKIN_TEMP,  # include
+        DEW_FROST,  # include
+        WET_TEMP,  # include
+        EARTH_SKIN_TEMP,  # include
         # TEMP_RANGE,
-        #TEMP_MAX,  # include
-        #TEMP_MIN,  # include
+        TEMP_MAX,  # include
+        TEMP_MIN,  # include
         # EARTH_SKIN_TEMP_MAX,
         # EARTH_SKIN_TEMP_MIN,
         # SKY_SURFACE_LW_IRRADIANCE,
-        #SPECIFIC_HUMIDITY,  # include
-        #RELATIVE_HUMIDITY,  # include
-        #PRECIPITATION,  # include
-        #PRECIPITATION_SUM,  # include
+        SPECIFIC_HUMIDITY,  # include
+        RELATIVE_HUMIDITY,  # include
+        PRECIPITATION,  # include
+        PRECIPITATION_SUM,  # include
         # SURFACE_PRESSURE,
-        #WINDSPEED_10M,  # include
+        WINDSPEED_10M,  # include
         # WINDSPEED_10M_MAX,
         # WINDSPEED_10M_MIN,
         # WINDSPEED_10M_RANGE,
@@ -697,8 +697,8 @@ class Definitions:
         # HEATING_DEGREE_DAYS_BELOW_18
     ]
     LIST_NASA_POWER_DATASETS_AG_CLIMATOLOGY = [
-        #SURFACE_SOIL_WETNESS,  # include
-        #ROOT_SOIL_WETNESS,  # include
+        SURFACE_SOIL_WETNESS,  # include
+        ROOT_SOIL_WETNESS,  # include
         PROFILE_SOIL_MOISTURE  # include
     ]
 
@@ -1316,7 +1316,7 @@ def download_weather_data_into_bigquery():
                         dataset_name,
                         community,
                         period,
-                        '2022',
+                        '2006',
                         '2022'
                         # start_y,
                         # end_y
@@ -1369,6 +1369,8 @@ def download_weather_data_into_bigquery():
                         end_d = 31
                 except NotFound:
                     table_exist = False
+
+                    print("bla")
 
                     # Start and end dates
                     today_date = datetime.datetime.today()
@@ -1653,7 +1655,7 @@ def download_weather_data_into_bigquery():
                         # Closes the memory file when done with the current date
                         file_mem.close()
 
-            return
+            #return
     print("END")
 
 
