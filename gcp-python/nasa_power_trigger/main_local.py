@@ -17,17 +17,17 @@ from requests.exceptions import Timeout
 
 class Default:
     # For testing
-    BUCKET_TEMP = 'wrc_wro_temp2'
-    PROJECT_ID = 'thermal-glazing-350010'
+    #BUCKET_TEMP = 'wrc_wro_temp2'
+    #PROJECT_ID = 'thermal-glazing-350010'
 
     # Projects
-    #PROJECT_ID = 'wrc-wro'
+    PROJECT_ID = 'wrc-wro'
 
     # Buckets
     BUCKET_TRIGGER = 'wro-trigger-test'
     BUCKET_DONE = 'wro-done'
     BUCKET_FAILED = 'wro-failed'
-    #BUCKET_TEMP = 'wrc_wro_temp'
+    BUCKET_TEMP = 'wrc_wro_temp'
 
     # Regions (e.g. us, us-east1, etc.)
     REGION = 'us-east1'
@@ -59,8 +59,8 @@ class Default:
     CLIMATOLOGY = 'climatology'
     NASA_POWER_TEMPORAL_AVE = [
         DAILY,
-        #MONTHLY,
-        #CLIMATOLOGY
+        MONTHLY,
+        CLIMATOLOGY
     ]
     NUMBER_OF_PREVIOUS_DAY = 1  # This will be the number of days prior to the current/today date
     SKIP_CLIMATOLOGY = True  # These datasets will likely not change
@@ -583,13 +583,13 @@ class Definitions:
         # HEATING_DEGREE_DAYS_BELOW_18
     ]
     LIST_NASA_POWER_DATASETS_AG_DAILY = [
-        # SURFACE_SOIL_WETNESS,  # include
-        # ROOT_SOIL_WETNESS,  # include
+        SURFACE_SOIL_WETNESS,  # include
+        ROOT_SOIL_WETNESS,  # include
         PROFILE_SOIL_MOISTURE  # include
     ]
 
     LIST_NASA_POWER_DATASETS_RE_MONTHLY = [
-        #SKY_SURFACE_SW_IRRADIANCE,
+        SKY_SURFACE_SW_IRRADIANCE,  # include
         # CLEAR_SKY_SURFACE_SW_IRRADIANCE,
         # SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
         # SKY_SURFACE_SW_DIFFUSE_IRRADIANCE,
@@ -598,26 +598,26 @@ class Definitions:
         # SKY_SURFACE_ALBEDO,
         # TOA_SW_IRRADIANCE,
         CLOUD_AMOUNT,  # include
-        #SKY_SURFACE_PS_ACTIVE_RADIATION,
+        # SKY_SURFACE_PS_ACTIVE_RADIATION,
         # CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,
         # SKY_SURFACE_UVA_IRRADIANCE,
         # SKY_SURFACE_UVB_IRRADIANCE,
         # SKY_SURFACE_UV_INDEX,
-        #WINDSPEED_2M,  # include
+        WINDSPEED_2M,  # include
         TEMP,  # include
-        #DEW_FROST,  # include
-        #WET_TEMP,  # include
-        #EARTH_SKIN_TEMP,  # include
+        DEW_FROST,  # include
+        WET_TEMP,  # include
+        EARTH_SKIN_TEMP,  # include
         # TEMP_RANGE,
-        #TEMP_MAX,  # include
-        #TEMP_MIN,  # include
+        TEMP_MAX,  # include
+        TEMP_MIN,  # include
         # SKY_SURFACE_LW_IRRADIANCE,
-        #SPECIFIC_HUMIDITY,  # include
-        #RELATIVE_HUMIDITY,  # include
-        #PRECIPITATION,  # include
-        #PRECIPITATION_SUM,  # include
+        SPECIFIC_HUMIDITY,  # include
+        RELATIVE_HUMIDITY,  # include
+        PRECIPITATION,  # include
+        PRECIPITATION_SUM,  # include
         # SURFACE_PRESSURE,
-        #WINDSPEED_10M,  # include
+        WINDSPEED_10M,  # include
         # WINDSPEED_10M_MAX,
         # WINDSPEED_10M_MIN,
         # WINDSPEED_10M_RANGE,
@@ -637,13 +637,13 @@ class Definitions:
         # HEATING_DEGREE_DAYS_BELOW_18
     ]
     LIST_NASA_POWER_DATASETS_AG_MONTHLY = [
-        #SURFACE_SOIL_WETNESS,  # include
-        #ROOT_SOIL_WETNESS,  # include
+        SURFACE_SOIL_WETNESS,  # include
+        ROOT_SOIL_WETNESS,  # include
         PROFILE_SOIL_MOISTURE  # include
     ]
 
     LIST_NASA_POWER_DATASETS_RE_CLIMATOLOGY = [
-        #SKY_SURFACE_SW_IRRADIANCE,  # include
+        # SKY_SURFACE_SW_IRRADIANCE,  # include
         # SKY_SURFACE_SW_IRRADIANCE_GMT,
         # CLEAR_SKY_SURFACE_SW_IRRADIANCE,
         # SKY_SURFACE_SW_DIRECT_NORMAL_IRRADIANCE,
@@ -652,8 +652,8 @@ class Definitions:
         # SKY_SURFACE_ALBEDO,
         # TOA_SW_IRRADIANCE,
         CLOUD_AMOUNT,  # include
-        #SKY_SURFACE_PS_ACTIVE_RADIATION,  # include
-        #CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,  # include
+        SKY_SURFACE_PS_ACTIVE_RADIATION,  # include
+        CLEAR_SKY_SURFACE_PS_ACTIVE_RADIATION,  # include
         # SKY_SURFACE_UVA_IRRADIANCE,
         # SKY_SURFACE_UVB_IRRADIANCE,
         # SKY_SURFACE_UV_INDEX,
@@ -662,23 +662,23 @@ class Definitions:
         # SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MAX,
         # SKY_SURFACE_SW_DIFFUSE_IRRADIANCE_MIN,
         # MIDDAY_INSOLATION_INCIDENT,
-        #WINDSPEED_2M,  # include
+        WINDSPEED_2M,  # include
         TEMP,  # include
-        #DEW_FROST,  # include
-        #WET_TEMP,  # include
-        #EARTH_SKIN_TEMP,  # include
+        DEW_FROST,  # include
+        WET_TEMP,  # include
+        EARTH_SKIN_TEMP,  # include
         # TEMP_RANGE,
-        #TEMP_MAX,  # include
-        #TEMP_MIN,  # include
+        TEMP_MAX,  # include
+        TEMP_MIN,  # include
         # EARTH_SKIN_TEMP_MAX,
         # EARTH_SKIN_TEMP_MIN,
         # SKY_SURFACE_LW_IRRADIANCE,
-        #SPECIFIC_HUMIDITY,  # include
-        #RELATIVE_HUMIDITY,  # include
-        #PRECIPITATION,  # include
-        #PRECIPITATION_SUM,  # include
+        SPECIFIC_HUMIDITY,  # include
+        RELATIVE_HUMIDITY,  # include
+        PRECIPITATION,  # include
+        PRECIPITATION_SUM,  # include
         # SURFACE_PRESSURE,
-        #WINDSPEED_10M,  # include
+        WINDSPEED_10M,  # include
         # WINDSPEED_10M_MAX,
         # WINDSPEED_10M_MIN,
         # WINDSPEED_10M_RANGE,
@@ -697,8 +697,8 @@ class Definitions:
         # HEATING_DEGREE_DAYS_BELOW_18
     ]
     LIST_NASA_POWER_DATASETS_AG_CLIMATOLOGY = [
-        #SURFACE_SOIL_WETNESS,  # include
-        #ROOT_SOIL_WETNESS,  # include
+        SURFACE_SOIL_WETNESS,  # include
+        ROOT_SOIL_WETNESS,  # include
         PROFILE_SOIL_MOISTURE  # include
     ]
 
@@ -910,7 +910,8 @@ class Utilities:
         """
         if temporal == Default.DAILY:
             if Default.DAILY_DATES_FREQUENCY == 'D':
-                s_date = date(start_year, start_month, start_day) + timedelta(days=1)
+                #s_date = date(start_year, start_month, start_day) + timedelta(days=1)
+                s_date = date(start_year, start_month, start_day)
                 e_date = date(end_year, end_month, end_day)
                 delta = e_date - s_date
 
@@ -1244,13 +1245,6 @@ def download_weather_data_into_bigquery():
     skip_leading_rows = Default.SKIP_LEADING_ROWS  # Number of rows which will be skipped at the start of the file
     skip_trailing_rows = Default.SKIP_TRAILING_ROWS  # Number of rows at the enc of the file which will be skipped
 
-    # start_y = 2022
-    # end_y = 2022
-    # start_m = 8
-    # end_m = 8
-    # start_d = 1
-    # end_d = 1
-
     # Google cloud platform
     client = storage.Client(project=Default.PROJECT_ID)
     bucket = client.bucket(Default.BUCKET_TEMP)
@@ -1316,7 +1310,7 @@ def download_weather_data_into_bigquery():
                         dataset_name,
                         community,
                         period,
-                        '2022',
+                        '2006',
                         '2022'
                         # start_y,
                         # end_y
@@ -1357,6 +1351,14 @@ def download_weather_data_into_bigquery():
                         end_m = int(previous_date.strftime("%m"))
                         start_d = int(last_date[6:])
                         end_d = int(previous_date.strftime("%d"))
+
+                        # start_y = 2022
+                        # end_y = 2022
+                        # start_m = 7
+                        # end_m = 7
+                        # start_d = 1
+                        # end_d = 31
+
                     else:
                         # Start and end dates for monthly/annual and climatology
                         today_date = datetime.datetime.today()
@@ -1369,7 +1371,6 @@ def download_weather_data_into_bigquery():
                         end_d = 31
                 except NotFound:
                     table_exist = False
-
                     # Start and end dates
                     today_date = datetime.datetime.today()
                     # Weather data will always be downloaded for the previous day, to be sure the data is available
@@ -1516,8 +1517,7 @@ def download_weather_data_into_bigquery():
                                     # those dates. The nodata value for NASA POWER is -999.0
                                     value_test = float(list_columns[2])
                                     if value_test == -999:
-                                        print('val: ' + str(value_test))
-                                        print('not add: ' + date_['start_date'])
+                                        print('Date not available for the dataset, go to the next dataset')
                                         flag_break = True
                                         break
                                     # Transformtion has been done for daily
@@ -1653,7 +1653,6 @@ def download_weather_data_into_bigquery():
                         # Closes the memory file when done with the current date
                         file_mem.close()
 
-            return
     print("END")
 
 
