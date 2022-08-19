@@ -905,7 +905,8 @@ class Utilities:
         """
         if temporal == Default.DAILY:
             if Default.DAILY_DATES_FREQUENCY == 'D':
-                s_date = date(start_year, start_month, start_day) + timedelta(days=1)
+                #s_date = date(start_year, start_month, start_day) + timedelta(days=1)
+                s_date = date(start_year, start_month, start_day)
                 e_date = date(end_year, end_month, end_day)
                 delta = e_date - s_date
 
@@ -1514,8 +1515,7 @@ def download_weather_data_into_bigquery(event, context):
                                     # those dates. The nodata value for NASA POWER is -999.0
                                     value_test = float(list_columns[2])
                                     if value_test == -999:
-                                        print('val: ' + str(value_test))
-                                        print('not add: ' + date_['start_date'])
+                                        print('Date not available for the dataset, go to the next dataset')
                                         flag_break = True
                                         break
                                     # Transformtion has been done for daily

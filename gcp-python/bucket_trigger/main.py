@@ -1,38 +1,35 @@
-import sys
 from google.cloud import storage
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 import zipfile
-import logging
+import gcsfs
 import io
-import geopandas
 import pandas as pd
+import geopandas
 import json
 import os
-import time
+import math
 from datetime import datetime
-
-import requests
-from requests import get, post
-from requests.exceptions import Timeout
 
 
 class Default:
     # For testing
-    BUCKET_TEMP = 'wrc_wro_temp2'
-    PROJECT_ID = 'thermal-glazing-350010'
+    #BUCKET_TEMP = 'wrc_wro_temp2'
+    #PROJECT_ID = 'static-webbing-359410'
+    #BUCKET_TRIGGER = 'wrc_wro_temp2'
+    #REGION = 'us-east1'
 
     # Projects
-    #PROJECT_ID = 'wrc-wro'
+    PROJECT_ID = 'wrc-wro'
 
     # Buckets
-    BUCKET_TRIGGER = 'wro-trigger-test'
+    BUCKET_TRIGGER = 'wrc_wro_datasets'
     BUCKET_DONE = 'wro-done'
     BUCKET_FAILED = 'wro-failed'
-    #BUCKET_TEMP = 'wrc_wro_temp'
+    BUCKET_TEMP = 'wrc_wro_temporary'
 
     # Regions (e.g. us, us-east1, etc.)
-    REGION = 'us-east1'
+    REGION = 'us'
 
     # BigQuery
     BIGQUERY_DATASET_DAILY = 'weather_daily'
@@ -44,8 +41,20 @@ class Default:
         BIGQUERY_DATASET_MONTHLY,
         BIGQUERY_DATASET_CLIMATOLOGY
     ]
+    BIGQUERY_DATETIME_STRUCTURE = '%Y-%m-%d'
 
-    # Request parameters
+    # CSV parsing
+    CHARS_TO_REMOVE = [' ', '\n', '\t']  # Characters to remove from field contents
+    # Characters to remove from field names
+    FIELD_NAME_INVALID_CHARS = [
+        ' ', '-', '.', '!', '@', '#', '$',
+        '%', '&', '*', '\n', '\t', '\'', '\"'
+    ]
+    ALLOWED_DATE_STRUCTURES = ['%Y-%m-%d', '%Y/%m/%d']  # Date structures allowed by parser
+    # Rows will be read in as chunks. This is required due to limitations
+    CSV_ROW_READ_LIMIT = 10000000  # 10 million rows seems to work fine
+
+    # NASA POWER request parameters
     NASA_POWER_URL = 'https://power.larc.nasa.gov/api/temporal'
     NASA_POWER_FORMAT = 'CSV'
     # AG: Agroclimatology, RE: Renewable energy, or SB: Sustainable buildings
@@ -55,6 +64,8 @@ class Default:
     MAX_REQUESTS = 10  # Number of attempts a request will be done if it fails
     SKIP_LEADING_ROWS = 10  # Rows to skip at the start of the received request content (e.g. headers)
     SKIP_TRAILING_ROWS = 1  # Rows to skip at the e of the reveived request content (e.g. headers)
+    LAT_FIELD = 'LAT'  # Latitude field name
+    LON_FIELD = 'LON'  # Longitude field name
 
     # Temporal types and settings
     DAILY = 'daily'
@@ -63,13 +74,11 @@ class Default:
     NASA_POWER_TEMPORAL_AVE = [DAILY, MONTHLY, CLIMATOLOGY]
     NUMBER_OF_PREVIOUS_DAY = 5  # This will be the number of days prior to the current/today date
     SKIP_CLIMATOLOGY = True  # These datasets will likely not change
+
     # 'D' for daily downloads, 'M' for all days on a monthly basis
     # 'M' will be useful for bulk downloads, but set to 'D' for the Cloud trigger as it should only
     # download on a daily basis.
     DAILY_DATES_FREQUENCY = 'D'
-
-    LAT_FIELD = 'LAT'
-    LON_FIELD = 'LON'
 
     # Grid tiles used for each request
     SA_GRID_EXTENTS = [
@@ -703,6 +712,112 @@ class Definitions:
 
 
 class Utilities:
+    @staticmethod
+    def is_float(string):
+        """Checks if a given string can be converted to float.
+
+        :param string: String variable which will be tested if its a float value
+        :type string: str
+
+        :returns: True if its float, otherwise False
+        :rtype: boolean
+        """
+        try:
+            float(string)
+        except ValueError:
+            return False
+        return True
+
+    @staticmethod
+    def is_date(string):
+        """Checks if a given string can be converted to a date. Allowed date formats
+        can be set by Default.ALLOWED_DATE_STRUCTURES (e.g. %Y-%m-%d).
+
+        :param string: String which will be tested if it is a valid date
+        :type string: str
+
+        :returns: True if the value can be converted to a date object, otherwise False
+        :rtype: boolean
+        """
+        for date_structure in Default.ALLOWED_DATE_STRUCTURES:
+            try:
+                # Attempts to read the string as a date
+                datetime.strptime(string, date_structure)
+                return True
+            except ValueError:
+                # Check the next date structure
+                continue
+        return False
+
+    @staticmethod
+    def remove_unwanted_chars(string):
+        """Removes all unwanted characters from a string. The possible characters can be set
+        by Default.CHARS_TO_REMOVE. This is done to check if a value can possibly be a float (e.g. 20 000)
+        or invalid characters from field names.
+
+        :param string: String which will be from which unwanted characters will be removed.
+        :type string: str
+
+        :returns: Updated string with no unwanted characters
+        :rtype: str, float
+        """
+        if isinstance(string, str):  # Checks if the variable stores a string
+            updated_string = string
+            for char in Default.CHARS_TO_REMOVE:
+                updated_string = updated_string.replace(char, '')
+
+            if Utilities.is_float(updated_string):
+                return float(updated_string)
+
+        return string
+
+    @staticmethod
+    def parse_column_names(list_column_names):
+        """Parses column names provided. Will remove all unwanted charcters from the column names. Returns the
+        updated names
+
+        :param list_column_names: The lines received from NASA POWER
+        :type list_column_names: list
+
+        :returns: A list containing the updated field names
+        :rtype: list
+        """
+        parsed_names = []
+        for name in list_column_names:
+            new_name = name
+            for char in Default.FIELD_NAME_INVALID_CHARS:
+                # Removes all wanted characters
+                new_name = new_name.replace(char, '_')
+
+            if new_name[0].isdigit():
+                # Field name cannot start with a digit
+                new_name = '_' + new_name
+
+            parsed_names.append(new_name)
+        return parsed_names
+
+    @staticmethod
+    def parse_date(date):
+        """Check if the date is valid and whether it can be converted to the valid BigQuery date format (%Y-%m-%d).
+
+        :param date: Date to be checked
+        :type date: str
+
+        :returns: Date in BigQuery format
+        :rtype: date
+        """
+        parsed_date = None
+        for date_structure in Default.ALLOWED_DATE_STRUCTURES:
+            try:
+                # Checks if the date structure is accepted
+                datetime.strptime(date, date_structure)
+                parsed_date = datetime.strptime(date, date_structure).strftime(Default.BIGQUERY_DATETIME_STRUCTURE)
+            except ValueError:
+                # Check the next date structure
+                continue
+
+        return parsed_date
+
     @staticmethod
     def list_bucket_data(project, bucket):
         """Lists files contained in a bucket.
@@ -1404,38 +1519,6 @@ class Utilities:
         return tables
 
     @staticmethod
-    def get_data(link):
-        """Performs a get request on the provided link. Several checks and try/exceptoions is done
-        to avoid unexpected errors and to keep the code running.
-
-        :param link: Address for the request
-        :type link: str
-
-        :returns: True if the request succeeded, False if it failed
-        :rtype: boolean
-
-        :returns: Received request contents
-        :rtype: str
-        """
-        try:
-            # Performs the requests and gets the contents from NASA POWER
-            result = requests.get(link, timeout=Default.DEFAULT_TIMEOUT)
-            result_status = result.status_code
-            if result_status == 200:
-                # Contents received from NASA POWER
-                content = result.content
-            else:
-                # Errorenous response from NASA POWER
-                return False, ''
-        except Timeout:
-            return False, ''
-        except Exception as e:
-            print(str(e))
-            return False, ''
-
-        return True, content
-
-    @staticmethod
     def load_csv_into_bucket(bucket_name, contents, csv_name):
         """Uploads string into a CSV file into a bucket.
 
@@ -1463,7 +1546,7 @@ class Utilities:
         return True
 
     @staticmethod
-    def load_csv_into_bigquery(upload_uri, bq_table_uri, schema, skip_leading_rows=1):
+    def load_csv_into_bigquery(upload_uri, bq_table_uri, schema, append, skip_leading_rows=1):
         """Loads a CSV file stored in a bucket into BigQuery.
 
         :param upload_uri: Google cloud storage directory (e.g. gs://bucket/folder/file)
@@ -1475,6 +1558,11 @@ class Utilities:
         :param schema: Fields structure of the BigQuery table
         :type schema: list
 
+        :param append: True if the new rows should be appended to the table, False for when a new table will be created
+        :type append: boolean:param append: True if the new rows should be appended to the table, False for when a new
+        table will be created
+        :type append: boolean
+
         :param skip_leading_rows: Number of rows to skip at the start of the file
         :type skip_leading_rows: int
 
@@ -1482,18 +1570,33 @@ class Utilities:
         :rtype: boolean
         """
         client_bq = bigquery.Client()
-        try:
-            table = bigquery.Table(bq_table_uri, schema=schema)
-            client_bq.create_table(table)
-        except Exception as e:
-            return False
+
+        if not append:
+            # Only if it's a new table to be created
+            # This will be skipped for appending rows
+            try:
+                table = bigquery.Table(bq_table_uri, schema=schema)
+                client_bq.create_table(table)
+            except Exception as e:
+                print(e)
+                return False
 
         try:
-            job_config = bigquery.LoadJobConfig(
-                schema=schema,
-                skip_leading_rows=skip_leading_rows,
-                source_format=bigquery.SourceFormat.CSV
-            )
+            if append:
+                # Append rows to an existing table
+                job_config = bigquery.LoadJobConfig(
+                    schema=schema,
+                    skip_leading_rows=skip_leading_rows,
+                    source_format=bigquery.SourceFormat.CSV,
+                    write_disposition=bigquery.WriteDisposition.WRITE_APPEND
+                )
+            else:
+                # Create a new table
+                job_config = bigquery.LoadJobConfig(
+                    schema=schema,
+                    skip_leading_rows=skip_leading_rows,
+                    source_format=bigquery.SourceFormat.CSV
+                )
 
             load_job = client_bq.load_table_from_uri(
                 upload_uri, bq_table_uri, job_config=job_config
@@ -1503,6 +1606,7 @@ class Utilities:
             # Loading from csv file into bigquery failed
             # The newly created bigquery table will be deleted
             client_bq.delete_table(bq_table_uri)
+            print(e)
             return False
 
         # Returns True if loading the data into BigQuery succeeded
@@ -1568,6 +1672,164 @@ class Utilities:
 
         return True
 
+    @staticmethod
+    def parse_csv_table(upload_uri):
+        """Parses a provided CSV file. The parser automatically determines the type of each field based on the
+        contents of the field. Unwanted character will also be removed from contents (e.g. 20 000 to 20000).
+        Field names are also updated to agree with BigQuery limits (e.g. 123 Field will become _123_Field).
+
+        :param upload_uri: URI for the CSV stored in a GCP bucket
+        :type upload_uri: str
+
+        :returns: URI list of the created CSV files in the temporary bucket
+        :rtype: list
+
+        :returns: BigQuery Schema
+        :rtype: list
+        """
+        schema = []  # BigQuery schema
+        column_types = []  # Data type for each column (e.g FLOAT, DATE, etc.)
+        all_temp_uri = []  # A list of the of all the temporary created CSVs in a GCP bucket
+        updated_column_names = []
+        chunk_num = 1  # Keeps count of the current row chunk being processed
+
+        # URIs/Paths
+        csv_name = os.path.basename(upload_uri)
+        temp_name = 'zzzzztemp_' + csv_name.replace('.csv', '_' + str(chunk_num) + '.csv')
+        temp_uri = 'gs://' + Default.BUCKET_TEMP + '/' + temp_name
+
+        now = datetime.now()
+        print('[' + str(now) + '] ' + 'Opening file')
+
+        # Opens the file stored in a GCP bucket. gcsfs is required for this
+        bucket_csv = gcsfs.GCSFileSystem(project=Default.PROJECT_ID)
+        rows_remain = True
+        skip_rows = 0
+        # This will loop will keep going until all rows has been processed
+        # Done in chunks (e.g. 10 million at a time)
+        while rows_remain:
+            with bucket_csv.open(upload_uri, 'r', errors='ignore') as f:
+                now = datetime.now()
+                print('[' + str(now) + '] ' + 'Reading into pandas. Chunk number: ' + str(chunk_num))
+
+                if chunk_num == 1:
+                    csv_contents = pd.read_csv(f, skiprows=skip_rows, nrows=Default.CSV_ROW_READ_LIMIT,
+                                               low_memory=False)
+                else:
+                    csv_contents = pd.read_csv(f, skiprows=skip_rows + 1, nrows=Default.CSV_ROW_READ_LIMIT,
+                                               low_memory=False, names=updated_column_names)
+
+                csv_row_count = len(csv_contents)
+
+                print("Chunk row count: " + str(csv_row_count))
+
+                if chunk_num == 1:
+                    # Columns names are only initialized once
+                    now = datetime.now()
+                    print('[' + str(now) + '] ' + 'Starting parsing of the columns')
+
+                    column_names = csv_contents.columns
+                    updated_column_names = Utilities.parse_column_names(column_names)
+
+                    i = 0
+                    columns_parameter = {}
+                    for old_name in column_names:
+                        # Updates all column names with the updated column names
+                        new_name = updated_column_names[i]
+                        columns_parameter[old_name] = new_name
+                        column_types.append(None)
+                        i = i + 1
+                    csv_contents = csv_contents.rename(columns_parameter, axis='columns')
+
+                now = datetime.now()
+                print('[' + str(now) + '] ' + 'Parsing rows')
+
+                cur_row = 0
+                while cur_row < csv_row_count:
+                    cur_column_index = 0
+                    for column_name in updated_column_names:
+                        cur_value = csv_contents.at[cur_row, column_name]
+
+                        if cur_value == '' or cur_value is None:
+                            # If the table cell is empty/None it will remain as is
+                            cur_column_index = cur_column_index + 1
+                            continue
+                        elif column_types[cur_column_index] == 'STRING':
+                            # If the column type is already set to string, no changes are required
+                            cur_column_index = cur_column_index + 1
+                            continue
+                        else:
+                            # Check what type the value is
+                            new_value = Utilities.remove_unwanted_chars(cur_value)
+
+                            if Utilities.is_float(new_value):
+                                # Value can be stored as float
+                                if math.isnan(new_value):
+                                    # This is an empty value, the value and field type will be left as is
+                                    cur_column_index = cur_column_index + 1
+                                    continue
+
+                                column_types[cur_column_index] = 'FLOAT'
+                                csv_contents.at[cur_row, column_name] = new_value
+                            elif Utilities.is_date(new_value):
+                                new_value_date = Utilities.parse_date(new_value)
+                                if new_value_date is None:
+                                    # The date structure could not be determined
+                                    # Set to type string, and leave the value as is
+                                    column_types[cur_column_index] = 'STRING'
+                                else:
+                                    # The date structure could be determined
+                                    # Change the date to the parsed date value
+                                    column_types[cur_column_index] = 'DATE'
+                                    csv_contents.at[cur_row, column_name] = new_value_date
+                            else:
+                                # All other cases will be set to string
+                                column_types[cur_column_index] = 'STRING'
+                                csv_contents.at[cur_row, column_name] = new_value
+
+                            cur_column_index = cur_column_index + 1
+
+                    cur_row = cur_row + 1
+
+                # Writes the results to a CSV file in a GCP bucket
+                csv_contents.to_csv(temp_uri, index=False)
+                all_temp_uri.append(temp_uri)
+
+                f.close()
+
+            # Checks if more rows remain
+            if csv_row_count < Default.CSV_ROW_READ_LIMIT:
+                # Processing done
+                rows_remain = False
+            else:
+                # More rows to process
+                skip_rows = skip_rows + Default.CSV_ROW_READ_LIMIT
+                chunk_num = chunk_num + 1
+                temp_name = 'temp_' + csv_name.replace('.csv', '_' + str(chunk_num) + '.csv')
+                temp_uri = 'gs://' + Default.BUCKET_TRIGGER + '/' + temp_name
+
+                now = datetime.now()
+                print('[' + str(now) + '] ' + 'NEXT')
+
+        # Creates the BigQuery table schema
+        j = 0
+        for column_name in updated_column_names:
+            data_type = column_types[j]
+            if data_type is None:
+                schema.append(
+                    bigquery.SchemaField(column_name, 'STRING', mode='NULLABLE')
+                )
+            else:
+                schema.append(
+                    bigquery.SchemaField(column_name, data_type, mode='NULLABLE')
+                )
+            j = j + 1
+
+        now = datetime.now()
+        print('[' + str(now) + '] ' + 'DONE')
+
+        return all_temp_uri, schema
+
 
 def data_added_to_bucket(event, context):
     """Trigger function to call when data has been uploaded to a bucket.
@@ -1588,31 +1850,53 @@ def data_added_to_bucket(event, context):
     updated = event['updated']
 
     if uploaded_file.endswith('.csv'):
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "CSV: " + str(uploaded_file))
+
         output_table_name = uploaded_file.replace('.csv', '')
         upload_uri = 'gs://' + bucket_name + '/' + uploaded_file
         bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET_BUCKET + '.' + output_table_name
 
-        schema = [
-            # bigquery.SchemaField('Date', 'Date', mode='NULLABLE'),
-            bigquery.SchemaField('Max_Temperature', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Min_Temperature', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Precipitation', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Relative_Humidity', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Solar', 'FLOAT', mode='NULLABLE'),
-            bigquery.SchemaField('Streamflow', 'FLOAT', mode='NULLABLE'),
-        ]
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "PARSING")
 
-        success = Utilities.load_csv_into_bigquery(upload_uri, bq_table_uri, schema, 1)
-        if success:
-            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_DONE, uploaded_file, uploaded_file)
-        else:
-            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, uploaded_file, uploaded_file)
+        all_temp_uri, schema = Utilities.parse_csv_table(upload_uri)
+
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "LOADING CSV INTO BIGQUERY")
+
+        csv_num = 1
+        for temp_uri in all_temp_uri:
+            if csv_num == 1:
+                # First CSV chunk, create new table
+
+                now = datetime.now()
+                print('[' + str(now) + '] ' + "NEW TABLE")
+
+                success = Utilities.load_csv_into_bigquery(temp_uri, bq_table_uri, schema, False, 1)
+            else:
+                now = datetime.now()
+                print('[' + str(now) + '] ' + "APPEND TO TABLE")
+
+                success = Utilities.load_csv_into_bigquery(temp_uri, bq_table_uri, schema, True, 1)
+
+            csv_num = csv_num + 1
+
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "DONE")
+
+        #bucket_temp.delete_blob(os.path.basename(temp_uri))
+
+        # if success:
+        #     Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_DONE, csv_file, csv_file)
+        # else:
+        #     Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, csv_file, csv_file)
     elif uploaded_file.endswith('.zip'):
         success = Utilities.unzip(uploaded_file)
         if success:
             bucket.delete_blob(uploaded_file)
         else:
-            moved = Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, uploaded_file, uploaded_file)
+            Utilities.move_data(Default.BUCKET_TRIGGER, Default.BUCKET_FAILED, archive_file, archive_file)
     elif uploaded_file.endswith('.shp'):
         Utilities.shp_to_geojson(uploaded_file)
 

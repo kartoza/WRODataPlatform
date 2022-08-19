@@ -59,8 +59,8 @@ class Default:
     CLIMATOLOGY = 'climatology'
     NASA_POWER_TEMPORAL_AVE = [
         DAILY,
-        #MONTHLY,
-        #CLIMATOLOGY
+        MONTHLY,
+        CLIMATOLOGY
     ]
     NUMBER_OF_PREVIOUS_DAY = 1  # This will be the number of days prior to the current/today date
     SKIP_CLIMATOLOGY = True  # These datasets will likely not change
@@ -910,7 +910,8 @@ class Utilities:
         """
         if temporal == Default.DAILY:
             if Default.DAILY_DATES_FREQUENCY == 'D':
-                s_date = date(start_year, start_month, start_day) + timedelta(days=1)
+                #s_date = date(start_year, start_month, start_day) + timedelta(days=1)
+                s_date = date(start_year, start_month, start_day)
                 e_date = date(end_year, end_month, end_day)
                 delta = e_date - s_date
 
@@ -1244,13 +1245,6 @@ def download_weather_data_into_bigquery():
     skip_leading_rows = Default.SKIP_LEADING_ROWS  # Number of rows which will be skipped at the start of the file
     skip_trailing_rows = Default.SKIP_TRAILING_ROWS  # Number of rows at the enc of the file which will be skipped
 
-    # start_y = 2022
-    # end_y = 2022
-    # start_m = 8
-    # end_m = 8
-    # start_d = 1
-    # end_d = 1
-
     # Google cloud platform
     client = storage.Client(project=Default.PROJECT_ID)
     bucket = client.bucket(Default.BUCKET_TEMP)
@@ -1357,6 +1351,14 @@ def download_weather_data_into_bigquery():
                         end_m = int(previous_date.strftime("%m"))
                         start_d = int(last_date[6:])
                         end_d = int(previous_date.strftime("%d"))
+
+                        # start_y = 2022
+                        # end_y = 2022
+                        # start_m = 7
+                        # end_m = 7
+                        # start_d = 1
+                        # end_d = 31
+
                     else:
                         # Start and end dates for monthly/annual and climatology
                         today_date = datetime.datetime.today()
@@ -1369,9 +1371,6 @@ def download_weather_data_into_bigquery():
                         end_d = 31
                 except NotFound:
                     table_exist = False
-
-                    print("bla")
-
                     # Start and end dates
                     today_date = datetime.datetime.today()
                     # Weather data will always be downloaded for the previous day, to be sure the data is available
@@ -1518,8 +1517,7 @@ def download_weather_data_into_bigquery():
                                     # those dates. The nodata value for NASA POWER is -999.0
                                     value_test = float(list_columns[2])
                                     if value_test == -999:
-                                        print('val: ' + str(value_test))
-                                        print('not add: ' + date_['start_date'])
+                                        print('Date not available for the dataset, go to the next dataset')
                                         flag_break = True
                                         break
                                     # Transformtion has been done for daily
@@ -1655,7 +1653,6 @@ def download_weather_data_into_bigquery():
                         # Closes the memory file when done with the current date
                         file_mem.close()
 
-            #return
     print("END")
 
 
