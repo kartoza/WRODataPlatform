@@ -26,8 +26,6 @@ def make_query(bigquery_project:str = "wrc-wro",bigquery_dataset:str = "" , bigq
     underscore_names = use_name_underscores(bigquery_dataset, bigquery_table)
     bigquery_dataset = underscore_names.get("bigquery_dataset")
     bigquery_table = underscore_names.get("bigquery_table")
-    path = f"{bigquery_project}.{bigquery_dataset}.{bigquery_table}"
-    # raise RuntimeError(path)
     query = f"""
         SELECT * FROM `{bigquery_project}.{bigquery_dataset}.{bigquery_table}`
     """
