@@ -1,7 +1,7 @@
 from google.cloud import bigquery
 import json
 from pyproj import Proj
-from env import WRO_CKAN_BIGQUERY_ENV
+from .env import WRO_CKAN_BIGQUERY_ENV
 
 
 def make_query(bigquery_project:str = "wrc-wro",bigquery_dataset:str = "" , bigquery_table:str = "", offset:int=0, limit:int=0) -> list:
@@ -21,12 +21,7 @@ def make_query(bigquery_project:str = "wrc-wro",bigquery_dataset:str = "" , bigq
     support picking specific columns
     (should be introduced as kwargs)
     """
-<<<<<<< HEAD
-    credentials = '/home/mohab/google_keys/bigquery/wrc-wro-7a61a964dfbd.json'
-    client = bigquery.Client.from_service_account_json(credentials)
-=======
     client = bigquery.Client.from_service_account_json(WRO_CKAN_BIGQUERY_ENV)
->>>>>>> 5205380c398414f0fd1f52d1478b36b592d339b8
     data = []
     underscore_names = use_name_underscores(bigquery_dataset, bigquery_table)
     bigquery_dataset = underscore_names.get("bigquery_dataset")
@@ -49,11 +44,7 @@ def make_spatial_query(bigquery_project:str = "wrc-wro", bigquery_dataset:str = 
     ST_ASGEOJSON, returns a geojson holding
     a spatial table
     """
-<<<<<<< HEAD
-    credentials = '/home/mohab/google_keys/bigquery/wrc-wro-7a61a964dfbd.json'
-=======
     credentials = WRO_CKAN_BIGQUERY_ENV
->>>>>>> 5205380c398414f0fd1f52d1478b36b592d339b8
     client = bigquery.Client.from_service_account_json(credentials)
     underscore_names = use_name_underscores(bigquery_dataset, bigquery_table)
     bigquery_dataset = underscore_names.get("bigquery_dataset")
