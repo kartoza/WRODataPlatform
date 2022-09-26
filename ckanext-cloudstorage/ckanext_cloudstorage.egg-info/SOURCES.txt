@@ -10,9 +10,12 @@ ckanext/cloudstorage/plugin.py
 ckanext/cloudstorage/storage.py
 ckanext/cloudstorage/logic/__init__.py
 ckanext/cloudstorage/logic/action/__init__.py
+ckanext/cloudstorage/logic/action/create.py
 ckanext/cloudstorage/logic/action/multipart.py
 ckanext/cloudstorage/logic/auth/__init__.py
 ckanext/cloudstorage/logic/auth/multipart.py
+ckanext/cloudstorage/views/__init__.py
+ckanext/cloudstorage/views/resource.py
 ckanext_cloudstorage.egg-info/PKG-INFO
 ckanext_cloudstorage.egg-info/SOURCES.txt
 ckanext_cloudstorage.egg-info/dependency_links.txt

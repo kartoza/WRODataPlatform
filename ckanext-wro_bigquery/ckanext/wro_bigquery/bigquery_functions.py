@@ -21,7 +21,7 @@ def make_query(bigquery_project:str = "wrc-wro",bigquery_dataset:str = "" , bigq
     support picking specific columns
     (should be introduced as kwargs)
     """
-    credentials = '/home/mohab/Main/development/googleAuthKeys/wro project/bigquery admin/wrc-wro-7a61a964dfbd.json'
+    credentials = '/home/mohab/google_keys/bigquery/wrc-wro-7a61a964dfbd.json'
     client = bigquery.Client.from_service_account_json(credentials)
     data = []
     underscore_names = use_name_underscores(bigquery_dataset, bigquery_table)
@@ -45,7 +45,7 @@ def make_spatial_query(bigquery_project:str = "wrc-wro", bigquery_dataset:str = 
     ST_ASGEOJSON, returns a geojson holding
     a spatial table
     """
-    credentials = '/home/mohab/Main/development/googleAuthKeys/wro project/bigquery admin/wrc-wro-7a61a964dfbd.json'
+    credentials = '/home/mohab/google_keys/bigquery/wrc-wro-7a61a964dfbd.json'
     client = bigquery.Client.from_service_account_json(credentials)
     underscore_names = use_name_underscores(bigquery_dataset, bigquery_table)
     bigquery_dataset = underscore_names.get("bigquery_dataset")
