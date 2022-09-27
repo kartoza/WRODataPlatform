@@ -11,10 +11,8 @@ ckan.module("wro_spatial",function($){
         _onClick:function(e){
             let window_origin = location.origin
             mapWindow =  window.open(`${window_origin}/map/`);
-            //mapWindow =  window.open('http://localhost/map');
         },
         _onStorageChange:function(e){
-            console.log("value changed")
             $('#field-spatial').val(window.localStorage.getItem("geo_bounds"));
             mapWindow.close()
         }
@@ -79,16 +77,9 @@ ckan.module('geo_data_preview', function($){
                         "coordinates": adjusted_coords
                     }
                 }
-                
-                
-                    geojson_layer.addData(feat)
+                geojson_layer.addData(feat)
             });      
                 
-                
-
-            // $.getJSON("https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/africa.geojson",function(data){
-            //     L.geoJson(data).addTo(map);
-            // })
         },
         markupGeojson:function(props){
             // adding properties popups
