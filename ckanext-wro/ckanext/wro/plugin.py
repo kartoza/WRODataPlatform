@@ -53,6 +53,7 @@ class WroPlugin(plugins.SingletonPlugin):
             "get_package_name":helpers.get_package_name,
             "convert_geojson_to_bbox":helpers.convert_geojson_to_bbox,
             "get_default_bounding_box":helpers.get_default_bounding_box,
+            'resource_read_helper':helpers.resource_read_helper
         }
 
 

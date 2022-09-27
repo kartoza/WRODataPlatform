@@ -3,6 +3,7 @@ import logging
 import typing
 from shapely import geometry
 from ckan.plugins import toolkit
+from ckan import model
 import json
 
 logger = logging.getLogger(__name__)
@@ -86,3 +87,33 @@ def get_package_name(package_id:str)-> str:
     package_show_action = toolkit.get_action("package_show")
     package_name = package_show_action(data_dict={"id":package_id})["title"]
     return package_name
+
+
+def resource_read_helper(data_dict:dict):
+    # the problem with the current view is that is the resource
+    # provided is not the last updated one, get the resouce and pass it
+    q = f""" select url from resource where id='{data_dict["id"]}' """
+    session_res = []
+    query_res = model.Session.execute(q)
+    for item in query_res:
+        session_res.append(item)
+    
+    cloud_path = session_res[0][0]
+    return change_spaces_to_underscores(cloud_path)
+
+def change_spaces_to_underscores(name:str):
+    """
+    as the buckets changes spaces
+    int the name of resource to
+    dashes, we need to hcange this
+    here after we grab from database
+    note that the uploader do this so what
+    we have in the bucket has underscores in
+    the name, but the database has spaces. 
+    """
+    # get the last part after the last / 
+    first_part, last_part = name.rsplit("/",1)
+    res_name, res_id = last_part.split("_id_")
+    res_name = res_name.replace(" ","_")
+    name = first_part+"/"+res_name+"_id_"+res_id
+    return name
