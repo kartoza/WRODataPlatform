@@ -23,7 +23,7 @@ class WroGcsStoragePlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IPackageController, inherit=True)
     plugins.implements(plugins.IResourceController, inherit=True)
-    plugins.implements(plugins.ITemplateHelpers)
+    # plugins.implements(plugins.ITemplateHelpers)
     plugins.implements(plugins.IResourceView, inherit=True)
 
     # IConfigurer
@@ -41,12 +41,6 @@ class WroGcsStoragePlugin(plugins.SingletonPlugin):
             'resource_create':ckan_custom_actions.resource_create,
             # "resource_update":resource_update,
             "package_create": ckan_custom_actions.package_create
-        }
-
-
-    def get_helpers(self):
-        return{
-            'resource_read_helper':h.resource_read_helper
         }
 
     def get_uploader(self, upload_to, old_filename):
