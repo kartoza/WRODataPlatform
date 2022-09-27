@@ -16,8 +16,33 @@ def resource_read_helper(data_dict:dict):
     query_res = model.Session.execute(q)
     for item in query_res:
         session_res.append(item)
+    
     cloud_path = session_res[0][0]
-    return cloud_path
+    return change_spaces_to_underscores(cloud_path)
+    # raise RuntimeError(cloud_path)
+    # return cloud_path
+
+def change_spaces_to_underscores(name:str):
+    """
+    as the buckets changes spaces
+    int the name of resource to
+    dashes, we need to hcange this
+    here after we grab from database
+    note that the uploader do this so what
+    we have in the bucket has underscores in
+    the name, but the database has spaces. 
+    """
+    # get the last part after the last / 
+    first_part, last_part = name.rsplit("/",1)
+    res_name, res_id = last_part.split("_id_")
+    res_name = res_name.replace(" ","_")
+    name = first_part+"/"+res_name+"_id_"+res_id
+    return name
+    # get the part before the id and change 
+    # spaces in it.
+
+
+
     # return {'resource':session_res[0], 'cloud_url':'full_url'}
     # id = data_dict['id']
     # resource = toolkit.get_action('resource_show')(data_dict={'id':id})

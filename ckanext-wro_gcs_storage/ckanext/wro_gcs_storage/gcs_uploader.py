@@ -77,14 +77,8 @@ class ResourceCloudStorage():
         package = toolkit.get_action('package_show')(data_dict={'id':res.get("package_id")})
         # we need to generate unique names inside the container
         name = pathlib.Path(filename).stem
-        # GCS replace spaces with dashes, avoid that be having spaces to underscores 
-        name = str(name).replace(" ", "_")
-        # need to handle special charactacters #:\/! ...etc. in naming
-        for i in name:
-            if i in "!”#$%&'()*+,-./:;<=>?@[\]^`{|}~.":
-                name = name.replace(i,"_")
-
         ext = pathlib.Path(filename).suffix
+        name = self.change_file_name_to_bucket_compatible(name)
         file_name = name +'_id_'+ rid + ext
         package_extras = package.get("extras")
         cloud_path = ""
@@ -113,11 +107,7 @@ class ResourceCloudStorage():
                     try:
                         upload_path = self.path_from_filename(id,self.filename)
                         storage_path = f'https://storage.cloud.google.com/{upload_path}'
-                        resource_url = self.resource.get("url")
-                        if resource_url is None:
-                            self.resource["url"] = storage_path
-                        else: 
-                            self.resource.update({'url' : storage_path})
+                        self.resource.update({'url' : storage_path})
                         bucket_name = config.get('container_name')
                         upload_blob(bucket_name, self.file_upload, upload_path)
                     except KeyError:
@@ -142,3 +132,17 @@ class ResourceCloudStorage():
     @property
     def package(self):
         return model.Package.get(self.resource['package_id'])
+
+    def change_file_name_to_bucket_compatible(self, name):
+        """
+        google cloud bucket
+        changes every special
+        character (including spaces)
+        into underscore, this results
+        in the resource not being found
+        """
+        name = str(name).replace(" ", "_")
+        for i in name:
+            if i in "!”#$%&'()*+,-:;<=>?@[\]^`{|}~":
+                name = name.replace(i,"_")
+        return name
