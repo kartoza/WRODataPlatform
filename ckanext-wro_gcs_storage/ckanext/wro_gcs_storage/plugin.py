@@ -76,3 +76,13 @@ class WroGcsStoragePlugin(plugins.SingletonPlugin):
         setup the view template
         """
         return 'views/bigquery_mash_view.html'
+
+# # IResourceController
+#     def after_create(self,context, resource):
+#         """
+#         updating the resource url
+#         to the cloud one
+#         """
+#         resource.update({"url":"https://storage.google.com", "url_type":"link"})
+#         res = toolkit.get_action("resource_update")(context, resource)
+#         raise RuntimeError(res)
