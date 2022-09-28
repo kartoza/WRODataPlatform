@@ -53,9 +53,7 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     for item in package_extras:
         if item.get("key") == "cloud_path":
             resource_cloud_path = item.get("value")
-    
     updated_resource = original_action(context, data_dict) if access else None
-    
     resource_name = data_dict.get("name")    # this name is file name not the name of the resource provided in the form
     name = pathlib.Path(resource_name).stem
     ext = pathlib.Path(resource_name).suffix
@@ -66,7 +64,8 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     full_url = 'https://storage.cloud.google.com/'+container_name+'/'+resource_cloud_path+'/'+ pkg_name + "/" + full_name
     if data_dict.get("is_link") is None or data_dict.get("is_link") is False:
         if data_dict.get("is_bigquery_table") is None or data_dict.get("is_bigquery_table") is False:
-            updated_resource.update({"url":full_url})
+            # updated_resource.update({"url":full_url})
+            updated_resource = toolkit.get_action("resource_patch")(context, data_dict={"id":res_id,"url":full_url, "url_type":"link"})
             q = f""" update resource set url='{full_url}' where id='{res_id}' """
             model.Session.execute(q)
             model.repo.commit()
