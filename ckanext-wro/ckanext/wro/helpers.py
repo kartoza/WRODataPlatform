@@ -47,7 +47,7 @@ def convert_geojson_to_bbox(
     try:
         geojson = json.loads(geojson)
         coords = geojson["coordinates"][0]
-    except TypeError as e:
+    except:
         result = None
     else:
         min_lon = min(c[0] for c in coords)
