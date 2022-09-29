@@ -51,9 +51,10 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     package_extras = package.get("extras")
     pkg_name = package.get('name')
     resource_cloud_path = ""
-    for item in package_extras:
-        if item.get("key") == "cloud_path":
-            resource_cloud_path = item.get("value")
+    if package_extras is not None:
+        for item in package_extras:
+            if item.get("key") == "cloud_path":
+                resource_cloud_path = item.get("value")
     updated_resource = original_action(context, data_dict) if access else None
     resource_name = data_dict.get("name")    # this name is file name not the name of the resource provided in the form
     name = pathlib.Path(resource_name).stem
