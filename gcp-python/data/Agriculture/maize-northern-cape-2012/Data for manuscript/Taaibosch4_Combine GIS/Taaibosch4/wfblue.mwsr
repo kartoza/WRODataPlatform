@@ -1,6 +1,0 @@
-<ColoringScheme SchemeType="Grid" GridName="wfblue" GroupName="Data Layers">
-  <GridColoringScheme AmbientIntensity="0.7" Key="" LightSourceAzimuth="90" LightSourceElevation="45" LightSourceIntensity="0.7" NoDataColor="-16777216" ImageLayerFillTransparency="1" ImageUpsamplingMethod="None" ImageDownsamplingMethod="None">
-    <Break Caption="" LowValue="0" HighValue="321.445831298828" LowColor="-13399600" HighColor="-1907802" ColoringType="0" GradientModel="1" />
-    <Break Caption="" LowValue="321.445831298828" HighValue="642.891662597656" LowColor="-1907802" HighColor="-6843787" ColoringType="0" GradientModel="1" />
-  </GridColoringScheme>
-</ColoringScheme>

@@ -1,6 +1,0 @@
-<ColoringScheme SchemeType="Grid" GridName="taai4dy30m" GroupName="Data Layers">
-  <GridColoringScheme AmbientIntensity="0.7" Key="" LightSourceAzimuth="90" LightSourceElevation="45" LightSourceIntensity="0.7" NoDataColor="-16777216" ImageLayerFillTransparency="1" ImageUpsamplingMethod="Bilinear" ImageDownsamplingMethod="None">
-    <Break Caption="" LowValue="0" HighValue="7.8921427726745" LowColor="-16096246" HighColor="-6718183" ColoringType="0" GradientModel="1" />
-    <Break Caption="" LowValue="7.8921427726745" HighValue="15.784285545349" LowColor="-6718183" HighColor="-1" ColoringType="0" GradientModel="1" />
-  </GridColoringScheme>
-</ColoringScheme>
