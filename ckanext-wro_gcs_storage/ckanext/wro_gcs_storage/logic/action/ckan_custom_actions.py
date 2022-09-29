@@ -17,17 +17,18 @@ def package_create(original_action,context:dict, data_dict:dict) -> dict:
     intercepting the package create
     action here
     """
-    wro_theme = data_dict.get('wro_theme') 
-    data_structure_category = data_dict.get('data_structure_category')
-    uploader_estimation_of_extent = data_dict.get('uploader_estimation_of_extent_of_processing')
-    data_classification = data_dict.get('data_classification')
+    access = toolkit.check_access("package_create", context, data_dict)
+    wro_theme = "" if data_dict.get('wro_theme') is None else data_dict.get('wro_theme')
+    data_structure_category = "" if data_dict.get('data_structure_category') is None else data_dict.get('data_structure_category')
+    uploader_estimation_of_extent = "" if data_dict.get('uploader_estimation_of_extent_of_processing') is None else data_dict.get('uploader_estimation_of_extent_of_processing')
+    data_classification = "" if data_dict.get('data_classification') is None else data_dict.get('data_classification')
+
     cloud_path = os.path.join(wro_theme,data_structure_category,uploader_estimation_of_extent,data_classification)
     cloud_path = cloud_path.title()
     extras = data_dict.get("extras")
     if extras is None:
         data_dict["extras"] = []
     data_dict['extras'].append({"key":"cloud_path", "value":cloud_path})
-    access = toolkit.check_access("package_create", context, data_dict)
     result = original_action(context, data_dict) if access else None
     return result
 

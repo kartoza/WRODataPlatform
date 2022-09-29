@@ -87,3 +87,24 @@ def use_name_underscores(bigquery_dataset, bigquery_table):
     bigquery_dataset = bigquery_dataset.replace(" ","_")
     bigquery_table = bigquery_table.replace(" ","_")
     return {"bigquery_dataset":bigquery_dataset, "bigquery_table":bigquery_table}
+
+# from google.cloud import bigquery
+# client = bigquery.Client()
+# bucket_name = 'my-bucket'
+# def download_bigquery_table(dataset_id,table_id):
+
+#     destination_uri = "gs://{}/{}".format(bucket_name, "shakespeare.csv")
+#     dataset_ref = bigquery.DatasetReference(project, dataset_id)
+#     table_ref = dataset_ref.table(table_id)
+
+#     extract_job = client.extract_table(
+#         table_ref,
+#         destination_uri,
+#         # Location must match that of the source table.
+#         location="US",
+#     )  # API request
+#     extract_job.result()  # Waits for job to complete.
+
+#     print(
+#         "Exported {}:{}.{} to {}".format(project, dataset_id, table_id, destination_uri)
+#     )
