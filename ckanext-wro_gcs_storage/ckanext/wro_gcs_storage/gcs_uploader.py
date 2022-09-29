@@ -82,9 +82,10 @@ class ResourceCloudStorage():
         file_name = name +'_id_'+ rid + ext
         package_extras = package.get("extras")
         cloud_path = ""
-        for item in package_extras:
-            if item.get("key") == "cloud_path":
-                cloud_path = item.get("value")
+        if package_extras is not None:
+            for item in package_extras:
+                if item.get("key") == "cloud_path":
+                    cloud_path = item.get("value")
         return os.path.join(
             cloud_path,
             self.resource['package_id'],
