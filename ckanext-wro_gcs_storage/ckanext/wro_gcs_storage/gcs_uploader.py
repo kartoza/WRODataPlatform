@@ -110,7 +110,10 @@ class ResourceCloudStorage():
                         storage_path = f'https://storage.cloud.google.com/{upload_path}'
                         self.resource.update({'url' : storage_path})
                         bucket_name = config.get('container_name')
-                        upload_blob(bucket_name, self.file_upload, upload_path)
+                        package = toolkit.get_action('package_show')(data_dict={'id':self.resource.get("package_id")})
+                        package_id = package.get("id")
+                        store_in_bigquery = self.resource.get("file_to_bigquery_table")
+                        upload_blob(bucket_name, self.file_upload, upload_path, package_id, store_in_bigquery)
                     except KeyError:
                         pass
 
