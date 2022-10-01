@@ -9,7 +9,7 @@ def initialize_google_client():
     return storage_client
 
 
-def upload_blob(bucket_name, source_file_name, destination_blob_name, package_id, store_in_bigquery=False):
+def upload_blob(bucket_name, source_file_name, destination_blob_name, package_id, store_in_bigquery="false"):
     storage_client = initialize_google_client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(destination_blob_name)
@@ -34,6 +34,7 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name, package_id
     )
     # adding package id and bigquery boolean to the resource
     # metdata  
+    store_in_bigquery = "false" if store_in_bigquery is None else "true" # if the checkbox isn't checked, CKAN doesn't provide a value, and because i'm using .get() in the uploader the value is None
     metadata = {'package_id': package_id, 'bigquery_file': store_in_bigquery}
     blob.metadata = metadata
     blob.patch()
