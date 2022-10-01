@@ -9,7 +9,7 @@ def initialize_google_client():
     return storage_client
 
 
-def upload_blob(bucket_name, source_file_name, destination_blob_name):
+def upload_blob(bucket_name, source_file_name, destination_blob_name, package_id, store_in_bigquery=False):
     storage_client = initialize_google_client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(destination_blob_name)
@@ -32,7 +32,11 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name):
         if_generation_not_match= if_generation_not_match, if_metageneration_match=if_metageneration_match
         , if_metageneration_not_match= if_metageneration_not_match
     )
-
+    # adding package id and bigquery boolean to the resource
+    # metdata  
+    metadata = {'package_id': package_id, 'bigquery_file': store_in_bigquery}
+    blob.metadata = metadata
+    blob.patch()
 
 def delete_blob(package_name , resource_cloud_path, resource_dict):
     """

@@ -292,7 +292,7 @@ dataset_fields:
 - field_name: minimum_maximum_extent
   label: Vertical minimum-maximum extent
   help_text: Specify the vertical minimum and maximum extent
-  preset: simple_subfields # customized by mohab(a lot to be added)
+  preset: simple_subfields
   required: false
   repeating_subfields:
     - field_name: minimum_vertical_extent
@@ -353,12 +353,14 @@ resource_fields:
     form_snippet: markdown.html
     form_placeholder: Some useful notes about the data
 
-  - field_name: format
-    label: Format
-    required: true
-    preset: resource_format_autocomplete
-    #validators: not_empty (cause an error, the resource page keeps reloading without submission)
-    help_text: Name of the data transfer format - This is a SANS 1878 mandatory field
+  - field_name: file_to_bigquery_table
+    label: Should file stored in bigquery table ?
+    validators: boolean_validator
+    preset: mod_checkbox
+    choices:
+      - value:
+        label:
+    help_text: Whether or not structured files should go to bigquery    
 
   - field_name: is_data_supplementary
     label: Supplementary material?
@@ -369,3 +371,10 @@ resource_fields:
       - value:
         label:
     help_text: Will be considered primary data assets if not specified
+
+  - field_name: format
+    label: Format
+    required: true
+    preset: resource_format_autocomplete
+    #validators: not_empty (cause an error, the resource page keeps reloading without submission)
+    help_text: Name of the data transfer format - This is a SANS 1878 mandatory field
