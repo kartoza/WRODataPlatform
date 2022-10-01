@@ -249,6 +249,7 @@ ckan.module('ckanext_wro_checkboxs_handler',function($){
   // handle is resource a supplementray material checkbox 
   let agreement_checkbox = $('#field-agreement')
   let is_resource_supplementary = $("#field-is_data_supplementary")
+  let file_to_bigquery_table = $("#field-file_to_bigquery_table")
 
   return{
     initialize:function(){
@@ -265,14 +266,15 @@ ckan.module('ckanext_wro_checkboxs_handler',function($){
       //isCheckboxPreviouslySet("agreement_check", agreement_checkbox)
 
       // handling supplementary
-      is_resource_supplementary.on("change", this._onSupplementary_change)
+      is_resource_supplementary.on("change", this._onCheckboxChange)
+      file_to_bigquery_table.on("change", this._onCheckboxChange)
       
     },
     _onAgreementChange:function(e){
         sessionStorage.setItem("agreement_check", e.target.checked)
         e.target.value = e.target.checked.toString()
     },
-    _onSupplementary_change:function(e){
+    _onCheckboxChange:function(e){
       e.target.value = e.target.checked.toString()
     }
 
