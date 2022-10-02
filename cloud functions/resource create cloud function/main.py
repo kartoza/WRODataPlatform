@@ -13,6 +13,7 @@ def ckan_gcs_resource_create(cloud_event):
     cloud event object as a param 
     """
     data = cloud_event.data
+
     resource_name = ""
     if data is not None:
         resource_name = data.get("name")
@@ -26,6 +27,9 @@ def ckan_gcs_resource_create(cloud_event):
         if blob_metadata is not None:
             package_id = blob_metadata.package_id
             send_to_bigquery = blob_metadata.bigquery_file
+            created_via_ckan = blob_metadata.created_via_ckan
+        if created_via_ckan == "true":
+            return
 
         package_name = get_package_name(resource_name)
         res_format = get_resource_format(resource_name)
