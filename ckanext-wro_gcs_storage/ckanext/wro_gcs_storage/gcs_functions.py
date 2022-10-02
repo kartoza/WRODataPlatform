@@ -48,6 +48,7 @@ def delete_blob(package_name , resource_cloud_path, resource_dict):
     bucket_name = config.get('container_name')
     # case where resource is a link or bigquery table
     resource_name = resource_dict['name']
+    resource_name = resource_name.replace(" ","_")
     name = pathlib.Path(resource_name).stem
     ext = pathlib.Path(resource_name).suffix
     resource_id = resource_dict['id']
