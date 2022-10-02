@@ -35,7 +35,7 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name, package_id
     # adding package id and bigquery boolean to the resource
     # metdata  
     store_in_bigquery = "false" if store_in_bigquery is None else "true" # if the checkbox isn't checked, CKAN doesn't provide a value, and because i'm using .get() in the uploader the value is None
-    metadata = {'package_id': package_id, 'bigquery_file': store_in_bigquery}
+    metadata = {'package_id': package_id, 'bigquery_file': store_in_bigquery, "created_via_ckan":"true"}
     blob.metadata = metadata
     blob.patch()
 
