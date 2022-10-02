@@ -86,9 +86,10 @@ class ResourceCloudStorage():
             for item in package_extras:
                 if item.get("key") == "cloud_path":
                     cloud_path = item.get("value")
+        package_name = package.get("name")
         return os.path.join(
             cloud_path,
-            self.resource['package_id'],
+            package_name,
             file_name
         )
 
