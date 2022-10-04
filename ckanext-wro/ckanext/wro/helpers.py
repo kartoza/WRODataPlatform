@@ -117,5 +117,5 @@ def change_spaces_to_underscores(name:str):
         res_name, res_id = last_part.split("_id_")
         res_name = res_name.replace(" ","_")
         name = first_part+"/"+res_name+"_id_"+res_id
-    
+        name = name.lower()
     return name
