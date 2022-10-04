@@ -69,7 +69,7 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     
     resource_name = data_dict.get("name")    # this name is file name not the name of the resource provided in the form
     name = pathlib.Path(resource_name).stem
-    name = name.lower_underscore_resource_name(name)
+    name = lower_underscore_resource_name(name)
     ext = pathlib.Path(resource_name).suffix
     res_id = updated_resource.get("id")
     full_name = name + '_id_'+ res_id + ext
