@@ -18,7 +18,7 @@ def update_blob_download_name(bucket_name):
     bucket = client.bucket(bucket_name)
     for blob in bucket.list_blobs():
         if "/" in blob.name:
-            remove_path = blob.name[blob.name.rfind("/") + 1:] # rfind gives that last occurence of the char
+            remove_path = blob.name[blob.name.rfind("/") + 1:] # rfind gives the last occurence of the char
             ext = pathlib.Path(remove_path).suffix
             remove_id = remove_path[:remove_path.rfind("_id_")]
             new_name = remove_id + ext
