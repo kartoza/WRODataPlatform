@@ -17,6 +17,8 @@ def ckan_gcs_resource_create(cloud_event):
     resource_name = ""
     if data is not None:
         resource_name = data.get("name")
+    else:
+        return
     
     if "_id_" not in resource_name: # TODO: use regex for id pattern
         client = storage.Client()
@@ -24,6 +26,9 @@ def ckan_gcs_resource_create(cloud_event):
         blob = bucket.get_blob(resource_name)
 
         blob_metadata = blob.metadata
+        package_id = ""
+        send_to_bigquery = ''
+        created_via_ckan = ''
         if blob_metadata is not None:
             package_id = blob_metadata.package_id
             send_to_bigquery = blob_metadata.bigquery_file
@@ -36,9 +41,11 @@ def ckan_gcs_resource_create(cloud_event):
         res_short_name = get_resource_short_name(resource_name)
         headers = {"Authorization":"6d5f1cf7-6d42-467f-b27f-b0a8454572c0"}
         res = {"package_id":package_name,"name":res_short_name, "format":res_format}
-        response = requests.post("https://data.waterresearchobservatory.org/api/3/action/resource_create",headers=headers, data=res)
-        response_ob = response.json()
-        print("response object:", response_ob)
+        try:
+            response = requests.post("https://data.waterresearchobservatory.org/api/3/action/resource_create",headers=headers, data=res)
+            response_ob = response.json()
+        except:
+            return "couldn't create ckan resource "
         response_result = response_ob.get("result")
         resource_ckan_id = response_result.get("id")
         resource_ckan_url = response_result.get("url") if response_result is not None else ""
@@ -55,8 +62,8 @@ def get_package_name(res_name:str)-> str:
     """
     packages names are unique 
     """
-    first_part, last_part = res_name.rsplit("/",1)
-    url_name, package_name = first_part.rsplit("/",1)
+    first_part = res_name.split("/",5)
+    package_name = first_part[4]
     return package_name
 
 def get_resource_short_name(res_name:str) -> dict:
@@ -69,7 +76,6 @@ def get_resource_short_name(res_name:str) -> dict:
     -> resource_name
     """
     first_part, last_part = res_name.rsplit("/",1)
-    #res_name, res_format = last_part.split(".")
     return last_part
 
 def get_resource_underscored_url(res_url:str) -> dict:
