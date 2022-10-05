@@ -996,6 +996,64 @@ class Utilities:
         load_job.result()
 
     @staticmethod
+    def geojson_into_bq(geojson_file):
+        """Stores a geojson file in Google storage in BigQuery
+
+        :param geojson_file: Google cloud storage directory of the geojson file (e.g. gs://bucket/folder/file.geojson)
+        :type geojson_file: geojson
+        """
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "Reading the geojson file using geopandas")
+
+        geojson_geopandas = geopandas.read_file(geojson_file)
+
+        # schema = []
+        schema = [
+            bigquery.SchemaField('id', 'INTEGER', mode='NULLABLE'),
+            bigquery.SchemaField('geometry', 'GEOGRAPHY', mode='NULLABLE')
+        ]
+        list_data_types = geojson_geopandas.dtypes
+
+        geojson_json = json.loads(geojson_geopandas.to_json())
+        newline_json = Utilities.convert_json_to_newline_json(geojson_json)
+
+        first_feat = newline_json[0]
+        for field_name in first_feat:
+            if field_name == 'id' or field_name == 'geometry':
+                # Skips these fields as its already added
+                continue
+
+            field_type = list_data_types[field_name]
+            if pd.api.types.is_integer_dtype(field_type):
+                f_type = 'INTEGER'
+            elif pd.api.types.is_float_dtype(field_type):
+                f_type = 'FLOAT'
+            else:
+                f_type = 'STRING'
+
+            schema.append(bigquery.SchemaField(
+                field_name,
+                f_type,
+                mode='NULLABLE'
+            ))
+
+        client_bq = bigquery.Client()
+
+        table_name = os.path.basename(geojson_file).replace('.geojson', '')
+        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET_BUCKET + '.' + table_name
+
+        table = bigquery.Table(bq_table_uri, schema=schema)
+        client_bq.create_table(table)
+
+        job_config = bigquery.LoadJobConfig(
+            write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+            source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        )
+
+        load_job = client_bq.load_table_from_json(newline_json, bq_table_uri, job_config=job_config)
+        load_job.result()
+
+    @staticmethod
     def write_to_file(file, lines):
         """Writes lines to a text/CSV file.
 
@@ -2002,5 +2060,25 @@ def data_added_to_bucket(event, context):
         else:
             now = datetime.now()
             print('[' + str(now) + '] ' + "\t\tShapefile file missing.")
+    elif uploaded_file.endswith('.geojson'):
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "CSV: " + str(uploaded_file))
 
+        output_table_name = os.path.basename(uploaded_file).replace('.geojson', '')
+        upload_uri = 'gs://' + Default.BUCKET_TRIGGER + '/' + uploaded_file
+        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET_BUCKET + '.' + output_table_name
 
+        # Quick test to see of the BigQuery table exists
+        try:
+            table_bq = client_bq.get_table(bq_table_uri)
+            table_exist = True
+        except NotFound:
+            table_exist = False
+
+        if table_exist:
+            # Skip file if the table exists
+            now = datetime.now()
+            print('[' + str(now) + '] ' + "Table exists")
+            return
+
+        Utilities.geojson_into_bq(upload_uri)

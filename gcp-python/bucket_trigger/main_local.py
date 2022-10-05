@@ -25,29 +25,29 @@ from requests.exceptions import Timeout
 
 class Default:
     # For testing
-    #BUCKET_TEMP = 'wrc_wro_temp2'
-    #PROJECT_ID = 'static-webbing-359410'
-    #BUCKET_TRIGGER = 'trigger_bucket2'
-    #BIGQUERY_DATASET_BUCKET = 'bucket_data'
-    #REGION = 'us-east1'
+    BUCKET_TEMP = 'wrc_wro_temp2'
+    PROJECT_ID = 'static-webbing-359410'
+    BUCKET_TRIGGER = 'trigger_bucket2'
+    BIGQUERY_DATASET_BUCKET = 'bucket_data'
+    REGION = 'us-east1'
 
     # Projects
-    PROJECT_ID = 'wrc-wro'
+    #PROJECT_ID = 'wrc-wro'
 
     # Buckets
-    BUCKET_TRIGGER = 'wrc_wro_datasets'
+    #BUCKET_TRIGGER = 'wrc_wro_datasets'
     BUCKET_DONE = 'wro-done'
     BUCKET_FAILED = 'wro-failed'
-    BUCKET_TEMP = 'wrc_wro_temporary'
+    #BUCKET_TEMP = 'wrc_wro_temporary'
 
     # Regions (e.g. us, us-east1, etc.)
-    REGION = 'us'
+    #REGION = 'us'
 
     # BigQuery
     BIGQUERY_DATASET_DAILY = 'NASA_POWER_climate'
     BIGQUERY_DATASET_MONTHLY = 'NASA_POWER_weather_daily'
     BIGQUERY_DATASET_CLIMATOLOGY = 'NASA_POWER_weather_monthly'
-    BIGQUERY_DATASET_BUCKET = 'bucket_tables'
+    #BIGQUERY_DATASET_BUCKET = 'bucket_tables'
     LIST_BQ_DATASETS = [
         BIGQUERY_DATASET_DAILY,
         BIGQUERY_DATASET_MONTHLY,
@@ -854,17 +854,21 @@ class Utilities:
         list_archives = []
         list_raster = []
         list_vector = []
+        list_geojson = []
 
         for blob in bucket.list_blobs():
             content_name = blob.name
             if content_name.endswith('.csv'):
                 list_csv.append(content_name)
-            elif content_name.endswith('.zip') or content_name.endswith('.7z'):
+            # elif content_name.endswith('.zip') or content_name.endswith('.7z'):
+            elif content_name.endswith('.zip'):
                 list_archives.append(content_name)
             elif content_name.endswith('.shp'):
                 list_vector.append(content_name)
+            elif content_name.endswith('.geojson'):
+                list_geojson.append(content_name)
 
-        return list_csv, list_excel, list_archives, list_raster, list_vector
+        return list_csv, list_excel, list_archives, list_raster, list_vector, list_geojson
 
     @staticmethod
     def move_data(source_bucket, destination_bucket, source_file, destination_file):
@@ -992,6 +996,64 @@ class Utilities:
         client_bq = bigquery.Client()
 
         table_name = os.path.basename(shp_file).replace('.shp', '')
+        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET_BUCKET + '.' + table_name
+
+        table = bigquery.Table(bq_table_uri, schema=schema)
+        client_bq.create_table(table)
+
+        job_config = bigquery.LoadJobConfig(
+            write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+            source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        )
+
+        load_job = client_bq.load_table_from_json(newline_json, bq_table_uri, job_config=job_config)
+        load_job.result()
+
+    @staticmethod
+    def geojson_into_bq(geojson_file):
+        """Stores a geojson file in Google storage in BigQuery
+
+        :param geojson_file: Google cloud storage directory of the geojson file (e.g. gs://bucket/folder/file.geojson)
+        :type geojson_file: geojson
+        """
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "Reading the geojson file using geopandas")
+
+        geojson_geopandas = geopandas.read_file(geojson_file)
+
+        # schema = []
+        schema = [
+            bigquery.SchemaField('id', 'INTEGER', mode='NULLABLE'),
+            bigquery.SchemaField('geometry', 'GEOGRAPHY', mode='NULLABLE')
+        ]
+        list_data_types = geojson_geopandas.dtypes
+
+        geojson_json = json.loads(geojson_geopandas.to_json())
+        newline_json = Utilities.convert_json_to_newline_json(geojson_json)
+
+        first_feat = newline_json[0]
+        for field_name in first_feat:
+            if field_name == 'id' or field_name == 'geometry':
+                # Skips these fields as its already added
+                continue
+
+            field_type = list_data_types[field_name]
+            if pandas.api.types.is_integer_dtype(field_type):
+                f_type = 'INTEGER'
+            elif pandas.api.types.is_float_dtype(field_type):
+                f_type = 'FLOAT'
+            else:
+                f_type = 'STRING'
+
+            schema.append(bigquery.SchemaField(
+                field_name,
+                f_type,
+                mode='NULLABLE'
+            ))
+
+        client_bq = bigquery.Client()
+
+        table_name = os.path.basename(geojson_file).replace('.geojson', '')
         bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET_BUCKET + '.' + table_name
 
         table = bigquery.Table(bq_table_uri, schema=schema)
@@ -1931,7 +1993,7 @@ def data_added_to_bucket():
     bucket_temp = client.get_bucket(Default.BUCKET_TEMP)
     client_bq = bigquery.Client()
 
-    list_csv, list_excel, list_archives, list_raster, list_vector = Utilities.list_bucket_data(
+    list_csv, list_excel, list_archives, list_raster, list_vector, list_geojson = Utilities.list_bucket_data(
         project=Default.PROJECT_ID,
         bucket=Default.BUCKET_TRIGGER
     )
@@ -2085,6 +2147,29 @@ def data_added_to_bucket():
         else:
             now = datetime.now()
             print('[' + str(now) + '] ' + "\t\tShapefile file missing.")
+
+    for geojson_file in list_geojson:
+        now = datetime.now()
+        print('[' + str(now) + '] ' + "CSV: " + str(geojson_file))
+
+        output_table_name = os.path.basename(geojson_file).replace('.geojson', '')
+        upload_uri = 'gs://' + Default.BUCKET_TRIGGER + '/' + geojson_file
+        bq_table_uri = Default.PROJECT_ID + '.' + Default.BIGQUERY_DATASET_BUCKET + '.' + output_table_name
+
+        # Quick test to see of the BigQuery table exists
+        try:
+            table_bq = client_bq.get_table(bq_table_uri)
+            table_exist = True
+        except NotFound:
+            table_exist = False
+
+        if table_exist:
+            # Skip file if the table exists
+            now = datetime.now()
+            print('[' + str(now) + '] ' + "Table exists")
+            continue
+
+        Utilities.geojson_into_bq(upload_uri)
 
 
 if __name__ == '__main__':
