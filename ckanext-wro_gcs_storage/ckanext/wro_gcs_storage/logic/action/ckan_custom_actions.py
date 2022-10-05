@@ -3,13 +3,13 @@ from ckan.common import config
 import ckan.logic as logic
 import os
 import pathlib
-from .actions_helpers import is_resource_link, is_resource_bigquery_table
+from .actions_helpers import *
 import ckan.lib.uploader as uploader
 from ...gcs_functions import delete_blob
 from ckan.lib.helpers import flash_notice, redirect_to, full_current_url
+import logging
 
-
-_get_or_bust = logic.get_or_bust
+logger = logging.getLogger(__name__)
 
 @toolkit.chained_action
 def package_create(original_action,context:dict, data_dict:dict) -> dict:
@@ -42,45 +42,53 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     """
     adding cloud path to the resource
     """
+    # ============== define main structures <package, resource>
+    
+    logger.debug("ckan resource create in gcs:", data_dict)
     data_dict = is_resource_link(data_dict)
     data_dict= is_resource_bigquery_table(data_dict)
-    package_id = _get_or_bust(data_dict, 'package_id')
     access = toolkit.check_access("resource_create", context, data_dict)
-    package = toolkit.get_action("package_show")(dict(context, return_type='dict'),{'id': package_id})
-    # handle the bigquery and url cases here
+    package = get_resource_package(data_dict, context)
+    pkg_name = package.get('name')
+    
+    # ============== handle the bigquery and url cases here
     if data_dict.get("is_link") is True or data_dict.get("is_bigquery_table") is True:
         updated_resource = original_action(context, data_dict) if access else None
         add_view_to_model(context, package, updated_resource)
         return updated_resource
 
-    package_extras = package.get("extras")
-    pkg_name = package.get('name')
-    resource_cloud_path = ""
-    # if package extras is None cloud path will flash a message
-    if package_extras is not None:
-        for item in package_extras:
-            if item.get("key") == "cloud_path":
-                resource_cloud_path = item.get("value")
-    updated_resource = original_action(context, data_dict) if access else None
-    
+    # ============== cloud path
+    resource_cloud_path = get_cloud_path(package)
     if resource_cloud_path == "":
         flash_notice("No cloud path provided the package, please update the package, empty resource is created!")
         return
+    logger.debug("cloud path from resource create:", resource_cloud_path)
+    # ============== create the resource
+    updated_resource = original_action(context, data_dict) if access else None
     
     resource_name = data_dict.get("name")    # this name is file name not the name of the resource provided in the form
     if resource_name is None or resource_name is "":
         flash_notice(f"No file provided, empty resource has been created !")
-        return 
-    name = pathlib.Path(resource_name).stem
-    name = lower_underscore_resource_name(name)
-    ext = pathlib.Path(resource_name).suffix
+        return
+
     res_id = updated_resource.get("id")
-    full_name = name + '_id_'+ res_id + ext
-    full_name = full_name.lower()
+    full_name = cloud_url_resource_name(data_dict, updated_resource)
+    if full_name =="":
+        flash_notice("not path provided for the cloud resource, empty resource is create")
+        return
+
     container_name = config.get('container_name')
     model = context["model"]
-    full_url = 'https://storage.cloud.google.com/'+container_name+'/'+resource_cloud_path+'/'+ pkg_name + "/" + full_name
+
+    # ============ is it created in gcs
+    if get_url_from_gcs_resource(data_dict, updated_resource) == "true":
+        full_url = 'https://storage.cloud.google.com/'+container_name+'/'+full_name
+    else:
+        full_url = 'https://storage.cloud.google.com/'+container_name+'/'+resource_cloud_path+'/'+ pkg_name + "/" + full_name
+    
+    # ============ commit to the database
     full_url = full_url.lower()
+    logger.debug("full resource url:", full_url)
     if data_dict.get("is_link") is None or data_dict.get("is_link") is False:
         if data_dict.get("is_bigquery_table") is None or data_dict.get("is_bigquery_table") is False:
             updated_resource = toolkit.get_action("resource_patch")(context, data_dict={"id":res_id,"url":full_url, "url_type":"link"})
@@ -93,10 +101,6 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     
     return updated_resource
 
-def lower_underscore_resource_name(name):
-    name = name.lower()
-    name = name.replace(" ", "_")
-    return name
 
 def handle_upload(updated_resource):
     """
@@ -137,8 +141,8 @@ def resource_delete(original_action, context:dict, data_dict:dict) -> dict:
     for item in package_extras:
         if item.get("key") == "cloud_path":
             cloud_path = item.get("value")
-    if resource.get("is_link") is None or resource.get("is_link") is False:
-        if resource.get("is_bigquery_table") is None or resource.get("is_bigquery_table") is False:
-            delete_blob(package_name,cloud_path,resource)
+    # if resource.get("is_link") is None or resource.get("is_link") is False:
+    #     if resource.get("is_bigquery_table") is None or resource.get("is_bigquery_table") is False:
+    #         delete_blob(package_name,cloud_path,resource)
     
     original_action(context, data_dict)
