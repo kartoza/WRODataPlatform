@@ -40,7 +40,8 @@ def ckan_gcs_resource_create(cloud_event):
         res_format = get_resource_format(resource_name)
         res_short_name = get_resource_short_name(resource_name)
         headers = {"Authorization":"6d5f1cf7-6d42-467f-b27f-b0a8454572c0"}
-        res = {"package_id":package_name,"name":res_short_name, "format":res_format}
+        gcs_full_name = data.get("name")
+        res = {"package_id":package_name,"name":res_short_name, "format":res_format, "created_in_gcs":True, "gcs_full_name":gcs_full_name}
         try:
             response = requests.post("https://data.waterresearchobservatory.org/api/3/action/resource_create",headers=headers, data=res)
             response_ob = response.json()
@@ -76,7 +77,7 @@ def get_resource_short_name(res_name:str) -> dict:
     -> resource_name
     """
     first_part, last_part = res_name.rsplit("/",1)
-    return last_part
+    return Path(last_part).stem
 
 def get_resource_underscored_url(res_url:str) -> dict:
     """

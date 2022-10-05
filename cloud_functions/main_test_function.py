@@ -1,0 +1,2 @@
+from tests.resource_create import test_resource_create
+test_resource_create
