@@ -6,7 +6,7 @@ import pathlib
 from .actions_helpers import is_resource_link, is_resource_bigquery_table
 import ckan.lib.uploader as uploader
 from ...gcs_functions import delete_blob
-from ckan.lib.helpers import flash_notice
+from ckan.lib.helpers import flash_notice, redirect_to, full_current_url
 
 
 _get_or_bust = logic.get_or_bust
@@ -56,7 +56,7 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     package_extras = package.get("extras")
     pkg_name = package.get('name')
     resource_cloud_path = ""
-    # if package extras is None what happens ? 
+    # if package extras is None cloud path will flash a message
     if package_extras is not None:
         for item in package_extras:
             if item.get("key") == "cloud_path":
@@ -64,10 +64,13 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     updated_resource = original_action(context, data_dict) if access else None
     
     if resource_cloud_path == "":
-        flash_notice("Package was created but not added to the cloud storage, not package path")
+        flash_notice("No cloud path provided the package, please update the package, empty resource is created!")
         return
     
     resource_name = data_dict.get("name")    # this name is file name not the name of the resource provided in the form
+    if resource_name is None or resource_name is "":
+        flash_notice(f"No file provided, empty resource has been created !")
+        return 
     name = pathlib.Path(resource_name).stem
     name = lower_underscore_resource_name(name)
     ext = pathlib.Path(resource_name).suffix
@@ -77,7 +80,7 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     container_name = config.get('container_name')
     model = context["model"]
     full_url = 'https://storage.cloud.google.com/'+container_name+'/'+resource_cloud_path+'/'+ pkg_name + "/" + full_name
-    
+    full_url = full_url.lower()
     if data_dict.get("is_link") is None or data_dict.get("is_link") is False:
         if data_dict.get("is_bigquery_table") is None or data_dict.get("is_bigquery_table") is False:
             updated_resource = toolkit.get_action("resource_patch")(context, data_dict={"id":res_id,"url":full_url, "url_type":"link"})
