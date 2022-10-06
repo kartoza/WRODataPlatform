@@ -13,7 +13,7 @@ def ckan_gcs_resource_create(cloud_event):
     cloud event object as a param 
     """
     data = cloud_event.data
-
+    headers = {"Authorization":"6d5f1cf7-6d42-467f-b27f-b0a8454572c0"}
     resource_name = ""
     if data is not None:
         resource_name = data.get("name")
@@ -36,15 +36,14 @@ def ckan_gcs_resource_create(cloud_event):
         if created_via_ckan == "true":
             return
 
-        package_name = get_package_name(resource_name)
+        package_name = get_package_name(resource_name, headers)
         if package_name == "":
             return
 
         res_format = get_resource_format(resource_name)
         res_short_name = get_resource_short_name(resource_name)
-        headers = {"Authorization":"6d5f1cf7-6d42-467f-b27f-b0a8454572c0"}
         gcs_full_name = data.get("name")
-        res = {"package_id":package_name,"name":res_short_name, "format":res_format, "created_in_gcs":True, "gcs_full_name":gcs_full_name}
+        res = {"package_id":package_name,"name":res_short_name, "format":res_format, "created_in_gcs":"true", "gcs_full_name":gcs_full_name}
         try:
             response = requests.post("https://data.waterresearchobservatory.org/api/3/action/resource_create",headers=headers, data=res)
             response_ob = response.json()

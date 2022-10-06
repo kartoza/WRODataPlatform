@@ -46,13 +46,12 @@ def test_create_cloud_resource(resource, auth):
     """
     #res = {"package_id":package_name,"name":res_short_name, "format":res_format, "created_in_gcs":True, "gcs_full_name":gcs_full_name}
     resource_name = resource['name']
-    resource_short_name = main.get_resource_short_name(resource_name)
     package_name = main.get_package_name(resource_name,auth)
     assert package_name != ''
     
     res = {
         "package_id":"130-211-222-159-metadata-form-heeet-maize-northern-cape-2012",
-        "name":resource_short_name,
+        "name":resource_name,
         "format":"png",
         "url":"",
         "resource_type":"",
@@ -61,7 +60,10 @@ def test_create_cloud_resource(resource, auth):
     #res = {"package_id":"package_name", "name":resource_name, "created_in_gcs":"true", "gcs_full_name":resource_name}
     response = requests.post("http://localhost/api/3/action/resource_create", headers=auth, data=res)
     created_resource = response.json().get("result")
+    res_id = created_resource.get("id")
     res_url = get_resource_url(created_resource)
+
+    assert res_url == f"https://storage.cloud.google.com/wrc_wro_test/agriculture/structured/refined/time series/130-211-222-159-metadata-form-heeet-maize-northern-cape-2012/data for manuscript/cloud_logo_id_{res_id}.png"
 
 def test_get_package_name(resource, auth):
     """
@@ -100,8 +102,8 @@ def test_new_blob_name(ckan_resource, auth):
     resource_url = get_resource_url(created_resource)
     underscored_url = main.get_resource_underscored_url(resource_url).get("updated_url")
     blob_rename_text = main.get_resource_underscored_url(resource_url, "wrc_wro_test").get("new_blob_name")
-
     remove_domain = underscored_url.replace("https://storage.cloud.google.com/","")
+    print(remove_domain)
     bucket_name, new_blob_name = remove_domain.split("/",1)
     assert new_blob_name == blob_rename_text
 

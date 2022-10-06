@@ -81,7 +81,7 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     model = context["model"]
 
     # ============ is it created in gcs
-    if get_url_from_gcs_resource(data_dict, updated_resource) == "true":
+    if resource_created_in_gcs(data_dict) == "true":
         full_url = 'https://storage.cloud.google.com/'+container_name+'/'+full_name
     else:
         full_url = 'https://storage.cloud.google.com/'+container_name+'/'+resource_cloud_path+'/'+ pkg_name + "/" + full_name
