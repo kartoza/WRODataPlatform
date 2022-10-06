@@ -29,6 +29,9 @@ def test_create_cloud_resource(resource, auth):
     #res = {"package_id":package_name,"name":res_short_name, "format":res_format, "created_in_gcs":True, "gcs_full_name":gcs_full_name}
     resource_name = resource['name']
     resource_short_name = get_resource_short_name(resource_name)
+    package_name = get_package_name(resource_name,auth)
+    assert package_name != ''
+    
     res = {
         "package_id":"130-211-222-159-metadata-form-heeet-maize-northern-cape-2012",
         "name":resource_short_name,
@@ -41,6 +44,26 @@ def test_create_cloud_resource(resource, auth):
     response = requests.post("http://localhost/api/3/action/resource_create", headers=auth, data=res)
     created_resource = response.json().get("result")
     res_url = get_resource_url(created_resource)
+
+def get_package_name(res_name:str, auth:dict)-> str:
+    """
+    packages names are unique 
+    """
+    slash_count = res_name.count("/")
+    if slash_count < 5:
+        return ""
+
+    response = requests.post("http://localhost/api/3/action/package_list", headers=auth)
+    res_ob = response.json()
+    packages = res_ob.get("result")
+    
+    first_part = res_name.split("/",5)
+    package_name = first_part[4]
+    
+    if package_name not in packages:
+        return ""
+
+    return package_name
 
 def get_resource_url(resource):
     resource_id = resource.get("id")
