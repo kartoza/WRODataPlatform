@@ -80,3 +80,37 @@ class WroPlugin(plugins.SingletonPlugin):
         setup the view template
         """
         return 'views/bigquery_map_view.html'
+
+class CSVFileView(WroPlugin):
+
+    def get_helpers(self):
+        return {
+            "parse_cloud_csv_data": helpers.parse_cloud_csv_data,
+        }
+
+    #IResource
+    def info(self):
+        return {'name': 'csv_view',
+            'title': 'CSV Explorer',
+            'filterable': True,
+            'icon': 'table',
+            'requires_datastore': False,
+            'default_title': toolkit._('CSV Explorer'),
+            }
+
+    def can_view(self, data_dict):
+        resource = data_dict.get("resource")
+        if resource is None:
+            return False
+        if resource.get('format'):
+            return resource.get("format").lower() == "csv"
+    
+
+    def setup_template_variables(self, context, data_dict):
+        pass
+
+    def view_template(self, context, data_dict):
+        """
+        setup the view template
+        """
+        return 'views/csv_view.html'

@@ -2,9 +2,14 @@ import json
 import logging
 import typing
 from shapely import geometry
+import pandas as pd
 from ckan.plugins import toolkit
 from ckan import model
 import json
+from ckan.common import config
+from google.cloud import storage
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -119,3 +124,16 @@ def change_spaces_to_underscores(name:str):
         name = first_part+"/"+res_name+"_id_"+res_id
         name = name.lower()
     return name
+
+
+def parse_cloud_csv_data(url:str):
+    """
+    get csv data from url
+    and parse it via
+    pandas
+    """
+    url = url.replace(" ", "%20")
+    service_account_path = config.get('service_account_path')
+    #csv_ob = pd.read_csv(url, storage_options={"token":service_account_path})
+    csv_ob = pd.read_csv(url, on_bad_lines='skip')
+    return csv_ob

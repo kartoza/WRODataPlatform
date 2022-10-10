@@ -2,6 +2,8 @@ from google.cloud import storage
 import pathlib
 from ckan.common import config
 import os
+from ckan.lib.helpers import flash_notice
+
 
 def initialize_google_client():
     service_account_path = config.get('service_account_path')
@@ -46,17 +48,28 @@ def delete_blob(package_name , resource_cloud_path, resource_dict):
     """
     client = initialize_google_client()
     bucket_name = config.get('container_name')
+    bucket = client.bucket(bucket_name)
     # case where resource is a link or bigquery table
-    resource_name = resource_dict['name']
+    resource_name = resource_dict.get('name')
+    if resource_name is None:
+        flash_notice("could not delete resource from cloud, name is not provided")
+        return
     resource_name = resource_name.replace(" ","_")
     name = pathlib.Path(resource_name).stem
     ext = pathlib.Path(resource_name).suffix
-    resource_id = resource_dict['id']
+    resource_id = resource_dict.get('id')
+    if resource_id is None:
+        flash_notice("could not delete resource from cloud, resource id is not provided")
+        return 
     resource_cloud_name = resource_cloud_path + '/' + package_name + '/' + name + '_id_'+ resource_id + ext
-    blobs = client.list_blobs(bucket_name , prefix=f"{resource_cloud_path}/")
-    for blob in blobs:
-        if blob.name == resource_cloud_name:
-            blob.delete()
+    resource_cloud_name = resource_cloud_name.lower()
+    blob = bucket.get_blob(resource_cloud_name)
+    if blob is not None:
+        blob.delete()
+    # blobs = bucket.list_blobs(bucket_name , prefix=f"{resource_cloud_path}/")
+    # for blob in blobs:
+    #     if blob.name == resource_cloud_name:
+    #         blob.delete()
 
 def set_content_disposition(file_name, blob):
     """

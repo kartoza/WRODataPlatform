@@ -57,3 +57,9 @@ cloud_upload_note-css:
   output: ckanext-wro/%(version)s-cloud_upload_note.css
   contents:
     - css/cloud_upload_note.css
+
+home-css:
+  filters: cssrewrite
+  output: ckanext-wro/%(version)s-home.css
+  contents:
+    - css/home.css

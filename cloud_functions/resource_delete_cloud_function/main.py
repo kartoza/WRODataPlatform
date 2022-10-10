@@ -3,6 +3,8 @@ reflect changes with gcs files in CKAN
 """
 import functions_framework
 import requests
+import pathlib
+
 
 @functions_framework.cloud_event
 def ckan_gcs_resource_delete(cloud_event):
@@ -32,5 +34,5 @@ def get_resource_id(res_name:str):
     """
     first_part, last_part = res_name.rsplit("/",1)
     resource_name, id = last_part.split("_id_", 1)
-    id, ext = id.split(".")
+    id = pathlib.Path(id).stem
     return id
