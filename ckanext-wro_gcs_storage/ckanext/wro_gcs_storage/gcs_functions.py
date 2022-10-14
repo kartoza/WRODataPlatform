@@ -12,6 +12,7 @@ def initialize_google_client():
 def upload_blob(bucket_name, source_file_name, destination_blob_name, package_id, store_in_bigquery="false"):
     storage_client = initialize_google_client()
     bucket = storage_client.bucket(bucket_name)
+    destination_blob_name = destination_blob_name.lower()
     blob = bucket.blob(destination_blob_name)
     # ========== resumable upload params
     content_type = 'application/octet-stream'
