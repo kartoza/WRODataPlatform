@@ -113,9 +113,10 @@ def change_spaces_to_underscores(name:str):
     """
     # get the last part after the last / 
     if 'https://storage.cloud.google.com/' in name:
-        first_part, last_part = name.rsplit("/",1)
-        res_name, res_id = last_part.split("_id_")
-        res_name = res_name.replace(" ","_")
-        name = first_part+"/"+res_name+"_id_"+res_id
-        name = name.lower()
+        if "_id_" in name:
+            first_part, last_part = name.rsplit("/",1)
+            res_name, res_id = last_part.split("_id_")
+            res_name = res_name.replace(" ","_")
+            name = first_part+"/"+res_name+"_id_"+res_id
+            name = name.lower()
     return name

@@ -63,6 +63,7 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
         flash_notice("No cloud path provided the package, please update the package, empty resource is created!")
         return
     logger.debug("cloud path from resource create:", resource_cloud_path)
+    resource_cloud_path = resource_cloud_path.lower()
     # ============== create the resource
     updated_resource = original_action(context, data_dict) if access else None
     
