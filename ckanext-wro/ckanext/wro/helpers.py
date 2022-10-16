@@ -137,3 +137,20 @@ def parse_cloud_csv_data(url:str):
     #csv_ob = pd.read_csv(url, storage_options={"token":service_account_path})
     csv_ob = pd.read_csv(url, on_bad_lines='skip')
     return csv_ob
+
+
+def get_packages_count():
+    """
+    returns the number 
+    of packages in the site
+    """
+    packages_list_count = len(toolkit.get_action("package_list")({}, {}))
+    return packages_list_count
+
+def get_organizations_count():
+    """
+    returns the organizations
+    count
+    """
+    orgs_list_count = len(toolkit.get_action("organization_list")({}, {}))
+    return orgs_list_count

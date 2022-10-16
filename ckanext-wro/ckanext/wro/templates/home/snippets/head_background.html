@@ -6,11 +6,14 @@
             <p class="icon-text">Contact</p>
         </div>
         <div class="contact-icon">
-            <i class="fa fa-files-o fa-2x"></i>
-            <p class="icon-text">Datasets</p>
+            <a href="{{ h.url_for('dataset.read', id='')}}" class="navigation_anchor">
+                <i class="fa fa-files-o fa-2x"></i>
+                <p class="icon-text"> Datasets</p>
+            </a>
         </div>
     </div>
     <div class="search-container">
-        <input class="search-action" placeholder="&#xf002; SEARCH DATASETS .." autofocus />
+        <input id="field-giant-search" class="search-action" placeholder="&#xf002; Dataset .." data-module="home_search_action"/>
+        <!-- <input type="submit" hidden data-module="home_search_action"/> -->
     </div>
 </div>
