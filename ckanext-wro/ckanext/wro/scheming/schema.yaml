@@ -300,34 +300,34 @@ dataset_fields:
     - field_name: maximum_vertical_extent
       label: Maximum vertical extent
 
-- field_name: tags
-  label: Tags
-  repeating_subfields:
-    - field_name: tag_name
-      label: Tag name
-      required: false
-      form_placeholder: E.g. economy
-      validators: ignore_missing
-      help_text: >-
-        Additional keywords useful for describing the dataset. In order to optimize searchability, it is
-        recommended to add at least three keywords, press "Add" button below.
+# - field_name: tags
+#   label: Tags
+#   repeating_subfields:
+#     - field_name: tag_name
+#       label: Tag name
+#       required: false
+#       form_placeholder: E.g. economy
+#       validators: ignore_missing
+#       help_text: >-
+#         Additional keywords useful for describing the dataset. In order to optimize searchability, it is
+#         recommended to add at least three keywords, press "Add" button below.
     
-    - field_name: tag_type
-      label: Tag type
-      required: false
-      preset: select
-      validators: ignore_missing
-      choices:
-        - value: 001
-          label: Discipline
-        - value: 002
-          label: Place
-        - value: 003
-          label: Stratum
-        - value: 004
-          label: Temporal
-        - value: 005
-          label: Theme
+#     - field_name: tag_type
+#       label: Tag type
+#       required: false
+#       preset: select
+#       validators: ignore_missing
+#       choices:
+#         - value: 001
+#           label: Discipline
+#         - value: 002
+#           label: Place
+#         - value: 003
+#           label: Stratum
+#         - value: 004
+#           label: Temporal
+#         - value: 005
+#           label: Theme
 
 - field_name: agreement
   label: I agree to the data management plan and terms and conditions of the WRO

@@ -53,7 +53,9 @@ class WroPlugin(plugins.SingletonPlugin):
             "get_package_name":helpers.get_package_name,
             "convert_geojson_to_bbox":helpers.convert_geojson_to_bbox,
             "get_default_bounding_box":helpers.get_default_bounding_box,
-            'resource_read_helper':helpers.resource_read_helper
+            'resource_read_helper':helpers.resource_read_helper,
+            "get_package_count": helpers.get_packages_count,
+            "get_org_count":helpers.get_organizations_count
         }
 
 
@@ -80,3 +82,37 @@ class WroPlugin(plugins.SingletonPlugin):
         setup the view template
         """
         return 'views/bigquery_map_view.html'
+
+class CSVFileView(WroPlugin):
+
+    def get_helpers(self):
+        return {
+            "parse_cloud_csv_data": helpers.parse_cloud_csv_data,
+        }
+
+    #IResource
+    def info(self):
+        return {'name': 'csv_view',
+            'title': 'CSV Explorer',
+            'filterable': True,
+            'icon': 'table',
+            'requires_datastore': False,
+            'default_title': toolkit._('CSV Explorer'),
+            }
+
+    def can_view(self, data_dict):
+        resource = data_dict.get("resource")
+        if resource is None:
+            return False
+        if resource.get('format'):
+            return resource.get("format").lower() == "csv"
+    
+
+    def setup_template_variables(self, context, data_dict):
+        pass
+
+    def view_template(self, context, data_dict):
+        """
+        setup the view template
+        """
+        return 'views/csv_view.html'

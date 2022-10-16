@@ -1,4 +1,9 @@
-{% ckan_extends %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 {% block promoted %}
-{% snippet 'home/snippets/promoted.html' %}
+<div class="home-container">
+    {% snippet 'home/snippets/head_background.html' %}
+    {% snippet 'home/snippets/about_and_latest_stats.html' %}
+    {% snippet 'home/snippets/use_cases.html' %}
+    {% snippet 'home/snippets/outstanding_cases.html' %}
+</div>
 {% endblock %}
