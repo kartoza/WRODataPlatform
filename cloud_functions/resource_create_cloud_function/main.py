@@ -24,7 +24,7 @@ def ckan_gcs_resource_create(cloud_event):
     if "_id_" not in resource_name: # TODO: use regex for id pattern
         client = storage.Client()
         bucket = client.bucket("wrc_wro_datasets")
-        blob = bucket.get_blob(resource_name)
+        blob = bucket.blob(resource_name)
 
         blob_metadata = blob.metadata
         package_id = ""
@@ -56,20 +56,12 @@ def ckan_gcs_resource_create(cloud_event):
         resource_ckan_id = response_result.get("id")
         resource_ckan_url = construct_uploaded_resource_url(resource_name)
         patched_resource = {"id":resource_ckan_id, "url":resource_ckan_url}
+        # for downloading with the same name of the file
+        set_content_disposition(resource_name, blob) 
+        # put ckan resource id in the metadata
+        save_id_in_object_metadata(resource_ckan_id, blob)
+        #update the url in CKAN
         response = requests.post("https://data.waterresearchobservatory.org/api/3/action/resource_patch",headers=headers, data=patched_resource)
-
-        # response_result = response_ob.get("result")
-        # if response_result is not None:
-        #     resource_ckan_id = response_result.get("id")
-        #     resource_ckan_url = response_result.get("url") if response_result is not None else ""
-        #     # the following also calls rename_bucket_blob
-        #     underscord_resource_names = get_resource_underscored_url(resource_ckan_url)
-        #     resource_ckan_url = underscord_resource_names.get("updated_url")
-        #     patched_resource = {"id":resource_ckan_id, "url":resource_ckan_url}
-        #     response = requests.post("https://data.waterresearchobservatory.org/api/3/action/resource_patch",headers=headers, data=patched_resource)
-        #     new_blob_name = underscord_resource_names.get("new_blob_name")
-        #     bucket.rename_blob(blob, new_blob_name)
-    
 
 def get_package_name(res_name:str, auth:dict)-> str:
     """
@@ -103,25 +95,6 @@ def get_resource_short_name(res_name:str) -> dict:
     first_part, last_part = res_name.rsplit("/",1)
     return Path(last_part).stem
 
-# def get_resource_underscored_url(res_url:str, bucket_name="wrc_wro_datasets") -> dict:
-#     """
-#     extract the resource name, id and extension
-#     the resource name would be without
-#     the cloud path part
-#     e.g. 
-#     Agriculture/Structured/Access/Time Series/Package id/resource_name_id_0f203d.csv
-#     -> resource_name
-#     """
-#     first_part, last_part = res_url.rsplit("/",1)
-#     resource_name, id_with_ext = last_part.split("_id_", 1)
-#     res_short_name = resource_name.replace(" ","_")
-#     name_with_id = res_short_name+"_id_"+id_with_ext
-#     updated_url = first_part+"/"+ name_with_id
-#     removed_domain = remove_url_domain(first_part, bucket_name)
-#     new_blob_name = removed_domain  + "/" + name_with_id
-#     return {"updated_url":updated_url, "new_blob_name":new_blob_name}
-
-
 def construct_uploaded_resource_url(resource_name:str):
     """
     returns the borwser authenticated borwser url of the
@@ -141,3 +114,24 @@ def remove_url_domain(resource_url:str, bucket_name="wrc_wro_datasets"):
     """
     new_name = resource_url.replace(f"https://storage.cloud.google.com/{bucket_name}/","")
     return new_name
+
+
+def set_content_disposition(file_name, blob):
+    """
+    contnet disposition controls
+    the download file name. instead
+    of having it as a path, we need
+    only the uploaded file name
+    """
+    if "/" in file_name:
+        file_path, file_name = file_name.rsplit("/",1)
+        blob.content_disposition = f'attachment; filename="{file_name}"'
+
+def save_id_in_object_metadata(ckan_resource_id, blob):
+    """
+    save CKAN id in the resource
+    metadata
+    """
+    metadata = {'ckan_resource_id': ckan_resource_id}
+    blob.metadata = metadata
+    blob.patch()
