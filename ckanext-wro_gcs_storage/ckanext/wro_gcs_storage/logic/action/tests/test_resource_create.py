@@ -1,6 +1,5 @@
 import pytest
 import requests
-import sys
 # i want to test the url of the resource, is it correct
 
 @pytest.fixture
@@ -30,6 +29,7 @@ def test_resource_create(resource, auth):
     res_url = get_resource_url(created_resource)
     res_url = res_url.lower()
     assert created_resource.get("url") == res_url
+    # cleanup
     id = created_resource.get("id")
     response = requests.post("http://localhost/api/3/action/resource_delete", headers=auth, data={"id":id})
 

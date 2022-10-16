@@ -1,0 +1,28 @@
+<link href='https://fonts.googleapis.com/css?family=Shadows Into Light' rel='stylesheet'>
+<div class="use-cases-container">
+    <div class="uses-cases-section-title">
+        <div class="uses-cases-section-title-text">
+            WRO Loves Academics 
+        </div>
+    </div>
+    <div class="use-cases-grid-container">
+        {% for use_case in range(1,5) %}
+            <div class="use-case">
+                <div class="use-case-header"></div>
+                <div class="use-case-body">
+                    <h3 class="use-case-title">
+                        use-case#{{ use_case }}
+                    </h3>
+                    <h3 class="use-case-description">
+                        {{ "Lorem ipsum dolor sit amet consectetur adipisicing elit.
+                        Modi error veniam quas tempore necessitatibus.
+                       Esse labore voluptatibus, porro ullam officia distinctio hic 
+                       quaerat quasi maxime odit aliquid quod repudiandae nemo."|truncate(130,true,'') }}
+                       <br/> 
+                       <a class="use-case-read-more-anchor">READ MORE</a> <i style="font-size: 10px;" class="fa fa-long-arrow-right"></i>
+                    </h3>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>

@@ -2,9 +2,14 @@ import json
 import logging
 import typing
 from shapely import geometry
+import pandas as pd
 from ckan.plugins import toolkit
 from ckan import model
 import json
+from ckan.common import config
+from google.cloud import storage
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -113,10 +118,39 @@ def change_spaces_to_underscores(name:str):
     """
     # get the last part after the last / 
     if 'https://storage.cloud.google.com/' in name:
-        if "_id_" in name:
-            first_part, last_part = name.rsplit("/",1)
-            res_name, res_id = last_part.split("_id_")
-            res_name = res_name.replace(" ","_")
-            name = first_part+"/"+res_name+"_id_"+res_id
-            name = name.lower()
+        first_part, last_part = name.rsplit("/",1)
+        res_name, res_id = last_part.split("_id_")
+        res_name = res_name.replace(" ","_")
+        name = first_part+"/"+res_name+"_id_"+res_id
+        name = name.lower()
     return name
+
+
+def parse_cloud_csv_data(url:str):
+    """
+    get csv data from url
+    and parse it via
+    pandas
+    """
+    url = url.replace(" ", "%20")
+    service_account_path = config.get('service_account_path')
+    #csv_ob = pd.read_csv(url, storage_options={"token":service_account_path})
+    csv_ob = pd.read_csv(url, on_bad_lines='skip')
+    return csv_ob
+
+
+def get_packages_count():
+    """
+    returns the number 
+    of packages in the site
+    """
+    packages_list_count = len(toolkit.get_action("package_list")({}, {}))
+    return packages_list_count
+
+def get_organizations_count():
+    """
+    returns the organizations
+    count
+    """
+    orgs_list_count = len(toolkit.get_action("organization_list")({}, {}))
+    return orgs_list_count

@@ -1,3 +1,5 @@
 [
-  "ckanext/wro_gcs_storage/logic/action/tests/test_resource_create.py::test_resource_create"
+  "ckanext/wro_gcs_storage/logic/action/tests/test_resource_create.py::test_resource_create",
+  "ckanext/wro_gcs_storage/logic/action/tests/test_resource_delete.py::test_resource_deleted_from_ckan",
+  "ckanext/wro_gcs_storage/logic/action/tests/test_resource_delete.py::test_resource_deleted_from_gcs"
 ]

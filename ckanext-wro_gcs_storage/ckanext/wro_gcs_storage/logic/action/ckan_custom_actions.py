@@ -142,8 +142,8 @@ def resource_delete(original_action, context:dict, data_dict:dict) -> dict:
     for item in package_extras:
         if item.get("key") == "cloud_path":
             cloud_path = item.get("value")
-    # if resource.get("is_link") is None or resource.get("is_link") is False:
-    #     if resource.get("is_bigquery_table") is None or resource.get("is_bigquery_table") is False:
-    #         delete_blob(package_name,cloud_path,resource)
+    if resource.get("is_link") is None or resource.get("is_link") is False:
+        if resource.get("is_bigquery_table") is None or resource.get("is_bigquery_table") is False:
+            delete_blob(package_name,cloud_path,resource)
     
     original_action(context, data_dict)
