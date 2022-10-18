@@ -101,3 +101,10 @@ body {
 .site-footer a {
   color: rgba(255, 255, 255, 0.6);
 }
+
+
+
+/* this is the donwload button with the views */
+.resource-url-analytics{
+  display: none;
+}
