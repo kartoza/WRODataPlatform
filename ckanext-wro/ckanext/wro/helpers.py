@@ -8,7 +8,8 @@ from ckan import model
 import json
 from ckan.common import config
 from google.cloud import storage
-
+import gcsfs
+from io import BytesIO, StringIO
 
 
 logger = logging.getLogger(__name__)
@@ -133,11 +134,35 @@ def parse_cloud_csv_data(url:str):
     pandas
     """
     url = url.replace(" ", "%20")
-    service_account_path = config.get('service_account_path')
-    #csv_ob = pd.read_csv(url, storage_options={"token":service_account_path})
-    csv_ob = pd.read_csv(url, on_bad_lines='skip')
+    blob_s = _get_blob("weather_and_climate_data/structured/access/time series/50-years-of-daily-hydroclimatic-data-per-quaternary-catchment-in-south-africa-1950-1999/annual_enterprise_survey_2021_financial_year_provisional_csv_id_0f9a1f20-1d85-474a-9080-beb606631eae.csv")
+    #fs = gcsfs.GCSFileSystem(project='wrc-wro', token=service_account_path)
+    # with fs.open('wrc_wro_datasets/agriculture/structured/refined/time%20series/maize-long-term-trial/long_term_trial_datasets_id_6603b69c-53f2-43f7-9574-97c67206ec56.xlsx') as f:
+    #     csv_ob =  pd.read_csv(f)
+    
+    #csv_ob = pd.read_excel(url, storage_options={"token":service_account_path})
+    #csv_ob = dd.read_csv(url, storage_options={"token":service_account_path}, encoding="latin-1")
+    #raise RuntimeError(url)
+    #csv_ob = pd.read_csv(url, error_bad_lines=False)
+    # blob_s = StringIO(blob_s)
+    csv_ob =  pd.read_csv(blob_s)
     return csv_ob
 
+
+def _get_blob(blob_name:str):
+    """
+    gets blob object with `blob_name`
+    from a bucket
+    """
+    service_account_path = config.get('service_account_path')
+    client = storage.Client.from_service_account_json(service_account_path)
+    bucket = client.bucket("wrc_wro_datasets")
+    blob = bucket.get_blob(blob_name)
+    byte_stream = BytesIO()
+    #string = blob.download_to_file(byte_stream)
+    if blob is not None:
+        blob.download_to_file(byte_stream)
+        byte_stream.seek(0)
+        return byte_stream
 
 def get_packages_count():
     """

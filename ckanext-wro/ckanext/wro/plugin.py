@@ -97,6 +97,7 @@ class CSVFileView(WroPlugin):
             'filterable': True,
             'icon': 'table',
             'requires_datastore': False,
+            'always_available': True,
             'default_title': toolkit._('CSV Explorer'),
             }
 
