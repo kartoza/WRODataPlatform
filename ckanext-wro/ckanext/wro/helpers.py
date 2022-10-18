@@ -8,8 +8,7 @@ from ckan import model
 import json
 from ckan.common import config
 from google.cloud import storage
-import gcsfs
-from io import BytesIO, StringIO
+import pathlib
 
 
 logger = logging.getLogger(__name__)
@@ -128,42 +127,50 @@ def change_spaces_to_underscores(name:str):
     return name
 
 
-def parse_cloud_csv_data(url:str):
+def parse_cloud_tabular_data(res_url:str):
     """
     get csv data from url
     and parse it via
     pandas
     """
-    url = url.replace(" ", "%20")
-    blob_s = _get_blob("weather_and_climate_data/structured/access/time series/50-years-of-daily-hydroclimatic-data-per-quaternary-catchment-in-south-africa-1950-1999/annual_enterprise_survey_2021_financial_year_provisional_csv_id_0f9a1f20-1d85-474a-9080-beb606631eae.csv")
-    #fs = gcsfs.GCSFileSystem(project='wrc-wro', token=service_account_path)
-    # with fs.open('wrc_wro_datasets/agriculture/structured/refined/time%20series/maize-long-term-trial/long_term_trial_datasets_id_6603b69c-53f2-43f7-9574-97c67206ec56.xlsx') as f:
-    #     csv_ob =  pd.read_csv(f)
-    
-    #csv_ob = pd.read_excel(url, storage_options={"token":service_account_path})
-    #csv_ob = dd.read_csv(url, storage_options={"token":service_account_path}, encoding="latin-1")
-    #raise RuntimeError(url)
-    #csv_ob = pd.read_csv(url, error_bad_lines=False)
-    # blob_s = StringIO(blob_s)
-    csv_ob =  pd.read_csv(blob_s)
-    return csv_ob
+    extensions = [".csv", ".xlsx", ".xlx"]
+    file_extension = _get_file_extension(res_url)
+    if file_extension not in extensions:
+        return {"msg":"not_read_correctly","data":f"the provided file extnesion isn't one of these:{extensions}, the tablular view is not appropriate"}
+    # change this to gs://wrc_wro_datasets/ 
+    url = res_url.replace("https://storage.cloud.google.com/","gs://")
+    try:
+        tabular_ob = _read_according_to_extention(url, file_extension)
+    except FileNotFoundError:
+        return {"msg":"not_read_correctly","data":f"couldn't find the file at location:{url}, please make sure the file exists"}
+    except:
+        return {"msg":"not_read_correctly","data":f"error while creating a view for: {url}, this file exists at specified location, something else happened"}
+
+    if tabular_ob is not None:
+        return {"msg":"read_correctly","data":tabular_ob}
+    else:
+        return {"msg":"read_correctly","data":""}
 
 
-def _get_blob(blob_name:str):
+def _get_file_extension(url:str) -> str:
     """
-    gets blob object with `blob_name`
-    from a bucket
+    pandas has different
+    functions for different
+    files types (.csv, .xlsx, ..etc)
+    we need the extension
+    """
+    return pathlib.Path(url).suffix
+
+def _read_according_to_extention(url:str, file_extension:str) -> dict:
+    """
+    returns either read_csv,
+    read_excel
     """
     service_account_path = config.get('service_account_path')
-    client = storage.Client.from_service_account_json(service_account_path)
-    bucket = client.bucket("wrc_wro_datasets")
-    blob = bucket.get_blob(blob_name)
-    byte_stream = BytesIO()
-    #string = blob.download_to_file(byte_stream)
-    if blob is not None:
-        blob.download_to_file(byte_stream)
-        byte_stream.seek(0)
-        return byte_stream
+    if file_extension == ".csv":
+        return pd.read_csv(url, storage_options={"token":service_account_path})
+    else:
+        return pd.read_excel(url, storage_options={"token":service_account_path})
 
 def get_packages_count():
     """

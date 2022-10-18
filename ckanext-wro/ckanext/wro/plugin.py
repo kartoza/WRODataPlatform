@@ -83,22 +83,22 @@ class WroPlugin(plugins.SingletonPlugin):
         """
         return 'views/bigquery_map_view.html'
 
-class CSVFileView(WroPlugin):
+class TabularFileView(WroPlugin):
 
     def get_helpers(self):
         return {
-            "parse_cloud_csv_data": helpers.parse_cloud_csv_data,
+            "parse_cloud_tabular_data": helpers.parse_cloud_tabular_data,
         }
 
     #IResource
     def info(self):
-        return {'name': 'csv_view',
-            'title': 'CSV Explorer',
+        return {'name': 'tabular_view',
+            'title': 'Tabular Explorer',
             'filterable': True,
             'icon': 'table',
             'requires_datastore': False,
             'always_available': True,
-            'default_title': toolkit._('CSV Explorer'),
+            'default_title': toolkit._('Tabular Explorer'),
             }
 
     def can_view(self, data_dict):
@@ -116,4 +116,4 @@ class CSVFileView(WroPlugin):
         """
         setup the view template
         """
-        return 'views/csv_view.html'
+        return 'views/tabular_view.html'

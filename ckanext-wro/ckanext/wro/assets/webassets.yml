@@ -69,3 +69,9 @@ home-css:
   output: ckanext-wro/%(version)s-home.css
   contents:
     - css/home.css
+
+tabular_view-css:
+  filters: cssrewrite
+  output: ckanext-wro/%(version)s-tabular_view.css
+  contents:
+    - css/tabular_view.css
