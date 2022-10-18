@@ -85,7 +85,7 @@ setup(
     entry_points='''
         [ckan.plugins]
         wro=ckanext.wro.plugin:WroPlugin
-        csv_file_view=ckanext.wro.plugin:CSVFileView
+        tabular_file_view=ckanext.wro.plugin:TabularFileView
 
         [babel.extractors]
         ckan = ckan.lib.extract:extract_ckan

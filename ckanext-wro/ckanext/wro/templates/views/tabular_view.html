@@ -1,0 +1,34 @@
+{% set parsed_tabular_response = h.parse_cloud_tabular_data(resource.url) %}
+{% if parsed_tabular_response["msg"] == "not_read_correctly" %}
+    {{ parsed_tabular_response["data"] }}
+{% else %}
+{% set tabular_ob = parsed_tabular_response["data"] %}
+{% set tabular_headers = tabular_ob.columns.values|list() %}
+{% set tabular_data = tabular_ob.values|list() %}
+
+    <!-- add this fom a vendor rather -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Zenh87qX5JnK2Jl0vWa8Ck2rdkQ2Bzep5IDxbcnCeuOxjzrPF/et3URy9Bv1WTRi" crossorigin="anonymous">
+
+    <div class="tabular_view">
+        <div class="tabular_view_container">
+            <table class="table table-sm table-hover tabular_view_table">
+                <thead class="tabular_view_table_head">
+                    <tr>
+                        {% for head in tabular_headers %}
+                            <th scope="col"> {{ head }} </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="tabular_view_table_body">
+                    {% for item in tabular_data %}
+                        <tr>
+                            {% for td in item %}
+                                <td>{{ td }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
