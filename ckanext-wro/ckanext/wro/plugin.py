@@ -12,10 +12,8 @@ class WroPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.ITemplateHelpers)
     plugins.implements(plugins.IValidators)
     plugins.implements(plugins.IBlueprint)
+    # plugins.implements(plugins.IActions, inherit=True)
     plugins.implements(plugins.IResourceView, inherit=True)
-    # plugins.implements(plugins.IActions)
-    #IDatasetForm can be added
-    # IConfigurer
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, 'templates')
@@ -31,14 +29,16 @@ class WroPlugin(plugins.SingletonPlugin):
             "author_same_as_contact": validators.author_same_as_contact,
             "agreement": validators.agreement,
             "author_or_contact_collected_data": validators.author_or_contact_collected_data,
+            "empty_resource_info":converters.convert_empty_resource_info_to_false
         }
 
 
     # IActions
     # def get_actions(self):
     #     return {
-    #         "package_create": create.package_create,
-    #         "package_update": update.package_update,
+    #         # "package_create": create.package_create,
+    #         # "package_update": update.package_update,
+    #         "resource_create": create.resource_create
     #     }
 
 

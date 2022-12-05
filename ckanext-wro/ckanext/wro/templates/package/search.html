@@ -1,5 +1,5 @@
 {% ckan_extends %}
 {% block secondary_content %}
 <div style="display: none;" data-module="search_from_home_query"></div>
-  {% snippet "spatial/snippets/spatial_query.html" %}
+  {% snippet "spatial/snippets/spatial_query.html", default_extent=[[-22.690007, 14.521702], [-34.780263, 32.011035]] %}
 {% endblock %}

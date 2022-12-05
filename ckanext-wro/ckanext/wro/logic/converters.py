@@ -120,3 +120,16 @@ def convert_raw_input_to_geojson(input_text:str)->dict:
 # #     logger.debug(f"{parsed=}")
 # #     return json.dumps(parsed)
 
+
+
+def convert_empty_resource_info_to_false(info_value):
+    """
+    when creating resources,
+    the supplementa_bigquery
+    will have empty value if
+    not checked, this doesn't
+    appear to be false in the
+    form view
+    """
+    if info_value=="" or info_value == False:
+        return "False"
