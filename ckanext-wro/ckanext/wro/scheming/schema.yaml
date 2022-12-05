@@ -126,7 +126,7 @@ dataset_fields:
 
 - field_name: publisher
   label: Publisher
-  help_text: Institution that owns/publishes dataset {will become a drop-down list with all names of SA institutions}
+  help_text: Institution that owns/publishes dataset
   required: true
   form_placeholder: Publisher
 
@@ -156,7 +156,7 @@ dataset_fields:
 
 - field_name: dataset_license_url
   label: License URL
-  help_text: Specify the license url
+  help_text: Specify the licence url. If the data is to be made publicly available, we suggest https://creativecommons.org/licenses/by-sa/4.0/
   required: false
   form_placeholder: http://creativecommons.org/
 
@@ -177,7 +177,8 @@ dataset_fields:
   #display_snippet: null
 
 - field_name: wro_theme
-  label: Dataset topic category 
+  label: > 
+    Dataset topic category "(i): As judged by person uploading the dataset(s)"
   required: true
   preset: select
   choices:
@@ -251,7 +252,7 @@ dataset_fields:
     label: Access
 
 - field_name: data_classification
-  label: Is the data time seriesed or static
+  label: Is the data time series or static
   required: true
   preset: data_classification_preset
   choices:
@@ -266,7 +267,7 @@ dataset_fields:
   label: Data reference date
   required: false
   preset: simple_subfields
-  help_text: specify the refernce dates
+  help_text: Specify the reference dates
   repeating_subfields:
       - field_name: data_reference_date_from
         label: Data reference date (from)
@@ -279,7 +280,7 @@ dataset_fields:
 
 - field_name: alternative_identifier
   label: Alternate identifier
-  help_text: Any unique identifier for the metadata/dataset (e.g. links to other identifiers, DOI, ISBN. Mandatory for replacement versions of the same data).
+  help_text: Any unique identifier for the metadata/dataset (e.g. links to other identifiers, DOI, ISBN, Google Cloud Storage URL, this field is mandatory for replacement versions of the same data).
   required: false
   form_placeholder: e.g. DOI
 
@@ -354,18 +355,18 @@ resource_fields:
     form_placeholder: Some useful notes about the data
 
   - field_name: file_to_bigquery_table
-    label: Should file stored in bigquery table ?
-    validators: boolean_validator
+    label: Should file stored in BigQuery table?
+    validators: boolean_validator empty_resource_info
     preset: mod_checkbox
     choices:
       - value:
         label:
-    help_text: Whether or not structured files should go to bigquery    
+    help_text: Whether or not structured files should go to BigQuery    
 
   - field_name: is_data_supplementary
     label: Supplementary material?
     required: false
-    validators: boolean_validator
+    validators: boolean_validator empty_resource_info
     preset: mod_checkbox
     choices:
       - value:

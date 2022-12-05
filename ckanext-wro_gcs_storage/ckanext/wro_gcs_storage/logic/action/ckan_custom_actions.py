@@ -68,7 +68,7 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     updated_resource = original_action(context, data_dict) if access else None
     
     resource_name = data_dict.get("name")    # this name is file name not the name of the resource provided in the form
-    if resource_name is None or resource_name is "":
+    if resource_name is None or resource_name == "":
         flash_notice(f"No file provided, empty resource has been created !")
         return
 
