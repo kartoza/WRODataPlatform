@@ -90,12 +90,12 @@ def get_package_name(package_id:str)-> str:
 
 
 def resource_read_helper(data_dict:dict):
-    # the problem with the current view is that is the resource
+    # the problem with the current view is that the resource
     # provided is not the last updated one, get the resouce and pass it
     q = f""" select url from resource where id='{data_dict["id"]}' """
     session_res = []
     query_res = model.Session.execute(q)
-    for item in query_res:
+    for item in query_res.fetchall():
         session_res.append(item)
     
     cloud_path = session_res[0][0]

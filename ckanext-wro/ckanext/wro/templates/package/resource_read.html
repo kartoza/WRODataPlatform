@@ -21,8 +21,7 @@
         {% if resource.get("original_url") is not none %}
           {% set custom_url = resource.original_url.lower() %}
         {% else %}
-          {# local storage #}
-          {% set custom_url = resource.url.lower() %}
+          {% set custom_url = "" %}
         {% endif %}
       {% endif %}
     {% endif %}
