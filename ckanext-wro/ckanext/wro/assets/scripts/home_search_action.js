@@ -28,7 +28,6 @@ ckan.module("search_from_home_query", function($){
     return{
         initialize:function(){
             let search_query_from_home_input = sessionStorage.getItem("search_query_string")
-            console.log(search_query_from_home_input)
             sessionStorage.removeItem("search_query_string");
             if (search_query_from_home_input !=null && search_query_from_home_input!=""){
                 $("#field-giant-search").val(search_query_from_home_input)

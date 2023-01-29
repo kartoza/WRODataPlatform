@@ -13,21 +13,16 @@ import pathlib
 
 logger = logging.getLogger(__name__)
 
-def get_default_spatial_search_extent(
-    padding_degrees: typing.Optional[float] = None,
-) -> typing.Dict:
+def get_default_spatial_search_extent() -> typing.Dict:
     """
     Return GeoJSON polygon with bbox to use for default view of spatial search map widget.
     """
     configured_extent = toolkit.config.get(
-        "ckan.dalrrd_emc_dcpr.default_spatial_search_extent"
+        "default_spatial_search_extent"
     )
-    if padding_degrees and configured_extent:
-        parsed_extent = json.loads(configured_extent)
-        result = _pad_geospatial_extent(parsed_extent, padding_degrees)
-    else:
-        result = configured_extent
-    return result
+    if configured_extent:
+        return configured_extent
+
 
 
 def get_default_bounding_box() -> typing.Optional[typing.List[float]]:
@@ -43,8 +38,8 @@ def get_default_bounding_box() -> typing.Optional[typing.List[float]]:
     configured_extent = toolkit.config.get(
         "default_spatial_search_extent"
     )
-    #parsed_extent = json.loads(configured_extent)
-    return convert_geojson_to_bbox(configured_extent)
+    parsed_extent = json.loads(configured_extent)
+    return convert_geojson_to_bbox(parsed_extent)
     
 def convert_geojson_to_bbox(
     geojson: typing.Dict,

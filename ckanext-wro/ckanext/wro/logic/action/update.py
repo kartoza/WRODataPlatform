@@ -1,9 +1,10 @@
-import ckan.logic as logic
-import ckan.plugins.toolkit as toolkit
+# import ckan.logic as logic
+# import ckan.plugins.toolkit as toolkit
 
-@toolkit.chained_action
-def package_update(original_action, context, data_dict):
-    # data_dict["type"] = "metadata-form"
-    access = toolkit.check_access("package_update", context, data_dict)
-    result = original_action(context, data_dict) if access else None
-    return result
+# @toolkit.chained_action
+# def package_update(original_action, context, data_dict):
+#     # data_dict["type"] = "metadata-form"
+#     raise RuntimeError("pakcage update from wro plugin", data_dict)
+#     access = toolkit.check_access("package_update", context, data_dict)
+#     result = original_action(context, data_dict) if access else None
+#     return result

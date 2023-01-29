@@ -227,6 +227,7 @@ ckan.module('ckanext_wro_title_field_word_count',function($){
       text = "Dataset title (" + e.target.value.length + "/100 maximum characters"
       //text = `Dataset title (${e.target.value.length}/100 maximum characters)`
       title_label.text(text)
+
     },
 
   }
@@ -337,6 +338,18 @@ ckan.module("uncaptialize_emails",function($){
       $.proxyAll(this, /_on/);
       let email_field = $(".dataset-label")
       if(email_field.html().toLowerCase() == "email"){email_field.next()[0].style.textTransform = "initial"}    
+    }
+  }
+})
+
+
+ckan.module("add_fa_icon_to_tpoic_label", function($){
+  // adding fa info to topic category (wro theme) input label 
+  
+  return{
+    initialize:function(){
+      let topic_category_label = $('label[for="field-wro_theme"]')
+      topic_category_label.get(0).innerHTML = 'Dataset topic category <i class="fa fa-info-circle"></i>: As judged by person uploading the dataset(s) '
     }
   }
 })

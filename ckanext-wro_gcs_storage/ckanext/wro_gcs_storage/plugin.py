@@ -37,11 +37,12 @@ class WroGcsStoragePlugin(plugins.SingletonPlugin):
 
     def get_actions(self):
         return {
+            "package_create": ckan_custom_actions.package_create,
+            "package_update": ckan_custom_actions.package_update,
             "resource_delete":ckan_custom_actions.resource_delete, 
             'resource_create':ckan_custom_actions.resource_create,
-            # "resource_update":resource_update,
-            "package_create": ckan_custom_actions.package_create
-        }
+            #"resource_update":resource_update,
+                    }
 
     def get_uploader(self, upload_to, old_filename):
         # using the default uploader

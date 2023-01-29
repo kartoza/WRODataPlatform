@@ -86,6 +86,7 @@ setup(
         [ckan.plugins]
         wro=ckanext.wro.plugin:WroPlugin
         tabular_file_view=ckanext.wro.plugin:TabularFileView
+        custom_image = ckanext.wro.plugin:CustomImageView
 
         [babel.extractors]
         ckan = ckan.lib.extract:extract_ckan

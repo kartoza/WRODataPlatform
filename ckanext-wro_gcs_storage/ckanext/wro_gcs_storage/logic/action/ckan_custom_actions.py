@@ -20,6 +20,48 @@ def package_create(original_action,context:dict, data_dict:dict) -> dict:
     action here
     """
     access = toolkit.check_access("package_create", context, data_dict)
+    cloud_path = _set_cloud_path(data_dict)
+    extras = data_dict.get("extras")
+    if extras is None:
+        data_dict["extras"] = []
+    data_dict['extras'].append({"key":"cloud_path", "value":cloud_path})
+    result = original_action(context, data_dict) if access else None
+    return result
+
+@toolkit.chained_action
+def package_update(original_action,context:dict, data_dict:dict) -> dict:
+    """
+    update the package
+    we need to be able to 
+    update also the cloud
+    path in case the package
+    doesn't have one
+    """
+    access = toolkit.check_access("package_update", context, data_dict)
+    cloud_path = _set_cloud_path(data_dict)
+    extras = data_dict.get("extras")
+    package_has_cloud_path = False
+    if extras is None:
+        data_dict["extras"] = []
+    if len(data_dict["extras"]) > 0:
+        for item in data_dict["extras"]:
+            if item.get("key") is not None and item["key"] == "cloud_path":
+                item["value"] = cloud_path
+                package_has_cloud_path = True
+
+    elif len(data_dict["extras"]) == 0 or package_has_cloud_path==False:
+        data_dict['extras'].append({"key":"cloud_path", "value":cloud_path})
+
+    result = original_action(context, data_dict) if access else None
+    return result
+
+
+def _set_cloud_path(data_dict:dict)-> str:
+    """
+    construct cloud path from
+    mulitple fields of the
+    package
+    """
     wro_theme = "" if data_dict.get('wro_theme') is None else data_dict.get('wro_theme')
     data_structure_category = "" if data_dict.get('data_structure_category') is None else data_dict.get('data_structure_category')
     uploader_estimation_of_extent = "" if data_dict.get('uploader_estimation_of_extent_of_processing') is None else data_dict.get('uploader_estimation_of_extent_of_processing')
@@ -29,13 +71,7 @@ def package_create(original_action,context:dict, data_dict:dict) -> dict:
     # flash an error
 
     cloud_path = os.path.join(wro_theme,data_structure_category,uploader_estimation_of_extent,data_classification)
-    cloud_path = cloud_path.title()
-    extras = data_dict.get("extras")
-    if extras is None:
-        data_dict["extras"] = []
-    data_dict['extras'].append({"key":"cloud_path", "value":cloud_path})
-    result = original_action(context, data_dict) if access else None
-    return result
+    return cloud_path.title()
 
 @toolkit.chained_action
 def resource_create(original_action,context:dict, data_dict:dict) -> dict:
@@ -52,7 +88,7 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     pkg_name = package.get('name')
     
     # ============== handle the bigquery and url cases here
-    if data_dict.get("is_link") is True or data_dict.get("is_bigquery_table") is True:
+    if data_dict.get("is_link") == True or data_dict.get("is_bigquery_table") == True:
         updated_resource = original_action(context, data_dict) if access else None
         add_view_to_model(context, package, updated_resource)
         return updated_resource
@@ -60,7 +96,7 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     # ============== cloud path
     resource_cloud_path = get_cloud_path(package)
     if resource_cloud_path == "":
-        flash_notice("No cloud path provided the package, please update the package, empty resource is created!")
+        flash_notice("No cloud path provided with the dataset, please update the dataset, empty resource is created!")
         return
     logger.debug("cloud path from resource create:", resource_cloud_path)
     resource_cloud_path = resource_cloud_path.lower()
@@ -121,11 +157,16 @@ def handle_upload(updated_resource):
 
 
 def add_view_to_model(context, package, updated_resource):
-    toolkit.get_action('resource_create_default_resource_views')(
+    result = toolkit.get_action('resource_create_default_resource_views')(
     {'model': context['model'], 'user': context['user'],
     'ignore_auth': True},
     {'package': package,
     'resource': updated_resource})
+    logger.debug("resource views created:", result,
+                "view create from package:", package,
+                "resource is:", updated_resource 
+    )
+    return result
 
 @toolkit.chained_action
 def resource_delete(original_action, context:dict, data_dict:dict) -> dict:
@@ -139,9 +180,11 @@ def resource_delete(original_action, context:dict, data_dict:dict) -> dict:
     package_name = package.get("name")
     package_extras = package.get("extras")
     cloud_path = ""
-    for item in package_extras:
-        if item.get("key") == "cloud_path":
-            cloud_path = item.get("value")
+    if package_extras is not None:
+        for item in package_extras:
+            if item.get("key") == "cloud_path":
+                cloud_path = item.get("value")
+        
     if resource.get("is_link") is None or resource.get("is_link") is False:
         if resource.get("is_bigquery_table") is None or resource.get("is_bigquery_table") is False:
             delete_blob(package_name,cloud_path,resource)
