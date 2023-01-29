@@ -298,50 +298,50 @@ dataset_fields:
 
 resource_fields:
 
-- field_name: name
-  label: URL
-  preset: resource_url_upload
+  - field_name: name
+    label: URL
+    preset: resource_url_upload
 
-- field_name: resource_name
-  label: Name
-  form_placeholder: eg. that one binga
+  - field_name: resource_name
+    label: Name
+    form_placeholder: eg. that one binga
 
-- field_name: dataset_description
-  label: Description of the data
-  form_snippet: markdown.html
-  form_placeholder: Some useful notes about the data
+  - field_name: dataset_description
+    label: Description of the data
+    form_snippet: markdown.html
+    form_placeholder: Some useful notes about the data
 
-- field_name: file_to_bigquery_table
-  label: Should file stored in BigQuery table?
-  validators: boolean_validator empty_resource_info
-  preset: mod_checkbox
-  choices:
-    - value:
-      label:
-  help_text: Whether or not structured files should go to BigQuery    
+  - field_name: file_to_bigquery_table
+    label: Should file stored in BigQuery table?
+    validators: boolean_validator empty_resource_info
+    preset: mod_checkbox
+    choices:
+      - value:
+        label:
+    help_text: Whether or not structured files should go to BigQuery    
 
-- field_name: zipped_file
-  label: Just upload zipped file and make it available as is? 
-  validators: boolean_validator empty_resource_info
-  preset: mod_checkbox
-  choices:
-    - value:
-      label:
-  help_text: Zipped files will not be unzipped and stored as separate files but kept as is 
+  - field_name: zipped_file
+    label: Just upload zipped file and make it available as is? 
+    validators: boolean_validator empty_resource_info
+    preset: mod_checkbox
+    choices:
+      - value:
+        label:
+    help_text: Zipped files will not be unzipped and stored as separate files but kept as is 
 
-- field_name: is_data_supplementary
-  label: Supplementary material?
-  required: false
-  validators: boolean_validator empty_resource_info
-  preset: mod_checkbox
-  choices:
-    - value:
-      label:
-  help_text: Will be considered primary data assets if not specified
+  - field_name: is_data_supplementary
+    label: Supplementary material?
+    required: false
+    validators: boolean_validator empty_resource_info
+    preset: mod_checkbox
+    choices:
+      - value:
+        label:
+    help_text: Will be considered primary data assets if not specified
 
-- field_name: format
-  label: Format
-  required: true
-  preset: resource_format_autocomplete
-  #validators: not_empty (cause an error, the resource page keeps reloading without submission)
-  help_text: Name of the data transfer format
+  - field_name: format
+    label: Format
+    required: true
+    preset: resource_format_autocomplete
+    #validators: not_empty (cause an error, the resource page keeps reloading without submission)
+    help_text: Name of the data transfer format
