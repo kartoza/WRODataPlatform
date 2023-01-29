@@ -40,7 +40,7 @@ class ResourceCloudStorage():
         self._clear = resource.pop('clear_upload', None)
         # ===========================
         # checking if the resource is provided as a link or is it a bigquery table
-        is_resource_link = self.resource.get('is_link') 
+        is_resource_link = self.resource.get('is_link')
         if is_resource_link is None or is_resource_link is False:
             self.is_resource_link = False
         else:

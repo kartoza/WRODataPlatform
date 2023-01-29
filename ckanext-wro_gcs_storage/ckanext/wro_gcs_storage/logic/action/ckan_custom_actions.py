@@ -79,7 +79,6 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     adding cloud path to the resource
     """
     # ============== define main structures <package, resource>
-    
     logger.debug("ckan resource create in gcs:", data_dict)
     data_dict = is_resource_link(data_dict)
     data_dict= is_resource_bigquery_table(data_dict)
@@ -88,9 +87,12 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     pkg_name = package.get('name')
     
     # ============== handle the bigquery and url cases here
-    if data_dict.get("is_link") == True or data_dict.get("is_bigquery_table") == True:
+    if data_dict.get("is_link") == True or data_dict.get("is_bigquery_table") == True: 
         updated_resource = original_action(context, data_dict) if access else None
+        handle_upload(updated_resource)
         add_view_to_model(context, package, updated_resource)
+        if data_dict.get("is_link") == True:
+            updated_resource["url_type"] = "link"
         return updated_resource
 
     # ============== cloud path
@@ -126,7 +128,7 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     # ============ commit to the database
     full_url = full_url.lower()
     logger.debug("full resource url:", full_url)
-    if data_dict.get("is_link") is None or data_dict.get("is_link") is False:
+    if data_dict.get("is_link") is None or data_dict.get("is_link") == False:
         if data_dict.get("is_bigquery_table") is None or data_dict.get("is_bigquery_table") is False:
             updated_resource = toolkit.get_action("resource_patch")(context, data_dict={"id":res_id,"url":full_url, "url_type":"link"})
             q = f""" update resource set url='{full_url}' where id='{res_id}' """
