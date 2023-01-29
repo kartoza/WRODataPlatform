@@ -76,3 +76,53 @@ presets:
     values:
       validators: agreement
       form_snippet: "multiple_checkbox_mod.html"
+
+  - preset_name: topic_category
+    values:
+      form_snippet: select.html
+      choices:
+      - value: agriculture
+        label: Agriculture
+      - value: biodiversity
+        label: Biodiversity
+      - value: citizen_science
+        label: Citizen science
+      - value: dam_level
+        label: Dam level
+      - value: drought
+        label: Drought
+      - value: economics
+        label: Economics
+      - value: ecosystems
+        label: Ecosystems
+      - value: estuaries
+        label: Estuaries
+      - value: food_security
+        label: Food security
+      - value: groundwater
+        label: Groundwater
+      - value: hydrological_data_and_modelling
+        label: Hydrological data and modelling
+      - value: legislation
+        label: Legislation
+      - value: marine_water
+        label: Marine water
+      - value: mine_water
+        label: Mine water
+      - value: social
+        label: Social
+      - value: streamflow
+        label: Streamflow
+      - value: transboundary_water
+        label: Transboundary water
+      - value: water_quality
+        label: Water quality
+      - value: water_scarcity
+        label: Water scarcity
+      - value: weather_and_climate_data
+        label: Weather and climate data
+      - value: wetlands
+        label: Wetlands
+      
+      form_attrs:
+        data-module: add_fa_icon_to_tpoic_label

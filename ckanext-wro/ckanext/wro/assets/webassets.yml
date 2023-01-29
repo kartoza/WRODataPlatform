@@ -16,6 +16,16 @@ metadata-scheming-scripts-js:
   contents:
     - scripts/schemingScripts.js
 
+
+image-view-error-handler-js:
+  filters: rjsmin
+  output: ckanext-wro/%(version)s-imageViewError.js
+  extra:
+    preload:
+      - base/main
+  contents:
+    - scripts/imageViewError.js
+
 spatial-js:
   filters: rjsmin
   output: ckanext-wro/%(version)s-wro_spatial.js

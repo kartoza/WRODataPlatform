@@ -1,6 +1,9 @@
 import ckan.plugins.toolkit as toolkit
 import pathlib
+import json
 import ckan.logic as logic
+from ckan.lib.dictization.model_dictize import resource_dictize
+import ckan.model as model
 _get_or_bust = logic.get_or_bust
 import logging
 
@@ -18,10 +21,14 @@ def is_resource_link(data_dict: dict):
             data_dict[dict]: holds the resource data.
     
     """
-    logger.debug("is resource link action helper:", data_dict)
-    name = data_dict['name']
-    starts_with_http = name.startswith('http')
-    data_dict['is_link'] = starts_with_http
+    logger.debug("is resource link action helper:", 
+        "resource name:", data_dict.get("name"),
+        "resource url:", data_dict.get("url"),
+    )
+    url = data_dict.get('url')
+    if url is not None:
+        starts_with_http = url.startswith('http')
+        data_dict['is_link'] = starts_with_http
     return data_dict
     
 def is_resource_bigquery_table(data_dict: dict):
@@ -30,7 +37,7 @@ def is_resource_bigquery_table(data_dict: dict):
         with the wro the bigquery files don't have
         neither a url nor an upload file.
     """
-    if data_dict['is_link'] == False:
+    if data_dict.get('is_link') is None or data_dict.get('is_link') == False:
         bigquery_formats = ["bq", "bigquery", "big query", "big_query"]
         incoming_format = data_dict.get('format')
         if incoming_format is None:
@@ -66,10 +73,11 @@ def get_resource_package(data_dict, context):
 
 def get_cloud_path(package):
     """
-    extract the cloud path
-    from the package
+    get cloud path
+    from the package extras
     """
     resource_cloud_path = ""
+    
     package_extras = package.get("extras")   
     # if package extras is None cloud path will flash a message
     if package_extras is not None:

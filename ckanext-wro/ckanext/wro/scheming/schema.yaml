@@ -178,52 +178,9 @@ dataset_fields:
 
 - field_name: wro_theme
   label: > 
-    Dataset topic category "(i): As judged by person uploading the dataset(s)"
+    ""
   required: true
-  preset: select
-  choices:
-  - value: agriculture
-    label: Agriculture
-  - value: biodiversity
-    label: Biodiversity
-  - value: citizen_science
-    label: Citizen science
-  - value: dam_level
-    label: Dam level
-  - value: drought
-    label: Drought
-  - value: economics
-    label: Economics
-  - value: ecosystems
-    label: Ecosystems
-  - value: estuaries
-    label: Estuaries
-  - value: food_security
-    label: Food security
-  - value: groundwater
-    label: Groundwater
-  - value: hydrological_data_and_modelling
-    label: Hydrological data and modelling
-  - value: legislation
-    label: Legislation
-  - value: marine_water
-    label: Marine water
-  - value: mine_water
-    label: Mine water
-  - value: social
-    label: Social
-  - value: streamflow
-    label: Streamflow
-  - value: transboundary_water
-    label: Transboundary water
-  - value: water_quality
-    label: Water quality
-  - value: water_scarcity
-    label: Water scarcity
-  - value: weather_and_climate_data
-    label: Weather and climate data
-  - value: wetlands
-    label: Wetlands
+  preset: topic_category
 
 - field_name: data_structure_category
   label: Data structure category 

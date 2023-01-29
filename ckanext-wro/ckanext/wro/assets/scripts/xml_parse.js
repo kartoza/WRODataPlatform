@@ -17,7 +17,6 @@ ckan.module("xml_parser",function($){
     */
     return{
         initialize: function(){
-            console.log("parser is ready!")
             $.proxyAll(this,/_on/);
             this.el.on("change", this._onChange)
         },
