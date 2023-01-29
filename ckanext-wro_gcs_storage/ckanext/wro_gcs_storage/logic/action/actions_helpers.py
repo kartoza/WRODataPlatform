@@ -29,6 +29,7 @@ def is_resource_link(data_dict: dict):
     if url is not None:
         starts_with_http = url.startswith('http')
         data_dict['is_link'] = starts_with_http
+        data_dict["original_url"] = data_dict.get("url")
     return data_dict
     
 def is_resource_bigquery_table(data_dict: dict):

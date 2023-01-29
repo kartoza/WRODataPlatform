@@ -11,7 +11,20 @@
   {% endif %}
 
   {% if resource.is_link  %}
-    {% set custom_url = resource.name.lower() %}
+    {% if resource.url.startswith("https://storage.cloud.google.com/wrc") %}
+      {% set custom_url = resource.original_url.lower() %}
+    {% else %}
+      {% if resource.name.startswith("http://") or resource.name.startswith("https://") %}  
+        {# the case where the name is a url #}
+        {% set custom_url = resource.name.lower() %}
+      {% else %}
+        {% if resource.get("original_url") is not none %}
+          {% set custom_url = resource.original_url.lower() %}
+        {% else %}
+          {% set custom_url = "" %}
+        {% endif %}
+      {% endif %}
+    {% endif %}
     {# you need to check for bigquery here #}
   {% else %}
     {% set custom_url = h.resource_read_helper(res) %}
