@@ -1,6 +1,6 @@
 {% import "macros/form.html"  as form %}
 {% set field_bounding_box = h.convert_geojson_to_bbox(data.get("spatial")) %}
-{% set default_bounding_box  = h.get_default_bounding_box()%}
+{% set default_bounding_box  = 	[-22.1265, 16.4699, -34.8212, 32.8931] %}
 {% call form.input(
     field.field_name,
     id='field-' + field.field_name,

@@ -38,7 +38,7 @@ presets:
     values:
       validators: convert_raw_input_to_geojson
       form_snippet: "map.html"
-      display_snippet: null
+      display_snippet: "spatial_bounds.html"
 
   - preset_name: mod_checkbox
     values:
