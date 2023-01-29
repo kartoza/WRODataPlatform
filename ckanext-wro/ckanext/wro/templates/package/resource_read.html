@@ -27,7 +27,12 @@
     {% endif %}
     {# you need to check for bigquery here #}
   {% else %}
-    {% set custom_url = h.resource_read_helper(res) %}
+  {# there are cases where the resource doesn't have url_type link nor is_link and still a link #}
+    {% if resource.name.startswith("http://") or resource.name.startswith("https://") %}
+      {% set custom_url = resource.name.lower() %}
+    {% else %}
+      {% set custom_url = h.resource_read_helper(res) %}
+    {% endif %}
   {% endif %}
 
   {% block resource_read_title %}<h1 class="page-heading">{{ display_name }}</h1>{% endblock %}
