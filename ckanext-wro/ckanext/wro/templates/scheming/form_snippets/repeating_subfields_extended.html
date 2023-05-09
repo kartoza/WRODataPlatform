@@ -1,4 +1,17 @@
 {# A complex field with repeating sub-fields #}
+
+{# fields not to add "Add" buttons to #}
+{% set uniary_fields = ['citation',] %}
+
+{# repeating subfields seems not to have helping texts, adding them here, currently only citation #}
+{% set repeating_filds_help_texts = {
+
+"":""
+} %}
+
+
+
+
 {% include 'scheming/snippets/subfields_asset.html' %}
 {% import 'macros/form.html' as form %}
 {% macro repeating_panel(index, index1) %}
@@ -9,8 +22,8 @@
           <a class="btn btn-danger btn-repeating-remove" name="repeating-remove" href="javascript:;"
             >{% block delete_button_text %}{{ _('Remove') }}{% endblock %}</a>
         {% endblock %}
-        {{ h.scheming_language_text(field.repeating_label or field.label) }} {{ index1 }}
-      </header>
+        {{ h.scheming_language_text(field.repeating_label or field.label) }} {{ index1 if not field.field_name=="citation" }}
+      </header> 
       <div class="panel-body fields-content">
         {% for subfield in field.repeating_subfields %}
           {% set sf = dict(
@@ -70,14 +83,23 @@
 	  {% endfor %}
 	</div>
 	<div class="control-medium {{ field.field_name }}_getter">
-	  <a href="javascript:;" name="repeating-add" class="btn btn-link"
-	    >{% block add_button_text %}<i class="fa fa-plus" aria-hidden="true"></i> {{ _('Add') }}{% endblock %}</a>
-
+    {% if field.field_name not in uniary_fields %}
+      <a href="javascript:;" name="repeating-add" class="btn btn-link">
+          {% block add_button_text %} <i class="fa fa-plus" aria-hidden="true"></i> {{ _('Add') }}{% endblock %}
+      </a>
+    {% endif %}
+    
 	  {% set help_text = h.scheming_language_text(field.help_text) %}
 	  {% if help_text %}
 	    <div class="info-block mrgn-tp-md">
 	      {{ help_text }}
 	    </div>
+      {% else %}
+        {% if repeating_filds_help_texts.get(field.field_name) is not none %}
+          <div class="info-block mrgn-tp-md">
+            <i class="fa fa-info-circle" aria-hidden="true"></i> {{ repeating_filds_help_texts.get(field.field_name) }}
+          </div>
+        {% endif %}
 	  {% endif %}
 	</div>
 

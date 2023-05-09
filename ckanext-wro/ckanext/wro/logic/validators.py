@@ -70,3 +70,18 @@ def agreement(value):
         raise toolkit.Invalid("must be checked")
     else:
         return value
+    
+
+def lower_case(value:str):
+    """
+    a request by the client that 
+    all formats on the resources
+    page should be lowercased
+    """
+    caps_cases = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    for letter in value:
+        if letter in caps_cases:
+            raise toolkit.Invalid("format is alphabetical, all letters should be in lower cases" \
+                                  f" please use lower case instead of \"{letter}\" ")
+    else:
+        return value

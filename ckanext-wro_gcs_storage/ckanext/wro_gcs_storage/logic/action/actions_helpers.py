@@ -30,6 +30,12 @@ def is_resource_link(data_dict: dict):
         starts_with_http = url.startswith('http')
         data_dict['is_link'] = starts_with_http
         data_dict["original_url"] = data_dict.get("url")
+    else:
+        # sometimes url isn't there but name (as opposed to resource_name) is
+        name = data_dict.get("name")
+        if name.startswith('http://') or name.startswith('https://'):
+            data_dict['is_link'] = True
+
     return data_dict
     
 def is_resource_bigquery_table(data_dict: dict):
@@ -160,3 +166,31 @@ def get_url_from_gcs_resource(resource, updated_resource):
     full_name =  cloud_path + "/" + resource_name_id + resource_ext
     logger.debug("name of resource created in the cloud first:", full_name)
     return full_name   
+
+
+def change_on_dataset(data_dict:dict)->dict:
+    """
+    requirement by client:
+    Normal users should not be able to edit datasets once the metadata has been captured and the data uploaded
+    They should only be allowed to add more data
+    """
+    old_dataset = toolkit.get_action("package_show")(data_dict={"id": data_dict["id"]})
+    non_shared = []
+
+    shared_items = {
+    k: data_dict[k]
+    for k in data_dict
+    if k in old_dataset and data_dict[k] == old_dataset[k]
+    }
+
+    for k in data_dict:
+        if k not in shared_items.keys():
+            non_shared.append(k)
+            if k not in ["state", "resources"]:
+                toolkit.base.abort(403,toolkit._("Unauthorized to make such change to the dataset and resources, please consult system admin"))
+            
+            if k == "resources":
+                old_resource_list_len = len(old_dataset.get("resources"))
+                new_len = len(data_dict.get("resources"))
+                if not new_len > old_resource_list_len:
+                    toolkit.base.abort(403,toolkit._("Unauthorized to make such change to the dataset and resources, please consult system admin"))

@@ -29,7 +29,8 @@ class WroPlugin(plugins.SingletonPlugin):
             "author_same_as_contact": validators.author_same_as_contact,
             "agreement": validators.agreement,
             "author_or_contact_collected_data": validators.author_or_contact_collected_data,
-            "empty_resource_info":converters.convert_empty_resource_info_to_false
+            "lower_case":validators.lower_case, 
+            "empty_resource_info":converters.convert_empty_resource_info_to_false,
         }
 
     # IBlueprint

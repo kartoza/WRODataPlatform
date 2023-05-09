@@ -1,8 +1,0 @@
-google.cloud.storage
-google.cloud.bigquery
-gcsfs
-xlrd
-openpyxl
-pandas
-fiona
-geopandas

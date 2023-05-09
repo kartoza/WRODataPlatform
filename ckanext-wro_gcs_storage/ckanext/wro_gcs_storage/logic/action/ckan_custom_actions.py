@@ -7,6 +7,7 @@ from .actions_helpers import *
 import ckan.lib.uploader as uploader
 from ...gcs_functions import delete_blob
 from ckan.lib.helpers import flash_notice, redirect_to, full_current_url
+from ckan.common import c
 import logging
 
 logger = logging.getLogger(__name__)
@@ -22,9 +23,11 @@ def package_create(original_action,context:dict, data_dict:dict) -> dict:
     access = toolkit.check_access("package_create", context, data_dict)
     cloud_path = _set_cloud_path(data_dict)
     extras = data_dict.get("extras")
+    # raise RuntimeError(data_dict.get("spatial"))
     if extras is None:
         data_dict["extras"] = []
-    data_dict['extras'].append({"key":"cloud_path", "value":cloud_path})
+    data_dict['extras'].append({"key":"cloud_path", "value":cloud_path})    
+    data_dict['extras'].append({"key":"extra_spatial", "value":data_dict.get("spatial")})    
     result = original_action(context, data_dict) if access else None
     return result
 
@@ -37,6 +40,8 @@ def package_update(original_action,context:dict, data_dict:dict) -> dict:
     path in case the package
     doesn't have one
     """
+    if not c.userobj.sysadmin:
+        change_on_dataset(data_dict)
     access = toolkit.check_access("package_update", context, data_dict)
     cloud_path = _set_cloud_path(data_dict)
     extras = data_dict.get("extras")
@@ -55,6 +60,19 @@ def package_update(original_action,context:dict, data_dict:dict) -> dict:
     result = original_action(context, data_dict) if access else None
     return result
 
+
+@toolkit.chained_action
+def package_delete(original_action,context:dict, data_dict:dict)->dict:
+    """
+    we aren't authorizing the user
+    to delete packages if not
+    system admin
+    """
+    if not c.userobj.sysadmin:
+            toolkit.base.abort(403,toolkit._("Unauthorized to delete this dataset, please consult system admin"))
+    access = toolkit.check_access("package_update", context, data_dict)
+    result = original_action(context, data_dict) if access else None
+    return result
 
 def _set_cloud_path(data_dict:dict)-> str:
     """
@@ -140,7 +158,6 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
     
     return updated_resource
 
-
 def handle_upload(updated_resource):
     """
     handle the uploading part of
@@ -149,7 +166,7 @@ def handle_upload(updated_resource):
     upload = uploader.get_resource_uploader(updated_resource)
     if 'mimetype' not in updated_resource:
         if hasattr(upload, 'mimetype'):
-            updated_resource['mimetype'] = upload.mimetype
+            updated_resource['mimetype'] = upload.get('mimetype')
 
     if 'size' not in updated_resource:
         if hasattr(upload, 'filesize'):

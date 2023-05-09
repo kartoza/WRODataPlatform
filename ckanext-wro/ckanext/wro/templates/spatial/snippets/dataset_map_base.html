@@ -1,0 +1,18 @@
+{% ckan_extends %}
+
+{% set dataset_extent = h.get_pkg_dict_extra(c.pkg_dict, 'spatial','') %}
+
+{%  if dataset_extent %}
+    {% set extent = dataset_extent %}
+{% else  %}
+    {# cases where spatial is stored as 'spatial' without it being a key/value in package_extra #}
+    {% set dataset_extent = c.pkg_dict.get('spatial','') %}
+    {% if dataset_extent %}
+        {% set extent = dataset_extent %}
+    {% else %}
+        {% set extent =  h.get_default_spatial_search_extent() %}
+    {% endif %}
+{% endif %}
+
+{% snippet "spatial/snippets/dataset_map_base.html", extent=extent %}
+

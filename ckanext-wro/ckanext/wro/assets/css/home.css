@@ -6,6 +6,15 @@
     display: none !important;
 }
 
+.debug{
+    display: none !important;
+}
+
+#debug-toggle{
+    display: none !important ;
+}
+
+
 .follow_button{
     display: none;
 }

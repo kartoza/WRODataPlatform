@@ -39,6 +39,7 @@ class WroGcsStoragePlugin(plugins.SingletonPlugin):
         return {
             "package_create": ckan_custom_actions.package_create,
             "package_update": ckan_custom_actions.package_update,
+            'package_delete':ckan_custom_actions.package_delete,
             "resource_delete":ckan_custom_actions.resource_delete, 
             'resource_create':ckan_custom_actions.resource_create,
             #"resource_update":resource_update,

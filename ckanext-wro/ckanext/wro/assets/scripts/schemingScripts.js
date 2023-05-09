@@ -349,7 +349,7 @@ ckan.module("add_fa_icon_to_tpoic_label", function($){
   return{
     initialize:function(){
       let topic_category_label = $('label[for="field-wro_theme"]')
-      topic_category_label.get(0).innerHTML = 'Dataset topic category <i class="fa fa-info-circle"></i>: As judged by person uploading the dataset(s) '
+      topic_category_label.get(0).innerHTML = 'Dataset topic category'
     }
   }
 })
