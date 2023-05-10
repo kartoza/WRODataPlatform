@@ -86,30 +86,43 @@ dataset_fields:
     preset: organization_mod_preset
     help_text: organization that is the custodian of the data
 
-  - field_name: citation
-    label: Recommended citation
+  # - field_name: citation
+  #   label: Recommended citation
 
-    repeating_subfields:
-      - field_name: citation_title
-        label: Citation title
-        required: false
-        help_allow_html: true
-        help_text: >-
-         Citation that the data custodian recommend to be used when citing this dataset <br/>
-         Recommended format <br/>
-         ODINDO A, BAME I, MUSAZURA W, HUGHES J and BUCKLEY C (2016) integrating agriculture in designing on-site, low-cost sanitation technologies in social housing schemes, WRC Report No. TT 700/16. Water Research Commission, Pretoria.
-         <br/>
-         <br/>
-         MCCAFFERTY JR, ELLENDER BR, WEYL OLF and BRITZ PJ (2012) REVIEW: the use of water resources for inland fisheries in South Africa. Water SA 38 (2)327-334. http://doi.org/10.4314/wsa.v38i2.18. 
-      - field_name: citation_date
-        label: Citation date
-        preset: date
-        required: false
-        help_text: Reference date for cited resource
-      # the citation identifier could be a choice field limited to identifiers we have and others choice field enabling the user to insert a unique one
-      - field_name: citation_identifier
-        label: Citation identifier
-        required: false
+  - field_name: citation_title
+    label: Recommended citation
+    required: false
+    help_allow_html: true
+    help_text: >-
+      Citation that the data custodian recommend to be used when citing this dataset <br/>
+      Recommended format <br/>
+      ODINDO A, BAME I, MUSAZURA W, HUGHES J and BUCKLEY C (2016) integrating agriculture in designing on-site, low-cost sanitation technologies in social housing schemes, WRC Report No. TT 700/16. Water Research Commission, Pretoria.
+      <br/>
+      <br/>
+      MCCAFFERTY JR, ELLENDER BR, WEYL OLF and BRITZ PJ (2012) REVIEW: the use of water resources for inland fisheries in South Africa. Water SA 38 (2)327-334. http://doi.org/10.4314/wsa.v38i2.18. 
+
+
+    # repeating_subfields:
+    #   - field_name: citation_title
+    #     label: Citation title
+    #     required: false
+    #     help_allow_html: true
+    #     help_text: >-
+    #      Citation that the data custodian recommend to be used when citing this dataset <br/>
+    #      Recommended format <br/>
+    #      ODINDO A, BAME I, MUSAZURA W, HUGHES J and BUCKLEY C (2016) integrating agriculture in designing on-site, low-cost sanitation technologies in social housing schemes, WRC Report No. TT 700/16. Water Research Commission, Pretoria.
+    #      <br/>
+    #      <br/>
+    #      MCCAFFERTY JR, ELLENDER BR, WEYL OLF and BRITZ PJ (2012) REVIEW: the use of water resources for inland fisheries in South Africa. Water SA 38 (2)327-334. http://doi.org/10.4314/wsa.v38i2.18. 
+    #   - field_name: citation_date
+    #     label: Citation date
+    #     preset: date
+    #     required: false
+    #     help_text: Reference date for cited resource
+    #   # the citation identifier could be a choice field limited to identifiers we have and others choice field enabling the user to insert a unique one
+    #   - field_name: citation_identifier
+    #     label: Citation identifier
+    #     required: false
 
   - field_name: did_author_or_contact_organization_collect_the_data
     label: Did the author / contact organization collect the data?
