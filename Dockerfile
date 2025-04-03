@@ -34,9 +34,11 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get --yes clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Download poetry
+# download poetry
+
 RUN curl --silent --show-error --location \
     https://install.python-poetry.org > /opt/install-poetry.py
+
 
 # Create a normal non-root user so that we can use it to run
 RUN useradd --create-home appuser
@@ -55,14 +57,9 @@ ENV PATH="$PATH:/home/appuser/.local/bin" \
     PYTHONFAULTHANDLER=1 \
     CKAN_INI=/home/appuser/ckan.ini
 
-# Set working directory
+# Only copy the dependencies for now and install them
 WORKDIR /home/appuser/app
-
-# Copy only pyproject.toml and generate a new poetry.lock
-COPY --chown=appuser:appuser pyproject.toml ./
-RUN poetry lock
-
-# Install dependencies
+COPY --chown=appuser:appuser pyproject.toml poetry.lock ./
 RUN poetry install --no-root --only main
 
 EXPOSE 5000
@@ -75,6 +72,7 @@ RUN poetry install --only main
 ARG GIT_COMMIT
 ENV GIT_COMMIT=$GIT_COMMIT
 RUN echo $GIT_COMMIT > /home/appuser/git-commit.txt
+
 
 # Compile python stuff to bytecode to improve startup times
 RUN poetry run python -c "import compileall; compileall.compile_path(maxlevels=10)"
