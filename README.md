@@ -137,26 +137,5 @@ In order to be able to serve the system's datasets through various OGC standards
 in order to integrate with pycsw:
 
 ```bash
-docker exec -ti wro-ckan-web-1 poetry run ckan dalrrd-emc-dcpr pycsw create-materialized-view
+docker exec -ti wro-ckan-web-1 poetry run ckan wro pycsw create-materialized-view
 ```
-
-
-#### Ingest a collection of metadata from a given directory (currently CBERS xml files)
-
-create datasets (metadata records) from files stored in a directory
-
-```bash
-docker exec -ti wro-ckan-web-1 poetry run ckan wro ingest cbers --source-path <path> --user <username>
-```
-m
-
-#### Perform STAC Fetch and create datasets from STAC endpoint  
-
-create datasets (metadata records) from stac endpoint
-
-```bash
-docker exec -ti wro-ckan-web-1 poetry run ckan wro stac create-stac-dataset --url <url> --user <username> --number-records <number_records> --owner-org <organisation_name>
-```
-
-# Testing
-You can setup and run local test by following [this manual](https://kartoza.github.io/wro-Portal/developer/manual/test_local/).
