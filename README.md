@@ -16,13 +16,13 @@ This project is a [ckan](https://ckan.org/) extension, it can be installed stand
 
 Clone the source cose
 ```
-git clone git@github.com:kartoza/wro-Portal.git
+git clone https://github.com/kartoza/WRODataPlatform.git
 ```
 
 #### Build docker images
 
 ```
-cd wro-Portal/docker
+cd WRODataPlatform/docker
 ./build.sh
 ```
 
