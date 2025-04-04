@@ -15,6 +15,7 @@ docker_entrypoint = "ckanext.wro.cli.docker_entrypoint:cli"
 wro = "ckanext.wro.plugin:WroPlugin"
 wro_bigquery = "ckanext.wro_bigquery.plugin:WroBigqueryPlugin"
 wro_gcs_storage = "ckanext.wro_gcs_storage.plugin:WroGcsStoragePlugin"
+wro_azure_storage = "ckanext.wro_azure_storage.plugin:WroAzureStoragePlugin"
 
 [tool.poetry.plugins."babel.extractors"]
 ckan = "ckan.lib.extract:extract_ckan"
@@ -82,6 +83,7 @@ google-cloud-bigquery = "3.14.0"
 Werkzeug = {extras = ["watchdog"], version = "2.0.1"}
 "zope.interface" = "5.4.0"  # changed by us to allow poetry to build
 google-cloud-storage = "2.19.0"
+azure-storage-blob = "12.25.1"
 
 # ckan harvest plugin dependencies
 ckantoolkit = "0.0.7"
