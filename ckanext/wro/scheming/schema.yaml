@@ -1,5 +1,5 @@
 scheming_version: 2
-dataset_type: metadata-form
+dataset_type: dataset
 #about_url: http://example.com/dataset
 
 dataset_fields:
@@ -206,7 +206,6 @@ dataset_fields:
   - field_name: data_structure_category
     label: Data structure category 
     required: true
-    preset: radio
     choices:
     - value: structured
       label: Structured (clearly labelled and in a standardised format)
@@ -219,7 +218,6 @@ dataset_fields:
   - field_name: uploader_estimation_of_extent_of_processing
     label: Uploader estimation of extent to which data have been processed
     required: true
-    preset: radio
     choices:
     - value: raw
       label: Raw
