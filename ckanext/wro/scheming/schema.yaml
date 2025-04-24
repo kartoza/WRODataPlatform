@@ -205,6 +205,7 @@ dataset_fields:
 
   - field_name: data_structure_category
     label: Data structure category 
+    preset: data_classification_preset
     required: true
     choices:
     - value: structured
@@ -331,14 +332,14 @@ resource_fields:
     form_snippet: markdown.html
     form_placeholder: Some useful notes about the data
 
-  - field_name: file_to_bigquery_table
-    label: Should file stored in BigQuery table?
-    validators: boolean_validator empty_resource_info
-    preset: mod_checkbox
-    choices:
-      - value:
-        label:
-    help_text: Whether or not structured files should go to BigQuery    
+  # - field_name: file_to_bigquery_table
+  #   label: Should file stored in BigQuery table?
+  #   validators: boolean_validator empty_resource_info
+  #   preset: mod_checkbox
+  #   choices:
+  #     - value:
+  #       label:
+  #   help_text: Whether or not structured files should go to BigQuery    
 
   - field_name: zipped_file
     label: Just upload zipped file and make it available as is? 
