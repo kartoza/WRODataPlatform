@@ -14,7 +14,8 @@ from werkzeug.datastructures import FileStorage as FlaskFileStorage
 from tempfile import SpooledTemporaryFile
 import cgi
 from ckan.common import config
-
+import logging
+log = logging.getLogger(__name__)  # Place this at the top of your file
 _get_or_bust = ckan.logic.get_or_bust
 
 ALLOWED_UPLOAD_TYPES = (cgi.FieldStorage, FlaskFileStorage)
@@ -109,16 +110,18 @@ class ResourceCloudStorage():
                     # nothing
                     try:
                         upload_path = self.path_from_filename(id,self.filename)
+                        log.debug(f"upload_path: {upload_path}")
                         account_name = config.get('azure_account_name')
                         storage_path = f'https://{account_name}.blob.core.windows.net/{upload_path}'
                         self.resource.update({'url' : storage_path})
-                        bucket_name = config.get('container_name')
+                        bucket_name = config.get('bucket_name')
                         package = toolkit.get_action('package_show')(data_dict={'id':self.resource.get("package_id")})
                         package_id = package.get("id")
                         store_in_bigquery = self.resource.get("file_to_bigquery_table")
                         upload_blob(bucket_name, self.file_upload, upload_path, package_id, store_in_bigquery)
-                    except KeyError:
-                        pass
+                    except Exception as e:
+                        # Customize this message as needed
+                        raise RuntimeError(f"Failed to upload to Azure Blob Storage: {e}")
 
         elif self.is_bigquery_table is True:
             # handle bigqyery tables, set the name of the resource

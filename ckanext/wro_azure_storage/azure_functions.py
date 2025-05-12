@@ -7,6 +7,7 @@ from ckan.lib.helpers import flash_notice
 
 def initialize_azure_client():
     connection_string = config.get('azure_connection_string')
+    
     blob_service_client = BlobServiceClient.from_connection_string(connection_string)
     return blob_service_client
 

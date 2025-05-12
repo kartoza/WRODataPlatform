@@ -134,14 +134,14 @@ def resource_create(original_action,context:dict, data_dict:dict) -> dict:
         flash_notice("not path provided for the cloud resource, empty resource is create")
         return
 
-    container_name = config.get('container_name')
+    bucket_name = config.get('bucket_name')
     model = context["model"]
 
     # ============ is it created in gcs
     if resource_created_in_gcs(data_dict) == "true":
-        full_url = 'https://storage.cloud.google.com/'+container_name+'/'+full_name
+        full_url = 'https://storage.cloud.google.com/'+bucket_name+'/'+full_name
     else:
-        full_url = 'https://storage.cloud.google.com/'+container_name+'/'+resource_cloud_path+'/'+ pkg_name + "/" + full_name
+        full_url = 'https://storage.cloud.google.com/'+bucket_name+'/'+resource_cloud_path+'/'+ pkg_name + "/" + full_name
     
     # ============ commit to the database
     full_url = full_url.lower()
