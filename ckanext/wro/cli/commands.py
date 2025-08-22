@@ -11,6 +11,7 @@ import time
 import traceback
 import typing
 import uuid
+import gdown
 from concurrent import futures
 from pathlib import Path
 import glob
@@ -1233,3 +1234,98 @@ def create_iso_topic_categories():
                     f"{ISO_TOPIC_CATEGOY_VOCABULARY_NAME!r} vocabulary, skipping..."
                 )
     logger.info("Done!")
+
+
+@wro.command()
+@click.argument('gdrive_url')
+@click.argument('workdir')
+@click.pass_context
+def import_datasets(ctx, gdrive_url, workdir):
+    """
+    Download from Google Drive, extract, then import into CKAN.
+
+    Example:
+      ckan -c /etc/ckan/default/ckan.ini wro import-datasets "https://drive.google.com/file/d/FILE_ID/view?usp=sharing" /tmp/work
+    """
+    os.makedirs(workdir, exist_ok=True)
+    zip_path = os.path.join(workdir, "datasets.zip")
+    extract_dir = os.path.join(workdir, "unzipped")
+
+    # --- Step 1: download from Google Drive
+    file_id = None
+    if "id=" in gdrive_url:
+        file_id = gdrive_url.split("id=")[1].split("&")[0]
+    elif "/d/" in gdrive_url:
+        file_id = gdrive_url.split("/d/")[1].split("/")[0]
+
+    if not file_id:
+        raise click.ClickException("Could not parse Google Drive file ID")
+
+    url = f"https://drive.google.com/uc?id={file_id}"
+    click.echo(f"Downloading from {url} ...")
+    gdown.download(url, zip_path, quiet=False)
+
+    # --- Step 2: extract
+    click.echo(f"Extracting {zip_path} to {extract_dir}")
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(extract_dir)
+
+    # --- Step 3: import into CKAN
+    user = toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
+    context = {'model': ctx.obj['model'],
+               'session': ctx.obj['session'],
+               'user': user['name']}
+
+    base_folder = extract_dir
+
+    for topic in os.listdir(base_folder):
+        topic_path = os.path.join(base_folder, topic)
+        if not os.path.isdir(topic_path):
+            continue
+
+        for structure in os.listdir(topic_path):
+            structure_path = os.path.join(topic_path, structure)
+
+            for series_type in os.listdir(structure_path):
+                series_path = os.path.join(structure_path, series_type)
+
+                for dataset_title in os.listdir(series_path):
+                    dataset_path = os.path.join(series_path, dataset_title)
+
+                    dataset_dict = {
+                        "name": dataset_title.lower().replace("_", "-"),
+                        "title": dataset_title,
+                        "notes": f"Auto-imported dataset for {dataset_title}",
+                        "owner_org": "wro",  # CKAN org ID
+                        "private": True,
+                        "author": "WRO",
+                        "maintainer": "WRO",
+                        "maintainer_email": "info@wro.int",
+                        "license_id": "cc-by",
+                        "extras": [
+                            {"key": "topic", "value": topic},
+                            {"key": "keywords", "value": topic},
+                            {"key": "Dataset topic category", "value": "Agriculture"},
+                            {"key": "Data structure category", "value": structure},
+                            {"key": "Is the data time series or static", "value": series_type},
+                            {"key": "Publisher", "value": "WRO"},
+                            {"key": "Dataset language", "value": "English"},
+                            {"key": "Publication date", "value": date.today().isoformat()}
+                        ]
+                    }
+
+                    try:
+                        pkg = toolkit.get_action('package_create')(context, dataset_dict)
+                    except toolkit.ObjectExists:
+                        pkg = toolkit.get_action('package_show')(
+                            context, {"id": dataset_dict["name"]}
+                        )
+
+                    for filename in os.listdir(dataset_path):
+                        filepath = os.path.join(dataset_path, filename)
+                        resource_dict = {
+                            "package_id": pkg["id"],
+                            "name": filename,
+                            "upload": open(filepath, "rb")
+                        }
+                        toolkit.get_action('resource_create')(context, resource_dict)
