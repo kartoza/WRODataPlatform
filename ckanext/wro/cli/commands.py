@@ -87,6 +87,11 @@ def wro(verbose: bool):
         level=logging.DEBUG if verbose else logging.INFO, handlers=(click_handler,)
     )
 
+@wro.command()
+def hello():
+    """Say hello."""
+    click.echo("Hello from WRO!")
+
 
 @wro.command()
 def send_email_notifications():
@@ -1236,10 +1241,34 @@ def create_iso_topic_categories():
     logger.info("Done!")
 
 
+# --- Mapping dataset titles to topic categories ---
+TOPIC_CATEGORY_MAP = {
+    "agriculture": "Agriculture",
+    "biodiversity": "Biodiversity",
+    "case-study-nqweba-dam-at-graaff-reinet": "Case Studies",
+    "dam_level": "Hydrology",
+    "department-of-water-and-sanitation-monitoring-station-locations": "Infrastructure & Monitoring",
+    "ecosystems": "Ecosystems & Environment",
+    "file_structure": "Metadata / Administration",
+    "https-www-dws-gov-za-dso-publications-aspx": "Reports & Publications",
+    "hydrological_data_and_modelling": "Hydrology",
+    "info": "Metadata / General",
+    "maize-long-term-trial": "Agriculture",
+    "streamflow": "Hydrology",
+    "vegetation-map-of-south-africa-lesotho-and-swaziland-2006": "Vegetation & Landcover",
+    "vegetation-map-of-south-africa-lesotho-and-swaziland-2009": "Vegetation & Landcover",
+    "vegetation-map-of-south-africa-lesotho-and-swaziland-2012": "Vegetation & Landcover",
+    "vegetation-map-of-south-africa-lesotho-and-swaziland-2018": "Vegetation & Landcover",
+    "water_quality": "Water Quality",
+    "weather_and_climate_data": "Climate & Weather",
+    "wetlands": "Wetlands"
+}
+
+
 @wro.command()
 @click.argument('gdrive_url')
 @click.argument('workdir')
-@click.pass_context
+# @click.pass_context
 def import_datasets(ctx, gdrive_url, workdir):
     """
     Download from Google Drive, extract, then import into CKAN.
@@ -1292,6 +1321,9 @@ def import_datasets(ctx, gdrive_url, workdir):
                 for dataset_title in os.listdir(series_path):
                     dataset_path = os.path.join(series_path, dataset_title)
 
+                    # --- Map dataset_title to a topic category
+                    topic_category = TOPIC_CATEGORY_MAP.get(dataset_title.lower(), "Uncategorized")
+
                     dataset_dict = {
                         "name": dataset_title.lower().replace("_", "-"),
                         "title": dataset_title,
@@ -1305,7 +1337,7 @@ def import_datasets(ctx, gdrive_url, workdir):
                         "extras": [
                             {"key": "topic", "value": topic},
                             {"key": "keywords", "value": topic},
-                            {"key": "Dataset topic category", "value": "Agriculture"},
+                            {"key": "Dataset topic category", "value": topic_category},
                             {"key": "Data structure category", "value": structure},
                             {"key": "Is the data time series or static", "value": series_type},
                             {"key": "Publisher", "value": "WRO"},
@@ -1321,6 +1353,7 @@ def import_datasets(ctx, gdrive_url, workdir):
                             context, {"id": dataset_dict["name"]}
                         )
 
+                    # --- Add resources
                     for filename in os.listdir(dataset_path):
                         filepath = os.path.join(dataset_path, filename)
                         resource_dict = {
@@ -1329,3 +1362,6 @@ def import_datasets(ctx, gdrive_url, workdir):
                             "upload": open(filepath, "rb")
                         }
                         toolkit.get_action('resource_create')(context, resource_dict)
+
+
+wro.add_command(import_datasets)

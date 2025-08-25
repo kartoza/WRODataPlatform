@@ -14,8 +14,11 @@ docker_entrypoint = "ckanext.wro.cli.docker_entrypoint:cli"
 [tool.poetry.plugins."ckan.plugins"]
 wro = "ckanext.wro.plugin:WroPlugin"
 wro_bigquery = "ckanext.wro_bigquery.plugin:WroBigqueryPlugin"
-wro_gcs_storage = "ckanext.wro_gcs_storage.plugin:WroGcsStoragePlugin"
-wro_azure_storage = "ckanext.wro_azure_storage.plugin:WroAzureStoragePlugin"
+#wro_gcs_storage = "ckanext.wro_gcs_storage.plugin:WroGcsStoragePlugin"
+#wro_azure_storage = "ckanext.wro_azure_storage.plugin:WroAzureStoragePlugin"
+
+[tool.poetry.plugins."ckan.cli"]
+wro = "ckanext.wro.cli.commands:wro"
 
 [tool.poetry.plugins."babel.extractors"]
 ckan = "ckan.lib.extract:extract_ckan"
