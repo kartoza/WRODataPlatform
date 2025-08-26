@@ -1,7 +1,5 @@
 # NOTE: this file expects to find the $CKAN_IMAGE_TAG variable in its environment
 
-version: "3.8"
-
 networks:
   default:
     driver: bridge
