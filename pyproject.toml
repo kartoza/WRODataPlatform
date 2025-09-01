@@ -2,10 +2,12 @@
 name = "ckanext-wro"
 version = "0.1.0"
 description = "A CKAN extension that implements WRO"
-authors = ["Ricardo Garcia Silva <ricardo@kartoza.com>"]
-license = "mit"
+authors = ["Your Name <your@email.com>"]
 packages = [
     { include = "ckanext" },
+]
+include = [
+    "ckanext/**"
 ]
 
 [tool.poetry.scripts]
@@ -16,6 +18,8 @@ wro = "ckanext.wro.plugin:WroPlugin"
 wro_bigquery = "ckanext.wro_bigquery.plugin:WroBigqueryPlugin"
 wro_gcs_storage = "ckanext.wro_gcs_storage.plugin:WroGcsStoragePlugin"
 wro_azure_storage = "ckanext.wro_azure_storage.plugin:WroAzureStoragePlugin"
+[tool.poetry.plugins."ckan.cli"]
+wro = "ckanext.wro.cli.commands:wro"
 
 [tool.poetry.plugins."babel.extractors"]
 ckan = "ckan.lib.extract:extract_ckan"

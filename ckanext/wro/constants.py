@@ -81,6 +81,37 @@ PACKAGE_NON_EXTRAS_FIELDS = [
     'extras'
 ]
 
+# Main WRO organization name used in bootstrap
+WRO_ORG_NAME = "wro"
+
+# Basic EPSG code to projection name mapping for CBERS
+PROJECTION = {
+    '32734': 'WGS 84 / UTM zone 34S',
+    '32735': 'WGS 84 / UTM zone 35S',
+    # Add more EPSG codes as needed
+}
+
+# ISO Topic Categories for sample datasets and bootstrapping
+ISO_TOPIC_CATEGORIES = [
+    ("farming", "Farming"),
+    ("biota", "Biota"),
+    ("boundaries", "Boundaries"),
+    ("climatologyMeteorologyAtmosphere", "Climatology/Meteorology/Atmosphere"),
+    ("economy", "Economy"),
+    ("elevation", "Elevation"),
+    ("environment", "Environment"),
+    ("geoscientificInformation", "Geoscientific Information"),
+    ("health", "Health"),
+    ("imageryBaseMapsEarthCover", "Imagery/Base Maps/Earth Cover"),
+    ("inlandWaters", "Inland Waters"),
+    ("location", "Location"),
+    ("planningCadastre", "Planning/Cadastre"),
+    ("society", "Society"),
+    ("structure", "Structure"),
+    ("transportation", "Transportation"),
+    ("utilitiesCommunication", "Utilities/Communication"),
+]
+
 
 #  id                | text                        |           | not null | 
 #  name              | character varying(100)      |           | not null | 

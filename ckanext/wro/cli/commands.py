@@ -56,11 +56,10 @@ from ._sample_datasets import (
 )
 from ._sample_organizations import SAMPLE_ORGANIZATIONS
 from ._sample_users import SAMPLE_USERS
-from .. import jobs
-from .. import provide_request_context
-from ..email_notifications import get_and_send_notifications_for_all_users
+# from .. import jobs
+# from .. import provide_request_context
+# from ..email_notifications import get_and_send_notifications_for_all_users
 from ..constants import (
-    ISO_TOPIC_CATEGOY_VOCABULARY_NAME,
     ISO_TOPIC_CATEGORIES
 )
 
@@ -87,28 +86,28 @@ def wro(verbose: bool):
     )
 
 
-@wro.command()
-def send_email_notifications():
-    """Send pending email notifications to users
+# @wro.command()
+# def send_email_notifications():
+#     """Send pending email notifications to users
 
-    This command should be ran periodically.
+#     This command should be ran periodically.
 
-    """
+#     """
 
-    setting_key = "ckan.activity_streams_email_notifications"
-    if toolkit.asbool(toolkit.config.get(setting_key)):
-        env_sentinel = "CKAN_SMTP_PASSWORD"
-        if os.getenv(env_sentinel) is not None:
-            num_sent = get_and_send_notifications_for_all_users()
-            logger.info(f"Sent {num_sent} emails")
-            logger.info("Done!")
-        else:
-            logger.error(
-                f"Could not find the {env_sentinel!r} environment variable. Email "
-                f"notifications are not configured correctly. Aborting...",
-            )
-    else:
-        logger.error(f"{setting_key} is not enabled in config. Aborting...")
+#     setting_key = "ckan.activity_streams_email_notifications"
+#     if toolkit.asbool(toolkit.config.get(setting_key)):
+#         env_sentinel = "CKAN_SMTP_PASSWORD"
+#         if os.getenv(env_sentinel) is not None:
+#             num_sent = get_and_send_notifications_for_all_users()
+#             logger.info(f"Sent {num_sent} emails")
+#             logger.info("Done!")
+#         else:
+#             logger.error(
+#                 f"Could not find the {env_sentinel!r} environment variable. Email "
+#                 f"notifications are not configured correctly. Aborting...",
+#             )
+#     else:
+#         logger.error(f"{setting_key} is not enabled in config. Aborting...")
 
 
 @wro.group()
@@ -330,235 +329,235 @@ def create_sample_users():
                 model.repo.commit()
 
 
-@load_sample_data.command()
-@provide_request_context
-def create_sample_organizations(app_context):
-    """Create sample organizations and members"""
-    user = toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
-    create_org_action = toolkit.get_action("organization_create")
-    create_org_member_action = toolkit.get_action("organization_member_create")
-    create_harvester_action = toolkit.get_action("harvest_source_create")
-    logger.info(f"Creating sample organizations ...")
-    for org_details, memberships, harvesters in SAMPLE_ORGANIZATIONS:
-        logger.debug(f"Creating {org_details.name!r}...")
-        try:
-            create_org_action(
-                context={
-                    "user": user["name"],
-                },
-                data_dict={
-                    "name": org_details.name,
-                    "title": org_details.title,
-                    "description": org_details.description,
-                    "image_url": org_details.image_url,
-                },
-            )
-        except toolkit.ValidationError:
-            logger.exception(f"Could not create organization {org_details.name!r}")
-        for user_name, role in memberships:
-            logger.debug(f"Creating membership {user_name!r} ({role!r})...")
-            create_org_member_action(
-                context={
-                    "user": user["name"],
-                },
-                data_dict={
-                    "id": org_details.name,
-                    "username": user_name,
-                    "role": role if role != "publisher" else "admin",
-                },
-            )
-        for harvester_details in harvesters:
-            logger.debug(f"Creating harvest source {harvester_details.name!r}...")
-            try:
-                create_harvester_action(
-                    context={"user": user["name"]},
-                    data_dict={
-                        "name": harvester_details.name,
-                        "url": harvester_details.url,
-                        "source_type": harvester_details.source_type,
-                        "frequency": harvester_details.update_frequency,
-                        "config": json.dumps(harvester_details.configuration),
-                        "owner_org": org_details.name,
-                    },
-                )
-            except toolkit.ValidationError:
-                logger.exception(
-                    f"Could not create harvest source {harvester_details.name!r}"
-                )
-                logger.debug(
-                    f"Attempting to re-enable possibly deleted harvester source..."
-                )
-                sample_harvester = model.Package.get(harvester_details.name)
-                if sample_harvester is None:
-                    logger.error(
-                        f"Could not find harvester source {harvester_details.name!r}"
-                    )
-                    continue
-                else:
-                    sample_harvester.state = model.State.ACTIVE
-                    model.repo.commit()
-    logger.info("Done!")
+# @load_sample_data.command()
+# @provide_request_context
+# def create_sample_organizations(app_context):
+#     """Create sample organizations and members"""
+#     user = toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
+#     create_org_action = toolkit.get_action("organization_create")
+#     create_org_member_action = toolkit.get_action("organization_member_create")
+#     create_harvester_action = toolkit.get_action("harvest_source_create")
+#     logger.info(f"Creating sample organizations ...")
+#     for org_details, memberships, harvesters in SAMPLE_ORGANIZATIONS:
+#         logger.debug(f"Creating {org_details.name!r}...")
+#         try:
+#             create_org_action(
+#                 context={
+#                     "user": user["name"],
+#                 },
+#                 data_dict={
+#                     "name": org_details.name,
+#                     "title": org_details.title,
+#                     "description": org_details.description,
+#                     "image_url": org_details.image_url,
+#                 },
+#             )
+#         except toolkit.ValidationError:
+#             logger.exception(f"Could not create organization {org_details.name!r}")
+#         for user_name, role in memberships:
+#             logger.debug(f"Creating membership {user_name!r} ({role!r})...")
+#             create_org_member_action(
+#                 context={
+#                     "user": user["name"],
+#                 },
+#                 data_dict={
+#                     "id": org_details.name,
+#                     "username": user_name,
+#                     "role": role if role != "publisher" else "admin",
+#                 },
+#             )
+#         for harvester_details in harvesters:
+#             logger.debug(f"Creating harvest source {harvester_details.name!r}...")
+#             try:
+#                 create_harvester_action(
+#                     context={"user": user["name"]},
+#                     data_dict={
+#                         "name": harvester_details.name,
+#                         "url": harvester_details.url,
+#                         "source_type": harvester_details.source_type,
+#                         "frequency": harvester_details.update_frequency,
+#                         "config": json.dumps(harvester_details.configuration),
+#                         "owner_org": org_details.name,
+#                     },
+#                 )
+#             except toolkit.ValidationError:
+#                 logger.exception(
+#                     f"Could not create harvest source {harvester_details.name!r}"
+#                 )
+#                 logger.debug(
+#                     f"Attempting to re-enable possibly deleted harvester source..."
+#                 )
+#                 sample_harvester = model.Package.get(harvester_details.name)
+#                 if sample_harvester is None:
+#                     logger.error(
+#                         f"Could not find harvester source {harvester_details.name!r}"
+#                     )
+#                     continue
+#                 else:
+#                     sample_harvester.state = model.State.ACTIVE
+#                     model.repo.commit()
+#     logger.info("Done!")
 
 
-@delete_data.command()
-def delete_sample_users():
-    """Delete sample users."""
-    user = toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
-    delete_user_action = toolkit.get_action("user_delete")
-    logger.info(f"Deleting sample users ...")
-    for user_details in SAMPLE_USERS:
-        logger.info(f"Deleting {user_details.name!r}...")
-        delete_user_action(
-            context={"user": user["name"]},
-            data_dict={"id": user_details.name},
-        )
-    logger.info("Done!")
+# @delete_data.command()
+# def delete_sample_users():
+#     """Delete sample users."""
+#     user = toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
+#     delete_user_action = toolkit.get_action("user_delete")
+#     logger.info(f"Deleting sample users ...")
+#     for user_details in SAMPLE_USERS:
+#         logger.info(f"Deleting {user_details.name!r}...")
+#         delete_user_action(
+#             context={"user": user["name"]},
+#             data_dict={"id": user_details.name},
+#         )
+#     logger.info("Done!")
 
 
-@delete_data.command()
-def delete_sample_organizations():
-    """Delete sample organizations."""
-    user = toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
+# @delete_data.command()
+# def delete_sample_organizations():
+#     """Delete sample organizations."""
+#     user = toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
 
-    org_show_action = toolkit.get_action("organization_show")
-    purge_org_action = toolkit.get_action("organization_purge")
-    package_search_action = toolkit.get_action("package_search")
-    dataset_purge_action = toolkit.get_action("dataset_purge")
-    harvest_source_list_action = toolkit.get_action("harvest_source_list")
-    harvest_source_delete_action = toolkit.get_action("harvest_source_delete")
-    logger.info(f"Purging sample organizations ...")
-    for org_details, _, _ in SAMPLE_ORGANIZATIONS:
-        try:
-            org = org_show_action(
-                context={"user": user["name"]}, data_dict={"id": org_details.name}
-            )
-            logger.debug(f"{org = }")
-        except toolkit.ObjectNotFound:
-            logger.info(f"Organization {org_details.name} does not exist, skipping...")
-        else:
-            packages = package_search_action(
-                context={"user": user["name"]},
-                data_dict={"fq": f"owner_org:{org['id']}"},
-            )
-            logger.debug(f"{packages = }")
-            for package in packages["results"]:
-                logger.debug(f"Purging package {package['id']}...")
-                dataset_purge_action(
-                    context={"user": user["name"]}, data_dict={"id": package["id"]}
-                )
-            harvest_sources = harvest_source_list_action(
-                context={"user": user["name"]}, data_dict={"organization_id": org["id"]}
-            )
-            logger.debug(f"{ harvest_sources = }")
-            for harvest_source in harvest_sources:
-                logger.debug(f"Deleting harvest_source {harvest_source['title']}...")
-                harvest_source_delete_action(
-                    context={"user": user["name"], "clear_source": True},
-                    data_dict={"id": harvest_source["id"]},
-                )
-            logger.debug(f"Purging {org_details.name!r}...")
-            purge_org_action(
-                context={"user": user["name"]},
-                data_dict={"id": org["id"]},
-            )
-    logger.info("Done!")
-
-
-@load_sample_data.command()
-@click.argument("owner_org")
-@click.option("-n", "--num-datasets", default=10, show_default=True)
-@click.option("-p", "--name-prefix", default="sample-dataset", show_default=True)
-@click.option("-s", "--name-suffix")
-@click.option(
-    "-t",
-    "--temporal-range",
-    nargs=2,
-    type=click.DateTime(),
-    default=(dt.datetime(2021, 1, 1), dt.datetime(2022, 12, 31)),
-)
-@click.option("-x", "--longitude-range", nargs=2, type=float, default=(16.3, 33.0))
-@click.option("-y", "--latitude-range", nargs=2, type=float, default=(-35.0, -21.0))
-def create_sample_datasets(
-        owner_org,
-        num_datasets,
-        name_prefix,
-        name_suffix,
-        temporal_range,
-        longitude_range,
-        latitude_range,
-):
-    """Create multiple sample datasets"""
-    user = toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
-    datasets = generate_sample_datasets(
-        num_datasets,
-        name_prefix,
-        owner_org,
-        name_suffix,
-        temporal_range_start=temporal_range[0],
-        temporal_range_end=temporal_range[1],
-        longitude_range_start=longitude_range[0],
-        longitude_range_end=longitude_range[1],
-        latitude_range_start=latitude_range[0],
-        latitude_range_end=latitude_range[1],
-    )
-    ready_to_create_datasets = [ds.to_data_dict() for ds in datasets]
-    workers = min(3, len(ready_to_create_datasets))
-    with futures.ThreadPoolExecutor(workers) as executor:
-        to_do = []
-        for dataset in ready_to_create_datasets:
-            future = executor.submit(utils.create_single_dataset, user, dataset)
-            to_do.append(future)
-        num_created = 0
-        num_already_exist = 0
-        num_failed = 0
-        for done_future in futures.as_completed(to_do):
-            try:
-                result = done_future.result()
-                if result == utils.DatasetCreationResult.CREATED:
-                    num_created += 1
-                elif result == utils.DatasetCreationResult.NOT_CREATED_ALREADY_EXISTS:
-                    num_already_exist += 1
-            except dictization_functions.DataError:
-                logger.exception(f"Could not create dataset")
-                num_failed += 1
-            except ValueError:
-                logger.exception(f"Could not create dataset")
-                num_failed += 1
-
-    logger.info(f"Created {num_created} datasets")
-    logger.info(f"Skipped {num_already_exist} datasets")
-    logger.info(f"Failed to create {num_failed} datasets")
-    logger.info("Done!")
+#     org_show_action = toolkit.get_action("organization_show")
+#     purge_org_action = toolkit.get_action("organization_purge")
+#     package_search_action = toolkit.get_action("package_search")
+#     dataset_purge_action = toolkit.get_action("dataset_purge")
+#     harvest_source_list_action = toolkit.get_action("harvest_source_list")
+#     harvest_source_delete_action = toolkit.get_action("harvest_source_delete")
+#     logger.info(f"Purging sample organizations ...")
+#     for org_details, _, _ in SAMPLE_ORGANIZATIONS:
+#         try:
+#             org = org_show_action(
+#                 context={"user": user["name"]}, data_dict={"id": org_details.name}
+#             )
+#             logger.debug(f"{org = }")
+#         except toolkit.ObjectNotFound:
+#             logger.info(f"Organization {org_details.name} does not exist, skipping...")
+#         else:
+#             packages = package_search_action(
+#                 context={"user": user["name"]},
+#                 data_dict={"fq": f"owner_org:{org['id']}"},
+#             )
+#             logger.debug(f"{packages = }")
+#             for package in packages["results"]:
+#                 logger.debug(f"Purging package {package['id']}...")
+#                 dataset_purge_action(
+#                     context={"user": user["name"]}, data_dict={"id": package["id"]}
+#                 )
+#             harvest_sources = harvest_source_list_action(
+#                 context={"user": user["name"]}, data_dict={"organization_id": org["id"]}
+#             )
+#             logger.debug(f"{ harvest_sources = }")
+#             for harvest_source in harvest_sources:
+#                 logger.debug(f"Deleting harvest_source {harvest_source['title']}...")
+#                 harvest_source_delete_action(
+#                     context={"user": user["name"], "clear_source": True},
+#                     data_dict={"id": harvest_source["id"]},
+#                 )
+#             logger.debug(f"Purging {org_details.name!r}...")
+#             purge_org_action(
+#                 context={"user": user["name"]},
+#                 data_dict={"id": org["id"]},
+#             )
+#     logger.info("Done!")
 
 
-# TODO: speed this up by doing concurrent processing, similar to create_sample_datasets
-@delete_data.command()
-def delete_sample_datasets():
-    """Deletes at most 1000 of existing sample datasets"""
-    user = toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
-    purge_dataset_action = toolkit.get_action("dataset_purge")
-    get_datasets_action = toolkit.get_action("package_search")
-    max_rows = 1000
-    existing_sample_datasets = get_datasets_action(
-        context={"user": user["name"]},
-        data_dict={
-            "q": f"tags:{SAMPLE_DATASET_TAG}",
-            "rows": max_rows,
-            "facet": False,
-            "include_drafts": True,
-            "include_private": True,
-        },
-    )
-    for dataset in existing_sample_datasets["results"]:
-        logger.debug(f"Purging dataset {dataset['name']!r}...")
-        purge_dataset_action(
-            context={"user": user["name"]}, data_dict={"id": dataset["id"]}
-        )
-    num_existing = existing_sample_datasets["count"]
-    remaining_sample_datasets = num_existing - max_rows
-    if remaining_sample_datasets > 0:
-        logger.info(f"{remaining_sample_datasets} still remain")
-    logger.info("Done!")
+# @load_sample_data.command()
+# @click.argument("owner_org")
+# @click.option("-n", "--num-datasets", default=10, show_default=True)
+# @click.option("-p", "--name-prefix", default="sample-dataset", show_default=True)
+# @click.option("-s", "--name-suffix")
+# @click.option(
+#     "-t",
+#     "--temporal-range",
+#     nargs=2,
+#     type=click.DateTime(),
+#     default=(dt.datetime(2021, 1, 1), dt.datetime(2022, 12, 31)),
+# )
+# @click.option("-x", "--longitude-range", nargs=2, type=float, default=(16.3, 33.0))
+# @click.option("-y", "--latitude-range", nargs=2, type=float, default=(-35.0, -21.0))
+# def create_sample_datasets(
+#         owner_org,
+#         num_datasets,
+#         name_prefix,
+#         name_suffix,
+#         temporal_range,
+#         longitude_range,
+#         latitude_range,
+# ):
+#     """Create multiple sample datasets"""
+#     user = toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
+#     datasets = generate_sample_datasets(
+#         num_datasets,
+#         name_prefix,
+#         owner_org,
+#         name_suffix,
+#         temporal_range_start=temporal_range[0],
+#         temporal_range_end=temporal_range[1],
+#         longitude_range_start=longitude_range[0],
+#         longitude_range_end=longitude_range[1],
+#         latitude_range_start=latitude_range[0],
+#         latitude_range_end=latitude_range[1],
+#     )
+#     ready_to_create_datasets = [ds.to_data_dict() for ds in datasets]
+#     workers = min(3, len(ready_to_create_datasets))
+#     with futures.ThreadPoolExecutor(workers) as executor:
+#         to_do = []
+#         for dataset in ready_to_create_datasets:
+#             future = executor.submit(utils.create_single_dataset, user, dataset)
+#             to_do.append(future)
+#         num_created = 0
+#         num_already_exist = 0
+#         num_failed = 0
+#         for done_future in futures.as_completed(to_do):
+#             try:
+#                 result = done_future.result()
+#                 if result == utils.DatasetCreationResult.CREATED:
+#                     num_created += 1
+#                 elif result == utils.DatasetCreationResult.NOT_CREATED_ALREADY_EXISTS:
+#                     num_already_exist += 1
+#             except dictization_functions.DataError:
+#                 logger.exception(f"Could not create dataset")
+#                 num_failed += 1
+#             except ValueError:
+#                 logger.exception(f"Could not create dataset")
+#                 num_failed += 1
+
+#     logger.info(f"Created {num_created} datasets")
+#     logger.info(f"Skipped {num_already_exist} datasets")
+#     logger.info(f"Failed to create {num_failed} datasets")
+#     logger.info("Done!")
+
+
+# # TODO: speed this up by doing concurrent processing, similar to create_sample_datasets
+# @delete_data.command()
+# def delete_sample_datasets():
+#     """Deletes at most 1000 of existing sample datasets"""
+#     user = toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
+#     purge_dataset_action = toolkit.get_action("dataset_purge")
+#     get_datasets_action = toolkit.get_action("package_search")
+#     max_rows = 1000
+#     existing_sample_datasets = get_datasets_action(
+#         context={"user": user["name"]},
+#         data_dict={
+#             "q": f"tags:{SAMPLE_DATASET_TAG}",
+#             "rows": max_rows,
+#             "facet": False,
+#             "include_drafts": True,
+#             "include_private": True,
+#         },
+#     )
+#     for dataset in existing_sample_datasets["results"]:
+#         logger.debug(f"Purging dataset {dataset['name']!r}...")
+#         purge_dataset_action(
+#             context={"user": user["name"]}, data_dict={"id": dataset["id"]}
+#         )
+#     num_existing = existing_sample_datasets["count"]
+#     remaining_sample_datasets = num_existing - max_rows
+#     if remaining_sample_datasets > 0:
+#         logger.info(f"{remaining_sample_datasets} still remain")
+#     logger.info("Done!")
 
 
 # TODO: This command does not need to be needed anymore,
@@ -1181,55 +1180,3 @@ def create_stac_dataset_func(user: str, url: str, owner_org: str, number_records
 def create_stac_dataset(user: str, url: str, owner_org: str, number_records: int = 10):
     create_stac_dataset_func(user, url, owner_org, number_records)
 
-
-@bootstrap.command()
-def create_iso_topic_categories():
-    """Create ISO Topic Categories.
-
-    This command adds a CKAN vocabulary for the ISO Topic Categories and creates each
-    topic category as a CKAN tag.
-
-    This command can safely be called multiple times - it will only ever create the
-    vocabulary and themes once.
-
-    """
-
-    logger.info(
-        f"Creating ISO Topic Categories CKAN tag vocabulary and adding "
-        f"the relevant categories..."
-    )
-
-    user = toolkit.get_action("get_site_user")({"ignore_auth": True}, {})
-    context = {"user": user["name"]}
-    vocab_list = toolkit.get_action("vocabulary_list")(context)
-    for voc in vocab_list:
-        if voc["name"] == ISO_TOPIC_CATEGOY_VOCABULARY_NAME:
-            vocabulary = voc
-            logger.info(
-                f"Vocabulary {ISO_TOPIC_CATEGOY_VOCABULARY_NAME!r} already exists, "
-                f"skipping creation..."
-            )
-            break
-    else:
-        logger.info(f"Creating vocabulary {ISO_TOPIC_CATEGOY_VOCABULARY_NAME!r}...")
-        vocabulary = toolkit.get_action("vocabulary_create")(
-            context, {"name": ISO_TOPIC_CATEGOY_VOCABULARY_NAME}
-        )
-
-    for theme_name, _ in ISO_TOPIC_CATEGORIES:
-        if theme_name != "":
-            already_exists = theme_name in [tag["name"] for tag in vocabulary["tags"]]
-            if not already_exists:
-                logger.info(
-                    f"Adding tag {theme_name!r} to "
-                    f"vocabulary {ISO_TOPIC_CATEGOY_VOCABULARY_NAME!r}..."
-                )
-                toolkit.get_action("tag_create")(
-                    context, {"name": theme_name, "vocabulary_id": vocabulary["id"]}
-                )
-            else:
-                logger.info(
-                    f"Tag {theme_name!r} is already part of the "
-                    f"{ISO_TOPIC_CATEGOY_VOCABULARY_NAME!r} vocabulary, skipping..."
-                )
-    logger.info("Done!")

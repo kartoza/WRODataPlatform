@@ -13,8 +13,8 @@ _staff_org_name = _staff_org_title.replace(" ", "-").lower()[:100]
 
 WRO_ORGANIZATIONS: typing.Final[typing.List[_CkanBootstrapOrganization]] = [
     _CkanBootstrapOrganization(
-        name=constants.SANSA_ORG_NAME,
-        title="SANSA",
+        name=constants.WRO_ORG_NAME,
+        title="WRO",
         description=(
             "no description yet"
         ),
@@ -24,7 +24,7 @@ WRO_ORGANIZATIONS: typing.Final[typing.List[_CkanBootstrapOrganization]] = [
         title=_staff_org_title,
         description=(
             f"The {_staff_org_title} organization is responsible for the maintenance of "
-            f"the static contents for the EMC portal"
+            f"the static contents for the WRO portal"
         ),
     ),
 ]
