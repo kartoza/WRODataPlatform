@@ -6,14 +6,17 @@ from .logic import converters, validators
 from .logic.action import create, update
 from .blueprints.map import map_blueprint
 from .blueprints.xml_parser import xml_parser_blueprint
+from .cli import commands
+
 
 class WroPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.ITemplateHelpers)
     plugins.implements(plugins.IValidators)
     plugins.implements(plugins.IBlueprint)
-    # plugins.implements(plugins.IActions, inherit=True)
+    plugins.implements(plugins.IActions, inherit=True)
     plugins.implements(plugins.IResourceView, inherit=True)
+    plugins.implements(plugins.IClick)
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, 'templates')
@@ -32,6 +35,18 @@ class WroPlugin(plugins.SingletonPlugin):
             "lower_case":validators.lower_case, 
             "empty_resource_info":converters.convert_empty_resource_info_to_false,
         }
+
+    def get_actions(self):
+        """
+        Return an empty dict for now.
+        This prevents CKAN from failing when no custom actions exist.
+        """
+        return {}
+
+    def get_commands(self):
+        return [
+            commands.wro
+        ]
 
     # IBlueprint
     def get_blueprint(self):
