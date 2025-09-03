@@ -6,10 +6,12 @@ from .logic import converters, validators
 from .logic.action import create, update
 from .blueprints.map import map_blueprint
 from .blueprints.xml_parser import xml_parser_blueprint
+# from .cli import commands
 
 class WroPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.ITemplateHelpers)
+    # plugins.implements(plugins.IClick)
     plugins.implements(plugins.IValidators)
     plugins.implements(plugins.IBlueprint)
     # plugins.implements(plugins.IActions, inherit=True)
@@ -33,6 +35,18 @@ class WroPlugin(plugins.SingletonPlugin):
             "empty_resource_info":converters.convert_empty_resource_info_to_false,
         }
 
+    def get_actions(self):
+        """
+        Return an empty dict for now.
+        This prevents CKAN from failing when no custom actions exist.
+        """
+        return {}
+
+    # def get_commands(self):
+    #     return [
+    #         commands.wro
+    #     ]
+
     # IBlueprint
     def get_blueprint(self):
         return [ map_blueprint, xml_parser_blueprint]
@@ -50,9 +64,7 @@ class WroPlugin(plugins.SingletonPlugin):
             "get_default_spatial_search_extent":helpers.get_default_spatial_search_extent,
         }
 
-
     # IResourceView
-
     def info(self):
         """
         setup the view configuration
@@ -63,7 +75,7 @@ class WroPlugin(plugins.SingletonPlugin):
             'icon': 'map-marker',
             'always_available': True,
             'iframed': False,
-            }
+        }
 
     
     def setup_template_variables(self, context, data_dict):

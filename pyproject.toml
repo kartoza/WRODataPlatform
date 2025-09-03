@@ -24,8 +24,8 @@ docker_entrypoint = "ckanext.wro.cli.docker_entrypoint:cli"
 wro = "ckanext.wro.plugin:WroPlugin"
 wro_bigquery = "ckanext.wro_bigquery.plugin:WroBigqueryPlugin"
 
-[tool.poetry.plugins."ckan.cli"]
-wro = "ckanext.wro.cli.commands:wro"
+#[tool.poetry.plugins."ckan.cli"]
+#wro = "ckanext.wro.cli.commands:wro"
 
 [tool.poetry.plugins."babel.extractors"]
 ckan = "ckan.lib.extract:extract_ckan"

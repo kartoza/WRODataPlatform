@@ -32,9 +32,8 @@ sudo docker image build \
     --label git-branch=$GIT_BRANCH \
     --build-arg "BUILDKIT_INLINE_CACHE=1" \
     --build-arg "GIT_COMMIT=$GIT_COMMIT" \
-    --cache-from=$IMAGE_NAME:$DEFAULT_BRANCH \
-    --cache-from=$IMAGE_NAME:$GIT_BRANCH \
-    ..
+    .. \
+    --no-cache
 
 # run smoke tests
 # python3 smoketest.py $IMAGE_NAME:$GIT_BRANCH
