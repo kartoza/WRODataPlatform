@@ -13,7 +13,7 @@ _staff_org_name = _staff_org_title.replace(" ", "-").lower()[:100]
 
 WRO_ORGANIZATIONS: typing.Final[typing.List[_CkanBootstrapOrganization]] = [
     _CkanBootstrapOrganization(
-        name=constants.SANSA_ORG_NAME,
+        name=constants.WRO_ORG_NAME,
         title="SANSA",
         description=(
             "no description yet"
