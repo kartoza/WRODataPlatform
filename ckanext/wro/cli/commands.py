@@ -35,6 +35,7 @@ from dateutil.parser import parse as datetime_parse
 from lxml import etree
 from pystac_client import Client
 from sqlalchemy import text as sla_text
+from werkzeug.datastructures import FileStorage
 
 from . import utils
 from ._bootstrap_data import PORTAL_PAGES, WRO_ORGANIZATIONS
@@ -1262,6 +1263,7 @@ TOPIC_CATEGORY_MAP = {
 
 from ckan.logic import ValidationError, NotFound
 import re
+import io
 import mimetypes
 from sqlalchemy.exc import InvalidRequestError
 
@@ -1335,7 +1337,8 @@ def import_datasets(ctx, gdrive_url, workdir):
                         'model': model,
                         'session': model.Session,
                         'user': user['name'],
-                        'ignore_auth': True
+                        'ignore_auth': True,
+                        "auth_user_obj": model.User.get(user['name'])  # must exist in DB
                     }
 
                     dataset_path = os.path.join(series_path, dataset_title)
@@ -1401,15 +1404,38 @@ def import_datasets(ctx, gdrive_url, workdir):
                         logger.info(f"=============== {filename} ===============")
 
                         with open(filepath, "rb") as f:
+                            file_storage = FileStorage(
+                                stream=io.BytesIO(f.read()),  # File-like object
+                                filename=filename,
+                                content_type=mimetypes.guess_type(filename)[0] or "application/octet-stream"
+                            )
+                            format = os.path.splitext(filename)[-1].replace('.', '').lower() or "unknown"
                             resource_dict = {
                                 "package_id": pkg["id"],
                                 "name": filename,  # descriptive is better if you have it
-                                "upload": f,
-                                "format": os.path.splitext(filename)[-1].replace('.', '').lower() or "unknown",
-                                "url": filename,
-                                "resource_name": filename,
-                                "mimetype": mimetypes.guess_type(filename)[0] or ""
+                                "upload": file_storage,
+                                "format": format,
+                                "mimetype": file_storage.content_type,
+                                "extras": {
+                                    "is_data_supplementary": "False",
+                                    "resource_name": filename,
+                                    "zipped_file": "True" if format == "zip" else False
+                                }
                             }
                             logger.info(f"Trying to add dataset")
-                            toolkit.get_action('resource_create')(context, resource_dict)
+                            created_res = toolkit.get_action('resource_create')(context, resource_dict)
                             logger.info(f"Added resource: {filename} to dataset {dataset_slug}")
+
+                            resource_id = created_res["id"]  # CKAN-generated resource ID
+
+                            # You can now construct your own URL if 'upload' plugin is missing
+                            manual_url = filename
+
+                            # Optionally update the resource with a URL
+                            toolkit.get_action('resource_update')(context, {
+                                "id": resource_id,
+                                "url": manual_url,
+                                "format": format
+                            })
+                            logger.info(f"Resource URL set manually: {manual_url}")
+
