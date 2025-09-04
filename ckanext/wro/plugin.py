@@ -42,7 +42,7 @@ class WroPlugin(plugins.SingletonPlugin):
         This prevents CKAN from failing when no custom actions exist.
         """
         return {
-            # 'resource_create': create.resource_create
+            # 'package_create': create.package_create
         }
 
     def get_commands(self):

@@ -1284,33 +1284,34 @@ def import_datasets(ctx, gdrive_url, workdir):
     Example:
       ckan -c /etc/ckan/default/ckan.ini wro import-datasets "https://drive.google.com/file/d/FILE_ID/view?usp=sharing" /tmp/work
     """
-   #  os.makedirs(workdir, exist_ok=True)
-   #  zip_path = os.path.join(workdir, "datasets.zip")
-   #  extract_dir = os.path.join(workdir, "unzipped")
-   #
-   #  # --- Step 1: download from Google Drive
-   #  file_id = None
-   #  if "id=" in gdrive_url:
-   #      file_id = gdrive_url.split("id=")[1].split("&")[0]
-   #  elif "/d/" in gdrive_url:
-   #      file_id = gdrive_url.split("/d/")[1].split("/")[0]
-   #
-   #  if not file_id:
-   #      raise click.ClickException("Could not parse Google Drive file ID")
-   #
-   #  url = f"https://drive.google.com/uc?id={file_id}"
-   #  logger.info(f"Downloading from {url} ...")
-   #  gdown.download(url, zip_path, quiet=False)
-   #
-   #  # --- Step 2: extract
-   #  logger.info(f"Extracting {zip_path} to {extract_dir}")
-   #  with zipfile.ZipFile(zip_path, "r") as zip_ref:
-   #      zip_ref.extractall(extract_dir)
-   #
-   #
-   #  base_folder = os.path.join(extract_dir, 'Cloud SDK')
+    os.makedirs(workdir, exist_ok=True)
+    zip_path = os.path.join(workdir, "datasets.zip")
+    extract_dir = os.path.join(workdir, "unzipped")
 
-    base_folder = '/home/appuser/app/ckanext/wro/Cloud SDK/'
+    # --- Step 1: download from Google Drive
+    file_id = None
+    if "id=" in gdrive_url:
+        file_id = gdrive_url.split("id=")[1].split("&")[0]
+    elif "/d/" in gdrive_url:
+        file_id = gdrive_url.split("/d/")[1].split("/")[0]
+
+    if not file_id:
+        raise click.ClickException("Could not parse Google Drive file ID")
+
+    url = f"https://drive.google.com/uc?id={file_id}"
+    logger.info(f"Downloading from {url} ...")
+    gdown.download(url, zip_path, quiet=False)
+
+    # --- Step 2: extract
+    logger.info(f"Extracting {zip_path} to {extract_dir}")
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(extract_dir)
+
+
+    base_folder = os.path.join(extract_dir, 'Cloud SDK')
+
+    # manual test without downloading zip
+    # base_folder = '/home/appuser/app/ckanext/wro/Cloud SDK/'
 
     for topic in os.listdir(base_folder):
         topic_path = os.path.join(base_folder, topic)
@@ -1345,7 +1346,7 @@ def import_datasets(ctx, gdrive_url, workdir):
                     dataset_slug = make_dataset_slug(dataset_title)
                     logger.info(f"Importing {dataset_path} ...")
 
-                    topic_category = TOPIC_CATEGORY_MAP.get(dataset_title.lower(), "Uncategorized")
+                    topic_category = TOPIC_CATEGORY_MAP.get(topic, "Uncategorized")
 
                     dataset_dict = {
                         "name": dataset_slug,
@@ -1372,12 +1373,63 @@ def import_datasets(ctx, gdrive_url, workdir):
                         "data_structure_category": structure,
                         "uploader_estimation_of_extent_of_processing": "access",
 
+                        "spatial": "-20.629147, 13.165308,-35.2462649, 35.7811468",
+
+                        "authors": [{
+                            "author_name": "WRO",
+                            "author_surname": "Admin",
+                            "author_email": "zakki@kartoza.com",
+                            "author_organization": "WRO",
+                            "author_department": "Admin",
+                            "contact_same_as_author": True,
+                        }],
+
                         # ✅ only non-schema keys in extras
                         "extras": [
                             {"key": "topic", "value": topic},
                             {"key": "Dataset language", "value": "English"},
                         ]
                     }
+
+                    # dataset_dict = {
+                    #     "name": dataset_slug,
+                    #     "title": dataset_title,
+                    #     "notes": f"Auto-imported dataset for {dataset_title}",
+                    #
+                    #     # ⚠️ Must be org ID, not name
+                    #     "owner_org": "2c9de76e-0b99-47eb-941c-0413f0eaae81",
+                    #
+                    #     "private": True,
+                    #     "author": "WRO",
+                    #     "maintainer": "WRO",
+                    #     "maintainer_email": "info@wro.int",
+                    #
+                    #     # --- Required schema fields ---
+                    #     "keywords": topic,
+                    #     "Dataset topic category": topic_category,
+                    #     "Is the data time series or static": series_type,
+                    #     "publisher": "WRO",
+                    #     "publication_date": date(2025, 9, 1).isoformat(),
+                    #     "email": "info@wro.int",
+                    #     "agreement": "true",  # match UI
+                    #     "wro_theme": topic_category,
+                    #     "license": "Open (Creative Commons)",
+                    #     "data_classification": series_type,
+                    #     "data_collection_organization": "WRO",
+                    #     "data_structure_category": structure,
+                    #     "uploader_estimation_of_extent_of_processing": "16.4699, -34.8212, 32.8931, -22.1265",
+                    #
+                    #     # ✅ Add spatial bbox for CKAN spatial extension
+                    #     "spatial": "-22.1265, 16.4699, -34.8212, 32.8931",
+                    #
+                    #     # ✅ UI sets state explicitly
+                    #     "state": "draft",
+                    #
+                    #     "extras": [
+                    #         {"key": "topic", "value": topic},
+                    #         {"key": "Dataset language", "value": "English"},
+                    #     ]
+                    # }
 
                     try:
                         pkg = toolkit.get_action('package_create')(context, dataset_dict)
@@ -1401,7 +1453,6 @@ def import_datasets(ctx, gdrive_url, workdir):
                         filepath = os.path.join(dataset_path, filename)
                         if not os.path.isfile(filepath):
                             continue
-                        logger.info(f"=============== {filename} ===============")
 
                         with open(filepath, "rb") as f:
                             file_storage = FileStorage(
@@ -1415,6 +1466,7 @@ def import_datasets(ctx, gdrive_url, workdir):
                                 "name": filename,  # descriptive is better if you have it
                                 "upload": file_storage,
                                 "format": format,
+                                "url": filename,
                                 "mimetype": file_storage.content_type,
                                 "extras": {
                                     "is_data_supplementary": "False",
@@ -1422,20 +1474,19 @@ def import_datasets(ctx, gdrive_url, workdir):
                                     "zipped_file": "True" if format == "zip" else False
                                 }
                             }
-                            logger.info(f"Trying to add dataset")
                             created_res = toolkit.get_action('resource_create')(context, resource_dict)
                             logger.info(f"Added resource: {filename} to dataset {dataset_slug}")
 
-                            resource_id = created_res["id"]  # CKAN-generated resource ID
+                            # resource_id = created_res["id"]  # CKAN-generated resource ID
+                            #
+                            # # Construct URL
+                            # manual_url = filename
 
-                            # You can now construct your own URL if 'upload' plugin is missing
-                            manual_url = filename
-
-                            # Optionally update the resource with a URL
-                            toolkit.get_action('resource_update')(context, {
-                                "id": resource_id,
-                                "url": manual_url,
-                                "format": format
-                            })
-                            logger.info(f"Resource URL set manually: {manual_url}")
-
+                            # # Optionally update the resource with a URL
+                            # toolkit.get_action('resource_update')(context, {
+                            #     "id": resource_id,
+                            #     "url": manual_url,
+                            #     "format": format
+                            # })
+                            # logger.info(f"Resource URL set manually: {manual_url}")
+                            #
