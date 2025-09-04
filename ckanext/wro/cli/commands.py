@@ -1260,6 +1260,17 @@ TOPIC_CATEGORY_MAP = {
     "wetlands": "Wetlands"
 }
 
+from ckan.logic import ValidationError, NotFound
+import re
+import mimetypes
+from sqlalchemy.exc import InvalidRequestError
+
+def make_dataset_slug(title):
+    """Convert title to CKAN-safe dataset name (slug)."""
+    slug = re.sub(r'[^a-z0-9-]+', '-', title.lower())
+    slug = slug.strip('-')
+    return slug[:90]  # CKAN name field has a max length
+
 @wro.command()
 @click.argument('gdrive_url')
 @click.argument('workdir')
@@ -1271,36 +1282,33 @@ def import_datasets(ctx, gdrive_url, workdir):
     Example:
       ckan -c /etc/ckan/default/ckan.ini wro import-datasets "https://drive.google.com/file/d/FILE_ID/view?usp=sharing" /tmp/work
     """
-    os.makedirs(workdir, exist_ok=True)
-    zip_path = os.path.join(workdir, "datasets.zip")
-    extract_dir = os.path.join(workdir, "unzipped")
+   #  os.makedirs(workdir, exist_ok=True)
+   #  zip_path = os.path.join(workdir, "datasets.zip")
+   #  extract_dir = os.path.join(workdir, "unzipped")
+   #
+   #  # --- Step 1: download from Google Drive
+   #  file_id = None
+   #  if "id=" in gdrive_url:
+   #      file_id = gdrive_url.split("id=")[1].split("&")[0]
+   #  elif "/d/" in gdrive_url:
+   #      file_id = gdrive_url.split("/d/")[1].split("/")[0]
+   #
+   #  if not file_id:
+   #      raise click.ClickException("Could not parse Google Drive file ID")
+   #
+   #  url = f"https://drive.google.com/uc?id={file_id}"
+   #  logger.info(f"Downloading from {url} ...")
+   #  gdown.download(url, zip_path, quiet=False)
+   #
+   #  # --- Step 2: extract
+   #  logger.info(f"Extracting {zip_path} to {extract_dir}")
+   #  with zipfile.ZipFile(zip_path, "r") as zip_ref:
+   #      zip_ref.extractall(extract_dir)
+   #
+   #
+   #  base_folder = os.path.join(extract_dir, 'Cloud SDK')
 
-    # --- Step 1: download from Google Drive
-    file_id = None
-    if "id=" in gdrive_url:
-        file_id = gdrive_url.split("id=")[1].split("&")[0]
-    elif "/d/" in gdrive_url:
-        file_id = gdrive_url.split("/d/")[1].split("/")[0]
-
-    if not file_id:
-        raise click.ClickException("Could not parse Google Drive file ID")
-
-    url = f"https://drive.google.com/uc?id={file_id}"
-    click.echo(f"Downloading from {url} ...")
-    gdown.download(url, zip_path, quiet=False)
-
-    # --- Step 2: extract
-    click.echo(f"Extracting {zip_path} to {extract_dir}")
-    with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(extract_dir)
-
-    # --- Step 3: import into CKAN
-    user = toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
-    context = {'model': model,
-               'session': model.Session,
-               'user': user['name']}
-
-    base_folder = extract_dir
+    base_folder = '/home/appuser/app/ckanext/wro/Cloud SDK/'
 
     for topic in os.listdir(base_folder):
         topic_path = os.path.join(base_folder, topic)
@@ -1312,52 +1320,96 @@ def import_datasets(ctx, gdrive_url, workdir):
             if not os.path.isdir(structure_path):
                 continue
 
+            if 'access' in os.listdir(structure_path):
+                structure_path = os.path.join(structure_path, 'access')
+
             for series_type in os.listdir(structure_path):
                 series_path = os.path.join(structure_path, series_type)
                 if not os.path.isdir(series_path):
                     continue
 
                 for dataset_title in os.listdir(series_path):
-                    dataset_path = os.path.join(series_path, dataset_title)
+                    model.Session.remove()
+                    user = toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
+                    context = {
+                        'model': model,
+                        'session': model.Session,
+                        'user': user['name'],
+                        'ignore_auth': True
+                    }
 
-                    # --- Map dataset_title to a topic category
+                    dataset_path = os.path.join(series_path, dataset_title)
+                    dataset_slug = make_dataset_slug(dataset_title)
+                    logger.info(f"Importing {dataset_path} ...")
+
                     topic_category = TOPIC_CATEGORY_MAP.get(dataset_title.lower(), "Uncategorized")
 
                     dataset_dict = {
-                        "name": dataset_title.lower().replace("_", "-"),
+                        "name": dataset_slug,
                         "title": dataset_title,
                         "notes": f"Auto-imported dataset for {dataset_title}",
-                        "owner_org": "wro",  # CKAN org ID
+                        "owner_org": "wro",
                         "private": True,
                         "author": "WRO",
                         "maintainer": "WRO",
                         "maintainer_email": "info@wro.int",
-                        "license_id": "cc-by",
+
+                        # --- Required schema fields (must match your scheming config exactly) ---
+                        "keywords": topic,  # single string if schema is text, list if repeating field
+                        "Dataset topic category": topic_category,  # keep exact name if schema uses spaces
+                        "Is the data time series or static": series_type,
+                        "publisher": "WRO",
+                        "publication_date": date.today().isoformat(),
+                        "email": "zakki@kartoza.com",
+                        "agreement": True,
+                        "wro_theme": topic_category,
+                        "license": "Open (Creative Commons)",  # ✅ your schema expects *license*, not license_id
+                        "data_classification": series_type,
+                        "data_collection_organization": "WRO",
+                        "data_structure_category": structure,
+                        "uploader_estimation_of_extent_of_processing": "access",
+
+                        # ✅ only non-schema keys in extras
                         "extras": [
                             {"key": "topic", "value": topic},
-                            {"key": "keywords", "value": topic},
-                            {"key": "Dataset topic category", "value": topic_category},
-                            {"key": "Data structure category", "value": structure},
-                            {"key": "Is the data time series or static", "value": series_type},
-                            {"key": "Publisher", "value": "WRO"},
                             {"key": "Dataset language", "value": "English"},
-                            {"key": "Publication date", "value": date.today().isoformat()}
                         ]
                     }
 
                     try:
                         pkg = toolkit.get_action('package_create')(context, dataset_dict)
-                    except toolkit.ObjectExists:
-                        pkg = toolkit.get_action('package_show')(
-                            context, {"id": dataset_dict["name"]}
-                        )
+                        logger.info(f"Created dataset: {dataset_slug}")
+                    except ValidationError as e:
+                        logger.info(e)
+                        logger.info(f"Dataset {dataset_slug} exists, updating...")
+
+                        # Step 2: merge extras (avoid duplicate keys)
+                        existing_extras = {e["key"]: e["value"] for e in dataset_dict.get("extras", [])}
+
+                        dataset_dict["extras"] = [{"key": k, "value": v} for k, v in existing_extras.items()]
+                        dataset_dict["id"] = dataset_slug
+
+                        pkg = toolkit.get_action('package_update')(context, dataset_dict)
+                    except NotFound:
+                        raise click.ClickException(f"Dataset {dataset_slug} not found and could not be created")
 
                     # --- Add resources
                     for filename in os.listdir(dataset_path):
                         filepath = os.path.join(dataset_path, filename)
-                        resource_dict = {
-                            "package_id": pkg["id"],
-                            "name": filename,
-                            "upload": open(filepath, "rb")
-                        }
-                        toolkit.get_action('resource_create')(context, resource_dict)
+                        if not os.path.isfile(filepath):
+                            continue
+                        logger.info(f"=============== {filename} ===============")
+
+                        with open(filepath, "rb") as f:
+                            resource_dict = {
+                                "package_id": pkg["id"],
+                                "name": filename,  # descriptive is better if you have it
+                                "upload": f,
+                                "format": os.path.splitext(filename)[-1].replace('.', '').lower() or "unknown",
+                                "url": filename,
+                                "resource_name": filename,
+                                "mimetype": mimetypes.guess_type(filename)[0] or ""
+                            }
+                            logger.info(f"Trying to add dataset")
+                            toolkit.get_action('resource_create')(context, resource_dict)
+                            logger.info(f"Added resource: {filename} to dataset {dataset_slug}")
