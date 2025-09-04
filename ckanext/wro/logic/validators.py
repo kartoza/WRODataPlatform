@@ -1,6 +1,7 @@
 from json import tool
 import logging
 import ckan.plugins.toolkit as toolkit
+from ckan.lib.navl.dictization_functions import Missing
 from ckantoolkit import get_validator
 
 logger = logging.getLogger(__name__)
@@ -72,16 +73,21 @@ def agreement(value):
         return value
     
 
-def lower_case(value:str):
+def lower_case(value) -> str:
     """
-    a request by the client that 
-    all formats on the resources
-    page should be lowercased
+    Ensures the value contains only lowercase letters.
+    If value is missing or None, skip validation by returning None.
     """
-    caps_cases = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if isinstance(value, Missing) or value is None:
+        return None  # ✅ return None, not Missing
+
+    if not isinstance(value, str):
+        raise toolkit.Invalid("Value must be a string")
+
     for letter in value:
-        if letter in caps_cases:
-            raise toolkit.Invalid("format is alphabetical, all letters should be in lower cases" \
-                                  f" please use lower case instead of \"{letter}\" ")
-    else:
-        return value
+        if letter.isupper():
+            raise toolkit.Invalid(
+                f'format is alphabetical, all letters should be in lower cases. '
+                f'Please use lower case instead of "{letter}".'
+            )
+    return value

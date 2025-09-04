@@ -41,7 +41,9 @@ class WroPlugin(plugins.SingletonPlugin):
         Return an empty dict for now.
         This prevents CKAN from failing when no custom actions exist.
         """
-        return {}
+        return {
+            # 'package_create': create.package_create
+        }
 
     def get_commands(self):
         return [
