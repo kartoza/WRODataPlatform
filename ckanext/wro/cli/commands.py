@@ -1391,46 +1391,6 @@ def import_datasets(ctx, gdrive_url, workdir):
                         ]
                     }
 
-                    # dataset_dict = {
-                    #     "name": dataset_slug,
-                    #     "title": dataset_title,
-                    #     "notes": f"Auto-imported dataset for {dataset_title}",
-                    #
-                    #     # ⚠️ Must be org ID, not name
-                    #     "owner_org": "2c9de76e-0b99-47eb-941c-0413f0eaae81",
-                    #
-                    #     "private": True,
-                    #     "author": "WRO",
-                    #     "maintainer": "WRO",
-                    #     "maintainer_email": "info@wro.int",
-                    #
-                    #     # --- Required schema fields ---
-                    #     "keywords": topic,
-                    #     "Dataset topic category": topic_category,
-                    #     "Is the data time series or static": series_type,
-                    #     "publisher": "WRO",
-                    #     "publication_date": date(2025, 9, 1).isoformat(),
-                    #     "email": "info@wro.int",
-                    #     "agreement": "true",  # match UI
-                    #     "wro_theme": topic_category,
-                    #     "license": "Open (Creative Commons)",
-                    #     "data_classification": series_type,
-                    #     "data_collection_organization": "WRO",
-                    #     "data_structure_category": structure,
-                    #     "uploader_estimation_of_extent_of_processing": "16.4699, -34.8212, 32.8931, -22.1265",
-                    #
-                    #     # ✅ Add spatial bbox for CKAN spatial extension
-                    #     "spatial": "-22.1265, 16.4699, -34.8212, 32.8931",
-                    #
-                    #     # ✅ UI sets state explicitly
-                    #     "state": "draft",
-                    #
-                    #     "extras": [
-                    #         {"key": "topic", "value": topic},
-                    #         {"key": "Dataset language", "value": "English"},
-                    #     ]
-                    # }
-
                     try:
                         pkg = toolkit.get_action('package_create')(context, dataset_dict)
                         logger.info(f"Created dataset: {dataset_slug}")
@@ -1474,19 +1434,5 @@ def import_datasets(ctx, gdrive_url, workdir):
                                     "zipped_file": "True" if format == "zip" else False
                                 }
                             }
-                            created_res = toolkit.get_action('resource_create')(context, resource_dict)
+                            toolkit.get_action('resource_create')(context, resource_dict)
                             logger.info(f"Added resource: {filename} to dataset {dataset_slug}")
-
-                            # resource_id = created_res["id"]  # CKAN-generated resource ID
-                            #
-                            # # Construct URL
-                            # manual_url = filename
-
-                            # # Optionally update the resource with a URL
-                            # toolkit.get_action('resource_update')(context, {
-                            #     "id": resource_id,
-                            #     "url": manual_url,
-                            #     "format": format
-                            # })
-                            # logger.info(f"Resource URL set manually: {manual_url}")
-                            #
