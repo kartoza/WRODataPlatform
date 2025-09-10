@@ -3,7 +3,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
-from alembic import context
+from ckanext.wro.migration.wro.alembic import context
 
 from ckan.model import meta
 
