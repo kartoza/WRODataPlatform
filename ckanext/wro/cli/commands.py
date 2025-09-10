@@ -1299,14 +1299,14 @@ def import_datasets(ctx, gdrive_url, workdir):
     if not file_id:
         raise click.ClickException("Could not parse Google Drive file ID")
 
-    url = f"https://drive.google.com/uc?id={file_id}"
-    logger.info(f"Downloading from {url} ...")
-    gdown.download(url, zip_path, quiet=False)
-
-    # --- Step 2: extract
-    logger.info(f"Extracting {zip_path} to {extract_dir}")
-    with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(extract_dir)
+    # url = f"https://drive.google.com/uc?id={file_id}"
+    # logger.info(f"Downloading from {url} ...")
+    # gdown.download(url, zip_path, quiet=False)
+    #
+    # # --- Step 2: extract
+    # logger.info(f"Extracting {zip_path} to {extract_dir}")
+    # with zipfile.ZipFile(zip_path, "r") as zip_ref:
+    #     zip_ref.extractall(extract_dir)
 
 
     base_folder = os.path.join(extract_dir, 'Cloud SDK')
@@ -1334,8 +1334,7 @@ def import_datasets(ctx, gdrive_url, workdir):
                         continue
 
                     for dataset_title in os.listdir(series_path):
-                        if os.path.isdir(series_path):
-                            continue
+                        dataset_path = os.path.join(series_path, dataset_title)
                         model.Session.remove()
                         user = toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
                         context = {
@@ -1346,7 +1345,6 @@ def import_datasets(ctx, gdrive_url, workdir):
                             "auth_user_obj": model.User.get(user['name'])  # must exist in DB
                         }
 
-                        dataset_path = os.path.join(series_path, dataset_title)
                         dataset_slug = make_dataset_slug(dataset_title)
                         logger.info(f"Importing {dataset_path} ...")
 
@@ -1412,7 +1410,8 @@ def import_datasets(ctx, gdrive_url, workdir):
                             raise click.ClickException(f"Dataset {dataset_slug} not found and could not be created")
 
                         # --- Add resources
-                        for filename in os.listdir(dataset_path):
+                        files = os.listdir(dataset_path) if os.path.isdir(dataset_path) else [dataset_path]
+                        for filename in files:
                             filepath = os.path.join(dataset_path, filename)
                             if not os.path.isfile(filepath):
                                 continue
@@ -1440,4 +1439,4 @@ def import_datasets(ctx, gdrive_url, workdir):
                                 toolkit.get_action('resource_create')(context, resource_dict)
                                 logger.info(f"Added resource: {filename} to dataset {dataset_slug}")
 
-    shutil.rmtree(workdir)
+    # shutil.rmtree(workdir)
