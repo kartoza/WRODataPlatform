@@ -11,9 +11,9 @@ from pathlib import Path
 import httpx
 from lxml import etree
 
-from ckanext.saeoss.constants import ISO_TOPIC_CATEGORIES
-from ckanext.saeoss.cli import _CkanEmcDataset, _CkanResource, utils
-from ckanext.saeoss.cli.legacy_sasdi import import_mappings
+from ckanext.wro.constants import ISO_TOPIC_CATEGORIES
+from ckanext.wro.cli import _CkanEmcDataset, _CkanResource, utils
+from ckanext.wro.cli.legacy_sasdi import import_mappings
 
 logger = logging.getLogger(__name__)
 
