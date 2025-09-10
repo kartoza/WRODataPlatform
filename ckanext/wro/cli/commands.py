@@ -11,11 +11,19 @@ import time
 import traceback
 import typing
 import uuid
+import zipfile
+import gdown
+import shutil
+from datetime import date
 from concurrent import futures
 from pathlib import Path
 import glob
 import uuid
 from xml.dom.minidom import parse
+import re
+import io
+import mimetypes
+from sqlalchemy.exc import InvalidRequestError
 
 # import validators
 import alembic.command
@@ -32,6 +40,8 @@ from dateutil.parser import parse as datetime_parse
 from lxml import etree
 from pystac_client import Client
 from sqlalchemy import text as sla_text
+from werkzeug.datastructures import FileStorage
+from ckan.logic import ValidationError, NotFound
 
 from . import utils
 from ._bootstrap_data import PORTAL_PAGES, WRO_ORGANIZATIONS
@@ -1233,3 +1243,200 @@ def create_iso_topic_categories():
                     f"{ISO_TOPIC_CATEGOY_VOCABULARY_NAME!r} vocabulary, skipping..."
                 )
     logger.info("Done!")
+
+# --- Mapping dataset titles to topic categories ---
+TOPIC_CATEGORY_MAP = {
+    "agriculture": "Agriculture",
+    "biodiversity": "Biodiversity",
+    "case-study-nqweba-dam-at-graaff-reinet": "Case Studies",
+    "dam_level": "Hydrology",
+    "department-of-water-and-sanitation-monitoring-station-locations": "Infrastructure & Monitoring",
+    "ecosystems": "Ecosystems & Environment",
+    "file_structure": "Metadata / Administration",
+    "https-www-dws-gov-za-dso-publications-aspx": "Reports & Publications",
+    "hydrological_data_and_modelling": "Hydrology",
+    "info": "Metadata / General",
+    "maize-long-term-trial": "Agriculture",
+    "streamflow": "Hydrology",
+    "vegetation-map-of-south-africa-lesotho-and-swaziland-2006": "Vegetation & Landcover",
+    "vegetation-map-of-south-africa-lesotho-and-swaziland-2009": "Vegetation & Landcover",
+    "vegetation-map-of-south-africa-lesotho-and-swaziland-2012": "Vegetation & Landcover",
+    "vegetation-map-of-south-africa-lesotho-and-swaziland-2018": "Vegetation & Landcover",
+    "water_quality": "Water Quality",
+    "weather_and_climate_data": "Climate & Weather",
+    "wetlands": "Wetlands"
+}
+
+
+def make_dataset_slug(title):
+    """Convert title to CKAN-safe dataset name (slug)."""
+    slug = re.sub(r'[^a-z0-9-]+', '-', title.lower())
+    slug = slug.strip('-')
+    return slug[:90]  # CKAN name field has a max length
+
+@wro.command()
+@click.argument('gdrive_url')
+@click.argument('workdir')
+@click.pass_context
+def import_datasets(ctx, gdrive_url, workdir):
+    """
+    Download from Google Drive, extract, then import into CKAN.
+
+    Example:
+      ckan -c /etc/ckan/default/ckan.ini wro import-datasets "https://drive.google.com/file/d/FILE_ID/view?usp=sharing" /tmp/work
+    """
+    os.makedirs(workdir, exist_ok=True)
+    zip_path = os.path.join(workdir, "datasets.zip")
+    extract_dir = os.path.join(workdir, "unzipped")
+
+    # --- Step 1: download from Google Drive
+    file_id = None
+    if "id=" in gdrive_url:
+        file_id = gdrive_url.split("id=")[1].split("&")[0]
+    elif "/d/" in gdrive_url:
+        file_id = gdrive_url.split("/d/")[1].split("/")[0]
+
+    if not file_id:
+        raise click.ClickException("Could not parse Google Drive file ID")
+
+    # url = f"https://drive.google.com/uc?id={file_id}"
+    # logger.info(f"Downloading from {url} ...")
+    # gdown.download(url, zip_path, quiet=False)
+    #
+    # # --- Step 2: extract
+    # logger.info(f"Extracting {zip_path} to {extract_dir}")
+    # with zipfile.ZipFile(zip_path, "r") as zip_ref:
+    #     zip_ref.extractall(extract_dir)
+
+
+    base_folder = os.path.join(extract_dir, 'Cloud SDK')
+
+    # manual test without downloading zip
+    # base_folder = '/home/appuser/app/ckanext/wro/Cloud SDK/'
+
+    for topic in os.listdir(base_folder):
+        topic_path = os.path.join(base_folder, topic)
+        if not os.path.isdir(topic_path):
+            continue
+
+        for structure in os.listdir(topic_path):
+            structure_path = os.path.join(topic_path, structure)
+            if not os.path.isdir(structure_path):
+                continue
+
+            for raw_access_refined in os.listdir(structure_path):
+                new_path = os.path.join(structure_path, raw_access_refined)
+                if not os.path.isdir(new_path):
+                    continue
+                for series_type in os.listdir(new_path):
+                    series_path = os.path.join(new_path, series_type)
+                    if not os.path.isdir(series_path):
+                        continue
+
+                    for dataset_title in os.listdir(series_path):
+                        dataset_path = os.path.join(series_path, dataset_title)
+                        model.Session.remove()
+                        user = toolkit.get_action('get_site_user')({'ignore_auth': True}, {})
+                        context = {
+                            'model': model,
+                            'session': model.Session,
+                            'user': user['name'],
+                            'ignore_auth': True,
+                            "auth_user_obj": model.User.get(user['name'])  # must exist in DB
+                        }
+
+                        dataset_slug = make_dataset_slug(dataset_title)
+                        logger.info(f"Importing {dataset_path} ...")
+
+                        topic_category = TOPIC_CATEGORY_MAP.get(topic, "Uncategorized")
+
+                        dataset_dict = {
+                            "name": dataset_slug,
+                            "title": dataset_title,
+                            "notes": f"Auto-imported dataset for {dataset_title}",
+                            "owner_org": "wro",
+                            "private": True,
+                            "author": "WRO",
+                            "maintainer": "WRO",
+                            "maintainer_email": "info@wro.int",
+
+                            # --- Required schema fields ---
+                            "keywords": topic,  # single string if schema is text, list if repeating field
+                            "Dataset topic category": topic_category,  # keep exact name if schema uses spaces
+                            "Is the data time series or static": series_type,
+                            "publisher": "WRO",
+                            "publication_date": date.today().isoformat(),
+                            "email": "zakki@kartoza.com",
+                            "agreement": True,
+                            "wro_theme": topic_category,
+                            "license": "Open (Creative Commons)",  # ✅ your schema expects *license*, not license_id
+                            "data_classification": series_type,
+                            "data_collection_organization": "WRO",
+                            "data_structure_category": structure,
+                            "uploader_estimation_of_extent_of_processing": "access",
+
+                            "spatial": "-20.629147, 13.165308,-35.2462649, 35.7811468",
+
+                            "authors": [{
+                                "author_name": "WRO",
+                                "author_surname": "Admin",
+                                "author_email": "zakki@kartoza.com",
+                                "author_organization": "WRO",
+                                "author_department": "Admin",
+                                "contact_same_as_author": True,
+                            }],
+
+                            "extras": [
+                                {"key": "topic", "value": topic},
+                                {"key": "Dataset language", "value": "English"},
+                            ]
+                        }
+
+                        try:
+                            pkg = toolkit.get_action('package_create')(context, dataset_dict)
+                            logger.info(f"Created dataset: {dataset_slug}")
+                        except ValidationError as e:
+                            logger.info(e)
+                            logger.info(f"Dataset {dataset_slug} exists, updating...")
+
+                            # Step 2: merge extras (avoid duplicate keys)
+                            existing_extras = {e["key"]: e["value"] for e in dataset_dict.get("extras", [])}
+
+                            dataset_dict["extras"] = [{"key": k, "value": v} for k, v in existing_extras.items()]
+                            dataset_dict["id"] = dataset_slug
+
+                            pkg = toolkit.get_action('package_update')(context, dataset_dict)
+                        except NotFound:
+                            raise click.ClickException(f"Dataset {dataset_slug} not found and could not be created")
+
+                        # --- Add resources
+                        files = os.listdir(dataset_path) if os.path.isdir(dataset_path) else [dataset_path]
+                        for filename in files:
+                            filepath = os.path.join(dataset_path, filename)
+                            if not os.path.isfile(filepath):
+                                continue
+
+                            with open(filepath, "rb") as f:
+                                file_storage = FileStorage(
+                                    stream=f,
+                                    filename=filename,
+                                    content_type=mimetypes.guess_type(filename)[0] or "application/octet-stream"
+                                )
+                                format = os.path.splitext(filename)[-1].replace('.', '').lower() or "unknown"
+                                resource_dict = {
+                                    "package_id": pkg["id"],
+                                    "name": filename,  # descriptive is better if you have it
+                                    "upload": file_storage,
+                                    "format": format,
+                                    "url": filename,
+                                    "mimetype": file_storage.content_type,
+                                    "extras": {
+                                        "is_data_supplementary": "False",
+                                        "resource_name": filename,
+                                        "zipped_file": "True" if format == "zip" else False
+                                    }
+                                }
+                                toolkit.get_action('resource_create')(context, resource_dict)
+                                logger.info(f"Added resource: {filename} to dataset {dataset_slug}")
+
+    # shutil.rmtree(workdir)

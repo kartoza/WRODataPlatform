@@ -56,7 +56,7 @@
 {% if res.url and h.is_url(res.url) %}
 <li>
   <div class="btn-group">
-  <a class="btn btn-primary resource-url-analytics resource-type-{{ res.resource_type }}" href="{{ custom_url }}">
+  <a class="btn btn-primary resource-url-analytics resource-type-{{ res.resource_type }}" href="{{ res.url }}">
     {% if not res.has_views and not res.url_type == 'upload' %}
       <i class="fa fa-external-link"></i> {{ _('Go to resource') }}
     {% else %}
