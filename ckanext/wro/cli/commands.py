@@ -1283,7 +1283,7 @@ def import_datasets(ctx, gdrive_url, workdir):
     Download from Google Drive, extract, then import into CKAN.
 
     Example:
-      ckan -c /etc/ckan/default/ckan.ini wro import-datasets "https://drive.google.com/file/d/FILE_ID/view?usp=sharing" /tmp/work
+      poetry run ckan wro import-datasets "https://drive.google.com/file/d/FILE_ID/view?usp=sharing" /tmp/work
     """
     os.makedirs(workdir, exist_ok=True)
     zip_path = os.path.join(workdir, "datasets.zip")
@@ -1299,14 +1299,14 @@ def import_datasets(ctx, gdrive_url, workdir):
     if not file_id:
         raise click.ClickException("Could not parse Google Drive file ID")
 
-    # url = f"https://drive.google.com/uc?id={file_id}"
-    # logger.info(f"Downloading from {url} ...")
-    # gdown.download(url, zip_path, quiet=False)
-    #
-    # # --- Step 2: extract
-    # logger.info(f"Extracting {zip_path} to {extract_dir}")
-    # with zipfile.ZipFile(zip_path, "r") as zip_ref:
-    #     zip_ref.extractall(extract_dir)
+    url = f"https://drive.google.com/uc?id={file_id}"
+    logger.info(f"Downloading from {url} ...")
+    gdown.download(url, zip_path, quiet=False)
+
+    # --- Step 2: extract
+    logger.info(f"Extracting {zip_path} to {extract_dir}")
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(extract_dir)
 
 
     base_folder = os.path.join(extract_dir, 'Cloud SDK')
