@@ -3,7 +3,7 @@ import ckan.plugins.toolkit as toolkit
 from ckan.common import config
 from . import helpers
 from .logic import converters, validators
-from .logic.action import ckan_custom_actions
+# from .logic.action import ckan_custom_actions
 from .blueprints.map import map_blueprint
 from .blueprints.xml_parser import xml_parser_blueprint
 from .cli import commands
