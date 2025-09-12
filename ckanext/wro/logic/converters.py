@@ -80,7 +80,6 @@ def _convert_str_to_geojson(input_text:str):
             values = eval(values)
 
     except:
-        breakpoint()
         raise toolkit.Invalid(f"your input is \"{input_text}\" \n \
             Geographic location should be either a point or \
             a bounding box, e.g. -22.1265, 16.4699, -34.8212, 32.8931 \

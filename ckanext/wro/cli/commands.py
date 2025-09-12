@@ -1356,32 +1356,31 @@ def import_datasets(ctx, gdrive_url, workdir):
                             "notes": f"Auto-imported dataset for {dataset_title}",
                             "owner_org": "wro",
                             "private": True,
-                            "author": "WRO",
-                            "maintainer": "WRO",
-                            "maintainer_email": "info@wro.int",
+                            "author": "Water Research Observatory",
+                            "maintainer": "Water Research Observatory",
+                            "maintainer_email": "vanderLaanM@arc.agric.za",
 
                             # --- Required schema fields ---
                             "keywords": topic,  # single string if schema is text, list if repeating field
                             "Dataset topic category": topic_category,  # keep exact name if schema uses spaces
                             "Is the data time series or static": series_type,
-                            "publisher": "WRO",
+                            "publisher": "Water Research Observatory",
                             "publication_date": date.today().isoformat(),
-                            "email": "zakki@kartoza.com",
+                            "email": "vanderLaanM@arc.agric.za",
                             "agreement": True,
                             "wro_theme": topic_category,
-                            "license": "Open (Creative Commons)",  # ✅ your schema expects *license*, not license_id
+                            "license": "Open (Creative Commons)",
                             "data_classification": series_type,
-                            "data_collection_organization": "WRO",
+                            "data_collection_organization": "Water Research Observatory",
                             "data_structure_category": structure,
-                            "uploader_estimation_of_extent_of_processing": "access",
-
-                            "spatial": "-20.629147, 13.165308,-35.2462649, 35.7811468",
+                            "uploader_estimation_of_extent_of_processing": raw_access_refined,
+                            "spatial": "-20.629147,13.165308,-35.2462649,35.7811468",
 
                             "authors": [{
-                                "author_name": "WRO",
+                                "author_name": "Water Research Observatory",
                                 "author_surname": "Admin",
-                                "author_email": "zakki@kartoza.com",
-                                "author_organization": "WRO",
+                                "author_email": "vanderLaanM@arc.agric.za",
+                                "author_organization": "Water Research Observatory",
                                 "author_department": "Admin",
                                 "contact_same_as_author": True,
                             }],
@@ -1423,6 +1422,9 @@ def import_datasets(ctx, gdrive_url, workdir):
                                     content_type=mimetypes.guess_type(filename)[0] or "application/octet-stream"
                                 )
                                 format = os.path.splitext(filename)[-1].replace('.', '').lower() or "unknown"
+
+                                # Zipped file = True mean it zip file will be stored as it is,
+                                # not extracted
                                 resource_dict = {
                                     "package_id": pkg["id"],
                                     "name": filename,  # descriptive is better if you have it
@@ -1433,10 +1435,10 @@ def import_datasets(ctx, gdrive_url, workdir):
                                     "extras": {
                                         "is_data_supplementary": "False",
                                         "resource_name": filename,
-                                        "zipped_file": "True" if format == "zip" else False
+                                        "zipped_file": True
                                     }
                                 }
                                 toolkit.get_action('resource_create')(context, resource_dict)
                                 logger.info(f"Added resource: {filename} to dataset {dataset_slug}")
 
-    # shutil.rmtree(workdir)
+    shutil.rmtree(workdir)
