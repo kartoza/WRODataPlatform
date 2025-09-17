@@ -13,6 +13,19 @@
     attrs=dict({"class": "form-control"}, **(field.get('form_attrs', {}))),
     is_required=h.scheming_field_required(field)
 ) %}
-<button type="button" class="btn btn-warning" data-module="wro_spatial">Draw on map</button>
+
+<pre>
+{% set pkg = c.__dict__.pkg.as_dict() %}
+{% set dataset_extent = pkg.extras.spatial %}
+</pre>
+
+
+<button
+        type="button"
+        class="btn btn-warning"
+        data-module="wro_spatial"
+        data-module-dataset_extent="{{ dataset_extent }}">
+    Draw on map
+</button>
 {%- snippet 'scheming/form_snippets/help_text.html', field=field -%}
 {% endcall %}

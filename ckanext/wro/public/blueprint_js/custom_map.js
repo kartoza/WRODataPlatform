@@ -1,56 +1,115 @@
-const map_container = document.getElementById("map")
-const initMap = function(){const map = new google.maps.Map(map_container, {
-    zoom:5,
-    center:{lat: -29.064594, lng: 24.619973}
-})
+const mapContainer = document.getElementById("map");
+
+// Init Leaflet map
+const map = L.map(mapContainer).setView([-29.064594, 24.619973], 5);
+
+// Add basemap (OpenStreetMap via Carto Light)
+L.tileLayer("https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+attribution: "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors &copy; <a href='https://carto.com/'>CARTO</a>",
+subdomains: "abcd",
+maxZoom: 19
+}).addTo(map);
 
 
-const drawManager = new google.maps.drawing.DrawingManager({
-    drawingMode: google.maps.drawing.OverlayType.MARKER,
-    drawingControl: true,
-    drawingControlOptions: {
-        position: google.maps.ControlPosition.LEFT_CENTER,
-        drawingModes:[
-            google.maps.drawing.OverlayType.RECTANGLE,
-            google.maps.drawing.OverlayType.MARKER,
-            
-        ]
-    }, 
-    markerOptions: {
-        icon: "https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png",
-      },
-    rectangleOptions:{
-        editable: true,
-        draggable: true,
-        strokeColor: "#4682b4"
-    },
-})
 
-drawManager.setMap(map); 
+// Feature group to store drawn items
+const drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
 
-google.maps.event.addListener(drawManager, 'overlaycomplete', function(event) {
-    if (event.type == 'rectangle') {
-          let north_east = event.overlay.getBounds().getNorthEast().toJSON()
-          let north_east_list = [north_east.lat, north_east.lng]
-          let south_west = event.overlay.getBounds().getSouthWest().toJSON()
-          let south_west_list = [south_west.lat, south_west.lng]
-          let north_west = [north_east_list[0], south_west_list[1]]
-          let south_east = [south_west_list[0], north_east_list[1]]
-        
-          let bounds = [...north_west, ...south_east] 
-        
-          window.localStorage.setItem('geo_bounds', bounds);
+const stored = window.localStorage.getItem("geo_bounds");
+if (stored) {
+  let parsed;
+
+  try {
+    parsed = JSON.parse(stored);
+  } catch (e) {
+    console.error("Invalid JSON:", e);
+    parsed = null;
+  }
+
+  if (parsed) {
+    // Handle GeoJSON geometry
+    if (parsed.type && parsed.coordinates) {
+      const layer = L.geoJSON(parsed, {
+        style: { color: "#4682b4", weight: 2 }
+      }).addTo(map);
+
+      // Zoom to bounds
+      map.fitBounds(layer.getBounds());
+      drawnItems.addLayer(layer);
     }
+    // Fallback: handle old CSV-based storage
+    else if (typeof stored === "string" && stored.includes(",")) {
+      const coords = stored.split(",").map(parseFloat);
 
-    else if(event.type == 'marker'){
-        let position = event.overlay.getPosition()?.toJSON()
-        let bounds = [position.lat, position.lng]
-        console.log(bounds)
-        window.localStorage.setItem('geo_bounds', bounds);
+      if (coords.length === 4) {
+        const bounds = L.latLngBounds(
+          [coords[0], coords[1]],
+          [coords[2], coords[3]]
+        );
+        const rect = L.rectangle(bounds, { color: "#4682b4", weight: 2 });
+        rect.addTo(map);
+        map.fitBounds(bounds);
+        drawnItems.addLayer(rect);
+      } else if (coords.length === 2) {
+        const marker = L.marker([coords[0], coords[1]]);
+        marker.addTo(map);
+        map.setView([coords[0], coords[1]], 8);
+        drawnItems.addLayer(marker);
+      }
     }
-
-  });
-
+  }
 }
 
-window.initMap = initMap
+// Add draw controls (rectangle + marker only)
+const drawControl = new L.Control.Draw({
+  draw: {
+    polygon: false,
+    polyline: false,
+    circle: false,
+    circlemarker: false,
+    rectangle: {
+      shapeOptions: {
+        color: "#4682b4",
+        weight: 2
+      }
+    },
+    marker: {
+      icon: L.icon({
+        iconUrl: "https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png",
+        iconSize: [20, 32],
+        iconAnchor: [10, 32]
+      })
+    }
+  },
+  edit: {
+    featureGroup: drawnItems
+  }
+});
+map.addControl(drawControl);
+
+
+// Handle draw events
+map.on(L.Draw.Event.CREATED, function (e) {
+  const layer = e.layer;
+  drawnItems.addLayer(layer);
+
+  if (e.layerType === "rectangle") {
+    const bounds = layer.getBounds();
+    const northEast = bounds.getNorthEast();
+    const southWest = bounds.getSouthWest();
+    const northWest = [northEast.lat, southWest.lng];
+    const southEast = [southWest.lat, northEast.lng];
+    const storedBounds = [...northWest, ...southEast];
+
+    window.localStorage.setItem("geo_bounds", storedBounds);
+    console.log("Rectangle bounds:", storedBounds);
+
+  } else if (e.layerType === "marker") {
+    const position = layer.getLatLng();
+    const storedBounds = [position.lat, position.lng];
+
+    window.localStorage.setItem("geo_bounds", storedBounds);
+    console.log("Marker position:", storedBounds);
+  }
+});
