@@ -1355,7 +1355,7 @@ def import_datasets(ctx, gdrive_url, workdir):
                             "title": dataset_title,
                             "notes": f"Auto-imported dataset for {dataset_title}",
                             "owner_org": "wro",
-                            "private": True,
+                            "private": False,
                             "author": "Water Research Observatory",
                             "maintainer": "Water Research Observatory",
                             "maintainer_email": "vanderLaanM@arc.agric.za",
