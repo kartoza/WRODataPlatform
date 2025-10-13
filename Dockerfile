@@ -67,6 +67,7 @@ EXPOSE 5000
 # Now install our code
 COPY --chown=appuser:appuser . .
 RUN poetry install --only main
+RUN cp -r /home/appuser/app/ckanext/* "$(poetry env info -p)/lib/$(python3 -c 'import sys; print(f"python{sys.version_info.major}.{sys.version_info.minor}")')/site-packages/ckanext/"
 
 # Write git commit identifier into the image
 ARG GIT_COMMIT

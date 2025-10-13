@@ -7,7 +7,6 @@ license = "mit"
 packages = [
     { include = "ckanext" },
 ]
-
 [tool.poetry.scripts]
 docker_entrypoint = "ckanext.wro.cli.docker_entrypoint:cli"
 
