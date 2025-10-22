@@ -1316,7 +1316,7 @@ def import_datasets(ctx, gdrive_url, workdir):
 
     for topic in os.listdir(base_folder):
         topic_path = os.path.join(base_folder, topic)
-        if not os.path.isdir(topic_path):
+        if not os.path.isdir(topic_path) or topic == 'google-cloud-sdk':
             continue
 
         for structure in os.listdir(topic_path):
