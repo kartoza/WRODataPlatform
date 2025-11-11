@@ -15,8 +15,15 @@
 ) %}
 
 <pre>
-{% set pkg = c.__dict__.pkg.as_dict() %}
-{% set dataset_extent = pkg.extras.spatial %}
+{% if c.pkg %}
+  {% set pkg = c.pkg.as_dict() %}
+{% elif pkg_dict %}
+  {% set pkg = pkg_dict %}
+{% else %}
+  {% set pkg = {} %}
+{% endif %}
+
+{% set dataset_extent = pkg.get('extras', {}).get('spatial') %}
 </pre>
 
 

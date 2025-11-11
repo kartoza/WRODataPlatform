@@ -37,6 +37,7 @@ from ckan.lib.navl import dictization_functions
 from ckan.plugins import toolkit
 from ckanext.harvest import utils as harvest_utils
 from dateutil.parser import parse as datetime_parse
+from ckanext.wro.cli.utils import format_title
 from lxml import etree
 from pystac_client import Client
 from sqlalchemy import text as sla_text
@@ -1442,3 +1443,30 @@ def import_datasets(ctx, gdrive_url, workdir):
                                 logger.info(f"Added resource: {filename} to dataset {dataset_slug}")
 
     shutil.rmtree(workdir)
+
+
+@wro.command()
+@click.pass_context
+def fix_dataset_title(ctx):
+    """Loop all datasets and fix title capitalization."""
+    context = {'model': model, 'user': toolkit.config.get('ckan.site_id', 'default')}
+    get_pkg_list = toolkit.get_action('package_list')
+    get_pkg = toolkit.get_action('package_show')
+    update_pkg = toolkit.get_action('package_update')
+
+    package_names = get_pkg_list(context, {})
+
+    for name in package_names:
+        pkg_dict = get_pkg(context, {'id': name})
+
+        # Convert the name to a human-friendly title
+        new_title = format_title(pkg_dict['name'])
+
+        # Skip if already correct
+        if pkg_dict.get('title') == new_title:
+            click.echo(f'Skipping {name} (already correct)')
+            continue
+
+        pkg_dict['title'] = new_title
+        update_pkg(context, pkg_dict)
+        click.echo(f'Updated {name} to {new_title}')
