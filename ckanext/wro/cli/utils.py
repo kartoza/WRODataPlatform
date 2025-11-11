@@ -1,3 +1,4 @@
+import re
 import enum
 import logging
 import typing
@@ -141,3 +142,20 @@ class ClickLoggingHandler(logging.Handler):
             fg = "bright_white"
             bg = "red"
         click.secho(self.format(record), bg=bg, fg=fg)
+
+
+def format_title(name):
+    """Format dataset name into human title."""
+    # Replace underscores and dashes with spaces
+    title = re.sub(r'[_-]+', ' ', name).strip()
+
+    # Capitalize words
+    words = title.split()
+    formatted = []
+    for w in words:
+        if w.lower() == 'sa':
+            formatted.append('SA')
+        else:
+            formatted.append(w.capitalize())
+
+    return ' '.join(formatted)
