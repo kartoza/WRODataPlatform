@@ -75,7 +75,7 @@ dataset_fields:
       
   - field_name: notes
     label: Dataset description
-    help_text: Short description of dataset, e.g. 0-500 words
+    help_text: Short description of dataset, 0-500 words
     required: true
     form_placeholder: Description
     form_snippet: markdown.html
@@ -84,7 +84,7 @@ dataset_fields:
     label: Organization
     required: true
     preset: organization_mod_preset
-    help_text: organization that is the custodian of the data
+    help_text: Organization that is the custodian of the data
 
   # - field_name: citation
   #   label: Recommended citation
@@ -219,6 +219,7 @@ dataset_fields:
   - field_name: uploader_estimation_of_extent_of_processing
     label: Uploader estimation of extent to which data have been processed
     required: true
+    preset: select
     choices:
     - value: raw
       label: Raw
@@ -270,7 +271,7 @@ dataset_fields:
 
   - field_name: minimum_maximum_extent
     label: Vertical minimum-maximum extent
-    help_text: Specify the vertical minimum and maximum extent
+    help_text: Specify the vertical minimum and maximum extent. For national scale datasets for South Africa use 0 - 3451masl.
     preset: simple_subfields
     required: false
     repeating_subfields:
