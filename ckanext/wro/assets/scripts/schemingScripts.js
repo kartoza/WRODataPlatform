@@ -87,7 +87,7 @@ ckan.module('ckanext_wro_toggle_repeating_field_visibilty', function($){
 
   return {
     initialize:function(){
-      $.proxyAll(this,/_on/); 
+      $.proxyAll(this,/_on/);
       // for some reason the pubsub didn't work
       //this.sandbox.subscribe('pub', this._onPublish);
 
@@ -98,9 +98,16 @@ ckan.module('ckanext_wro_toggle_repeating_field_visibilty', function($){
         contact_fields.hide();
         contact_fields_label.hide();
       }
-      
+
+      // Check the current state of the checkbox on page load
+      // This handles the case when form is reloaded after validation errors
+      if(author_checkbox.is(':checked')){
+        contact_fields.hide();
+        contact_fields_label.hide();
+      }
+
       author_checkbox.on('change',this._onAlternatePublish);
-            
+
       // change the required (*) required element visibility
       // handles the classification
       data_classification_fieldset.change(this._onChange);
