@@ -35,7 +35,14 @@
     {% endif %}
   {% endif %}
 
-  {% block resource_read_title %}<h1 class="page-heading">{{ display_name }}</h1>{% endblock %}
+  {% block resource_read_title %}
+  <h1 class="page-heading">
+    {{ display_name }}
+    <small class="text-muted" style="font-size: 0.5em; margin-left: 10px;">
+      <i class="fa fa-download"></i> {{ h.get_resource_download_count(res.id) }} downloads
+    </small>
+  </h1>
+  {% endblock %}
   {% block resource_read_url %}
   {% if not res.is_bigquery_table %}
     {% if c.userobj %}
@@ -61,7 +68,11 @@
 <li>
   <div class="btn-group">
     {% if c.userobj %}
-      <a class="btn btn-primary resource-url-analytics resource-type-{{ res.resource_type }}" href="{{ res.url }}">
+      {% set download_url = h.url_for('download_tracker.track_and_download',
+                                       package_id=pkg.id,
+                                       resource_id=res.id,
+                                       filename=res.name or 'download') %}
+      <a class="btn btn-primary resource-url-analytics resource-type-{{ res.resource_type }}" href="{{ download_url }}">
         {% if not res.has_views and not res.url_type == 'upload' %}
           <i class="fa fa-external-link"></i> {{ _('Go to resource') }}
         {% else %}

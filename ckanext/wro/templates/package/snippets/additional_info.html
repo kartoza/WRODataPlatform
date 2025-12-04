@@ -1,0 +1,13 @@
+{% ckan_extends %}
+
+{% block extras %}
+  {{ super() }}
+
+  {# Add download count to the additional info table #}
+  <tr>
+    <th scope="row" class="dataset-label">{{ _("Total Downloads") }}</th>
+    <td class="dataset-details">
+      <i class="fa fa-download"></i> {{ h.get_package_download_count(pkg_dict.id) }}
+    </td>
+  </tr>
+{% endblock %}

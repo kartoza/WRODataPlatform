@@ -320,6 +320,12 @@ dataset_fields:
 
 resource_fields:
 
+  - field_name: download_count
+    label: Downloads
+    display_snippet: download_count.html
+    validators: ignore_missing
+    output_validators: ignore_missing
+
   - field_name: name
     label: URL
     preset: resource_url_upload
