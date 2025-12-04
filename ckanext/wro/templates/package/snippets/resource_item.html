@@ -68,7 +68,7 @@
 <li>
   {% if res.url_type == 'upload' %}
     {# For uploaded files, use CKAN's download route or the storage URL #}
-    <a href="{{ h.url_for('resource.download', id=pkg.name, resource_id=res.id, filename=res.name) }}" class="resource-url-analytics" target="_blank">
+    <a href="{{ res.url }}" class="resource-url-analytics" target="_blank">
       <i class="fa fa-arrow-circle-o-down"></i>
       {{ _('Download') }}
     </a>
