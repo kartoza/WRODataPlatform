@@ -4,16 +4,27 @@
 {# ======================= check if the resource is a link or an upload #}
 
 {% if res.is_link  %}
-{% set custom_url = res.name.lower() %}
-{#
-{% if res.resource_name != "" %}
-  {% set display_name = res.resource_name %}
+  {% if res.url.startswith("https://storage.cloud.google.com/wrc") %}
+    {% set custom_url = res.original_url.lower() %}
+  {% else %}
+    {% if res.name.startswith("http://") or res.name.startswith("https://") %}
+      {# the case where the name is a url #}
+      {% set custom_url = res.name.lower() %}
+    {% else %}
+      {% if res.get("original_url") is not none %}
+        {% set custom_url = res.original_url.lower() %}
+      {% else %}
+        {% set custom_url = "" %}
+      {% endif %}
+    {% endif %}
+  {% endif %}
 {% else %}
-  {% set display_name = res.resource_name %}
-{% endif %}
-#}
-{% else %}
-{% set custom_url = h.resource_read_helper(res) %}
+  {# there are cases where the resource doesn't have url_type link nor is_link and still a link #}
+  {% if res.name.startswith("http://") or res.name.startswith("https://") %}
+    {% set custom_url = res.name.lower() %}
+  {% else %}
+    {% set custom_url = h.resource_read_helper(res) %}
+  {% endif %}
 {% endif %}
 
 {# ================================== #}
@@ -52,18 +63,27 @@
 
 {# ======================= Download #}
 
-{% if res.url and h.is_url(res.url) %}
+{% if res.url and h.is_url(res.url) and c.userobj %}
 
 <li>
-  <a href="{{ custom_url }}" class="resource-url-analytics" target="_blank">
-    {% if res.has_views or res.url_type == 'upload' %}
+  {% if res.url_type == 'upload' %}
+    {# For uploaded files, use CKAN's download route or the storage URL #}
+    <a href="{{ h.url_for('resource.download', id=pkg.name, resource_id=res.id, filename=res.name) }}" class="resource-url-analytics" target="_blank">
       <i class="fa fa-arrow-circle-o-down"></i>
       {{ _('Download') }}
-    {% else %}
-      <i class="fa fa-external-link"></i>
-      {{ _('Go to resource') }}
-    {% endif %}
-  </a>
+    </a>
+  {% else %}
+    {# For external links, use custom_url #}
+    <a href="{{ custom_url }}" class="resource-url-analytics" target="_blank">
+      {% if res.has_views %}
+        <i class="fa fa-arrow-circle-o-down"></i>
+        {{ _('Download') }}
+      {% else %}
+        <i class="fa fa-external-link"></i>
+        {{ _('Go to resource') }}
+      {% endif %}
+    </a>
+  {% endif %}
 </li>
 {% endif %}
 
