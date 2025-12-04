@@ -38,7 +38,7 @@
   {% block resource_read_title %}<h1 class="page-heading">{{ display_name }}</h1>{% endblock %}
   {% block resource_read_url %}
   {% if not res.is_bigquery_table and c.userobj %}
-      <p class="text-muted ellipsis">{{ _('URL:') }}<a class="resource-url-analytics" href="{{ h.url_for('resource.download', id=pkg.name, resource_id=resource.id, filename=resource.name) }}" title="{{ custom_url }}">{{ custom_url }}</a></p>
+      <p class="text-muted ellipsis">{{ _('URL:') }}<a class="resource-url-analytics" href="{{ res.url }}" title="{{ custom_url }}">{{ custom_url }}</a></p>
   {% else %}
     <p></p>
   {% endif %}
