@@ -63,25 +63,33 @@
 
 {# ======================= Download #}
 
-{% if res.url and h.is_url(res.url) and c.userobj %}
+{% if res.url and h.is_url(res.url) %}
 
 <li>
-  {% if res.url_type == 'upload' %}
-    {# For uploaded files, use CKAN's download route or the storage URL #}
-    <a href="{{ res.url }}" class="resource-url-analytics" target="_blank">
-      <i class="fa fa-arrow-circle-o-down"></i>
-      {{ _('Download') }}
-    </a>
-  {% else %}
-    {# For external links, use custom_url #}
-    <a href="{{ custom_url }}" class="resource-url-analytics" target="_blank">
-      {% if res.has_views %}
+  {% if c.userobj %}
+    {% if res.url_type == 'upload' %}
+      {# For uploaded files, use CKAN's download route or the storage URL #}
+      <a href="{{ res.url }}" class="resource-url-analytics" target="_blank">
         <i class="fa fa-arrow-circle-o-down"></i>
         {{ _('Download') }}
-      {% else %}
-        <i class="fa fa-external-link"></i>
-        {{ _('Go to resource') }}
-      {% endif %}
+      </a>
+    {% else %}
+      {# For external links, use custom_url #}
+      <a href="{{ custom_url }}" class="resource-url-analytics" target="_blank">
+        {% if res.has_views %}
+          <i class="fa fa-arrow-circle-o-down"></i>
+          {{ _('Download') }}
+        {% else %}
+          <i class="fa fa-external-link"></i>
+          {{ _('Go to resource') }}
+        {% endif %}
+      </a>
+    {% endif %}
+  {% else %}
+    {# User not logged in - redirect to login page #}
+    <a href="{{ h.url_for('user.login') }}" class="resource-url-analytics">
+      <i class="fa fa-sign-in"></i>
+      {{ _('Log in to download') }}
     </a>
   {% endif %}
 </li>
