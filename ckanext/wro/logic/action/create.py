@@ -9,9 +9,56 @@ import shutil
 import zipfile
 import os
 import mimetypes
+from ckanext.wro.model.download_stats import DownloadStats
 
 
 logger = logging.getLogger(__name__)
+
+
+def log_resource_download(context, data_dict):
+    """Log a resource download event.
+
+    :param resource_id: the id of the resource
+    :type resource_id: string
+
+    :returns: download log entry
+    :rtype: dict
+    """
+    resource_id = toolkit.get_or_bust(data_dict, 'resource_id')
+
+    # Get resource to validate it exists and get package_id
+    resource = toolkit.get_action('resource_show')(context, {'id': resource_id})
+    package_id = resource['package_id']
+
+    # Get user info from context
+    user_id = context.get('user')
+    if user_id:
+        try:
+            user_obj = context.get('model').User.get(user_id)
+            user_id = user_obj.id if user_obj else None
+        except:
+            user_id = None
+
+    # Get IP address and user agent from request
+    from flask import request
+    ip_address = request.remote_addr if request else None
+    user_agent = request.user_agent.string if request and hasattr(request, 'user_agent') else None
+
+    # Log the download
+    download = DownloadStats.log_download(
+        resource_id=resource_id,
+        package_id=package_id,
+        user_id=user_id,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+
+    return {
+        'id': download.id,
+        'resource_id': download.resource_id,
+        'package_id': download.package_id,
+        'downloaded_at': download.downloaded_at.isoformat()
+    }
 
 
 @toolkit.chained_action

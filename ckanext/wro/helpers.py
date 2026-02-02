@@ -181,3 +181,21 @@ def get_organizations_count():
     """
     orgs_list_count = len(toolkit.get_action("organization_list")({}, {}))
     return orgs_list_count
+
+
+def get_resource_download_count(resource_id):
+    """Get the download count for a resource."""
+    try:
+        result = toolkit.get_action('resource_download_count')({}, {'resource_id': resource_id})
+        return result.get('count', 0)
+    except:
+        return 0
+
+
+def get_package_download_count(package_id):
+    """Get the download count for a package."""
+    try:
+        result = toolkit.get_action('package_download_count')({}, {'package_id': package_id})
+        return result.get('count', 0)
+    except:
+        return 0
