@@ -18,6 +18,7 @@ class WroPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IActions, inherit=True)
     plugins.implements(plugins.IResourceView, inherit=True)
     plugins.implements(plugins.IClick)
+    plugins.implements(plugins.IPackageController, inherit=True)
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, 'templates')
@@ -127,6 +128,14 @@ class WroPlugin(plugins.SingletonPlugin):
                 del pkg_dict['authors']
 
         return pkg_dict
+
+    def before_dataset_create(self, context, data_dict):
+        """Copy author data to contact person if checkbox is checked."""
+        return converters.copy_author_to_contact(data_dict)
+
+    def before_dataset_update(self, context, current, data_dict):
+        """Copy author data to contact person if checkbox is checked."""
+        return converters.copy_author_to_contact(data_dict)
 
     # IResourceView
 

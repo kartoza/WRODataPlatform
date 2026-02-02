@@ -33,21 +33,57 @@ def conditional_date_reference_validator(key, flattened_data, errors, context):
 
 def author_same_as_contact(key, flattened_data, errors, context):
     """
-        if the checkbox "contact_same_as_author"
-        is checked ignore missing values with 
-        the contact subfields, otherwises
-        it should be required.
+        If the checkbox "contact_same_as_author" is checked:
+        1. Make contact fields optional (ignore_missing)
+        2. Copy author data to contact person fields
+
+        Otherwise, contact fields are required.
     """
-    logger.debug("======= from author_same_as_contact validator, data=",flattened_data)
-    try:
-        # sometimes there field won't be found (when it's not set to required true with scheming)
-        contact_same_as_author =  flattened_data[('authors', 0, 'contact_same_as_author')]
-    except KeyError:
+    logger.debug("======= from author_same_as_contact validator, data=", flattened_data)
+
+    # Check if any author has contact_same_as_author checked
+    contact_author_found = False
+    author_index = None
+
+    # Look through all authors to find one with contact_same_as_author checked
+    for i in range(10):  # Support up to 10 authors
+        try:
+            checkbox_value = flattened_data.get(('authors', i, 'contact_same_as_author'))
+            if checkbox_value and checkbox_value not in (False, toolkit.missing, '', 'False'):
+                contact_author_found = True
+                author_index = i
+                break
+        except (KeyError, TypeError):
+            continue
+
+    if not contact_author_found:
         return not_empty(key, flattened_data, errors, context)
-    if contact_same_as_author == False or contact_same_as_author == toolkit.missing:
-        return not_empty(key, flattened_data, errors, context)
-    else:
-        return ignore_missing(key, flattened_data, errors, context)
+
+    # Copy author data to contact person if checkbox is checked
+    # Map author fields to contact fields
+    field_mapping = {
+        'author_name': 'contact_name',
+        'author_email': 'contact_email',
+        'author_organization': 'contact_orgnization',  # Note: typo in schema
+        'author_department': 'contact_department',
+    }
+
+    # Get the current contact field being validated
+    if len(key) >= 3:
+        contact_field = key[2]  # e.g., 'contact_name', 'contact_email'
+        contact_index = key[1]  # e.g., 0
+
+        # Find the corresponding author field
+        for author_field, contact_mapped in field_mapping.items():
+            if contact_field == contact_mapped:
+                author_value = flattened_data.get(('authors', author_index, author_field))
+                if author_value and author_value != toolkit.missing:
+                    # Set the contact field value from author
+                    flattened_data[key] = author_value
+                    return author_value
+                break
+
+    return ignore_missing(key, flattened_data, errors, context)
 
 
 def author_or_contact_collected_data(key, flattened_data, errors, context):
