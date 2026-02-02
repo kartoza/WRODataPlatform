@@ -1470,3 +1470,49 @@ def fix_dataset_title(ctx):
         pkg_dict['title'] = new_title
         update_pkg(context, pkg_dict)
         click.echo(f'Updated {name} to {new_title}')
+
+
+@wro.command("delete-dataset-resources")
+@click.argument("dataset_id")
+@click.pass_context
+def delete_dataset_resources(ctx, dataset_id):
+    """Delete all resources from a dataset (keep dataset)."""
+
+    import click
+    from ckan import model
+    from ckan.plugins import toolkit
+
+    context = {
+        "model": model,
+        "session": model.Session,
+        "user": None,
+        "ignore_auth": True,
+    }
+
+    click.echo(f"Loading dataset: {dataset_id}")
+
+    try:
+        pkg = toolkit.get_action("package_show")(
+            context, {"id": dataset_id}
+        )
+    except Exception as e:
+        raise click.ClickException(
+            f"package_show failed for '{dataset_id}': {repr(e)}"
+        )
+
+    resources = pkg.get("resources", [])
+
+    if not resources:
+        click.echo("No resources found.")
+        return
+
+    click.echo(f"Found {len(resources)} resources")
+
+    for r in resources:
+        click.echo(f"Deleting {r['id']} | {r.get('name')}")
+        toolkit.get_action("resource_delete")(
+            context, {"id": r["id"]}
+        )
+
+    model.Session.commit()
+    click.echo("✅ All resources deleted")
