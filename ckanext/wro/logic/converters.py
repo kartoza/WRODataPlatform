@@ -99,8 +99,8 @@ def convert_empty_resource_info_to_false(info_value):
     
 def _get_extra_spatial_value(data_dict:dict)->str:
     """
-    spatial field sometimes 
-    don't appear in the 
+    spatial field sometimes
+    don't appear in the
     data dict, we added
     a key,value pair
     named extra_spatial
@@ -110,3 +110,61 @@ def _get_extra_spatial_value(data_dict:dict)->str:
     for item in extras:
         if item.get("key") == "extra_spatial":
             return item.get("value")
+
+
+def copy_author_to_contact(data_dict: dict) -> dict:
+    """
+    If any author has 'contact_same_as_author' checked,
+    copy that author's data to the contact_person field.
+    """
+    authors = data_dict.get("authors", [])
+    if not authors:
+        return data_dict
+
+    # Handle case where authors is a JSON string
+    if isinstance(authors, str):
+        try:
+            authors = json.loads(authors)
+        except (json.JSONDecodeError, ValueError):
+            return data_dict
+
+    # Find author with contact_same_as_author checked
+    contact_author = None
+    for author in authors:
+        if isinstance(author, dict):
+            checkbox = author.get("contact_same_as_author")
+            # Check various truthy values
+            if checkbox in (True, "True", "true", "on", "1", 1):
+                contact_author = author
+                break
+
+    if not contact_author:
+        return data_dict
+
+    # Build contact person from author data
+    contact_person = {
+        "contact_name": f"{contact_author.get('author_name', '')} {contact_author.get('author_surname', '')}".strip(),
+        "contact_email": contact_author.get("author_email", ""),
+        "contact_orgnization": contact_author.get("author_organization", ""),  # Note: typo in schema
+        "contact_department": contact_author.get("author_department", ""),
+    }
+
+    # Set or update contact_person in data_dict
+    existing_contacts = data_dict.get("contact_person", [])
+    if isinstance(existing_contacts, str):
+        try:
+            existing_contacts = json.loads(existing_contacts)
+        except (json.JSONDecodeError, ValueError):
+            existing_contacts = []
+
+    if not existing_contacts:
+        data_dict["contact_person"] = [contact_person]
+    else:
+        # Update first contact if exists
+        if isinstance(existing_contacts, list) and len(existing_contacts) > 0:
+            existing_contacts[0].update(contact_person)
+        else:
+            data_dict["contact_person"] = [contact_person]
+
+    logger.debug(f"Copied author to contact: {contact_person}")
+    return data_dict

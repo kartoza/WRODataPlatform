@@ -73,7 +73,8 @@
 
 	{%- set group_data = data[field.field_name] -%}
 	{%- set group_count = group_data|length -%}
-	{%- if not group_count and 'id' not in data -%}
+	{%- if not group_count -%}
+	  {# Show blank fields for both new AND existing datasets without data #}
 	  {%- set group_count = field.form_blanks|default(1) -%}
 	{%- endif -%}
 
