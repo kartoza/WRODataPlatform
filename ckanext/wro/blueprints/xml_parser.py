@@ -46,7 +46,7 @@ def extract_files():
     creator = c.userobj
     xml_files = request.files.getlist("xml_dataset_files")
     # loggin the request files.
-    logger.debug("from xml parser blueprint, the xmlfiles object should be:", xml_files)
+    logger.debug("from xml parser blueprint, the xmlfiles object should be: %s", xml_files)
     err_msgs = []
     info_msgs = []
     for xml_file in xml_files:
@@ -141,11 +141,22 @@ def return_object_root(root):
     """
     ob_root = {}
     for field in root.childNodes:
-        if field.nodeType != 3:
-            ob_root[field.tagName] = field.childNodes[0].data
+        if field.nodeType == 1:  # ELEMENT_NODE only — skips text, comments, etc.
+            ob_root[field.tagName] = field.childNodes[0].data if field.childNodes else ""
 
     return ob_root
 
+
+import re as _re
+_INDEXED_FIELD_RE = _re.compile(r'^(.+?)-\d+-(.+)$')
+
+def _normalize_field(field):
+    # Normalise "authors-1-author_name" -> "authors-0-author_name" so that
+    # any numeric index is treated as index 0 when checking the allowed list.
+    m = _INDEXED_FIELD_RE.match(field)
+    if m:
+        return f"{m.group(1)}-0-{m.group(2)}"
+    return field
 
 def maximum_fields_check(root_ob, file_name_reference: str):
     """
@@ -153,9 +164,8 @@ def maximum_fields_check(root_ob, file_name_reference: str):
     is more than the maximum set
     of EMC datasets fields.
     """
-    root_ob_keys = root_ob.keys()
-    for field in root_ob_keys:
-        if field not in xml_full_set:
+    for field in root_ob.keys():
+        if _normalize_field(field) not in xml_full_set:
             return {
                 "state": False,
                 "msg": f'field "{field}" '
@@ -194,16 +204,40 @@ def handle_date_fields(root_ob):
     return root_ob
 
 
+def resolve_owner_org(org_value):
+    # Try to find org by name (slug), then by title
+    org_list_action = toolkit.get_action("organization_list")
+    org_show_action = toolkit.get_action("organization_show")
+    try:
+        # First try direct lookup by name/slug
+        org = org_show_action(data_dict={"id": org_value})
+        return org["name"]
+    except Exception:
+        pass
+    # Fall back: search all orgs and match by title (case-insensitive)
+    try:
+        org_names = org_list_action(data_dict={})
+        for name in org_names:
+            org = org_show_action(data_dict={"id": name})
+            if org.get("title", "").lower() == org_value.lower():
+                return org["name"]
+    except Exception:
+        pass
+    return org_value  # Return as-is and let CKAN validation report the error
+
+
 def create_ckan_dataset(root_ob):
     """
     create package via ckan api's
     package_create action.
     """
-    logger.debug("from xml parser blueprint", root_ob)
+    logger.debug("from xml parser blueprint: %s", root_ob)
     package_title = root_ob["title"]
     slug_url_field = change_slug_url_field(package_title)
     root_ob.update({"name": slug_url_field})
-    root_ob.update({"type": "metadata-form"})
+    root_ob.update({"type": "dataset"})
+    if "owner_org" in root_ob:
+        root_ob["owner_org"] = resolve_owner_org(root_ob["owner_org"])
     root_ob = extra_fields(root_ob)
     # raise RuntimeError(root_ob)
     create_action = toolkit.get_action("package_create")
@@ -277,14 +311,10 @@ def extra_fields(root_ob):
     return root_ob
 
 def change_slug_url_field(dataset_title):
-    """
-    ckan refuses url names 
-    for datasets with special
-    chars, removes those if any 
-    """
-    for item in dataset_title:
-        if item in "!”#$%&'()*+,-./:;<=>?@[\]^_`{|}~.":
-            dataset_title = dataset_title.replace(item, "")
-
-    dataset_title = dataset_title.replace(" ", "-")
-    return dataset_title
+    # CKAN slugs must be lowercase alphanumeric with - or _
+    import re
+    slug = dataset_title.lower()
+    slug = slug.replace(" ", "-")
+    slug = re.sub(r"[^a-z0-9\-_]", "", slug)
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
+    return slug
