@@ -27,6 +27,7 @@ dataset_fields:
     label: Authors
     repeating_label: Author
     preset: repeated_subfields_extended
+    # display_snippet: authors_display.html
     repeating_subfields:
       - field_name: author_name
         label: Author first name
@@ -47,6 +48,7 @@ dataset_fields:
         required: false
         # tried to add boolean validator and didn't work out
         preset: mod_checkbox
+        display_snippet: null
         choices:
           - value:
             label: 

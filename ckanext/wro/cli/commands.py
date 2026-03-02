@@ -1474,45 +1474,77 @@ def fix_dataset_title(ctx):
 
 @wro.command("delete-dataset-resources")
 @click.argument("dataset_id")
+@click.option("--batch-size", default=100, help="Commit every N deletions")
+@click.option("--skip-reindex", is_flag=True, help="Skip Solr reindex (do manually after)")
 @click.pass_context
-def delete_dataset_resources(ctx, dataset_id):
-    """Delete all resources from a dataset (keep dataset)."""
+def delete_dataset_resources(ctx, dataset_id, batch_size, skip_reindex):
+    """Delete all resources from a dataset (keep dataset).
 
-    import click
-    from ckan import model
-    from ckan.plugins import toolkit
-
-    context = {
-        "model": model,
-        "session": model.Session,
-        "user": None,
-        "ignore_auth": True,
-    }
+    This is an optimized version that deletes resources directly via database
+    to avoid the slow package revalidation/reindex after each deletion.
+    """
+    import ckan.lib.uploader as uploader
+    from ckan.lib.search import rebuild
 
     click.echo(f"Loading dataset: {dataset_id}")
 
-    try:
-        pkg = toolkit.get_action("package_show")(
-            context, {"id": dataset_id}
-        )
-    except Exception as e:
-        raise click.ClickException(
-            f"package_show failed for '{dataset_id}': {repr(e)}"
-        )
+    # Get the package
+    pkg = model.Package.get(dataset_id)
+    if not pkg:
+        raise click.ClickException(f"Dataset '{dataset_id}' not found")
 
-    resources = pkg.get("resources", [])
+    resources = pkg.resources
+    total = len(resources)
 
     if not resources:
         click.echo("No resources found.")
         return
 
-    click.echo(f"Found {len(resources)} resources")
+    click.echo(f"Found {total} resources - deleting directly via database...")
 
-    for r in resources:
-        click.echo(f"Deleting {r['id']} | {r.get('name')}")
-        toolkit.get_action("resource_delete")(
-            context, {"id": r["id"]}
-        )
+    deleted = 0
+    files_deleted = 0
+    for i, resource in enumerate(list(resources)):
+        click.echo(f"[{i+1}/{total}] Deleting {resource.id} | {resource.name}")
 
+        # Delete the actual file from storage
+        if resource.url_type == 'upload':
+            try:
+                resource_dict = {
+                    'id': resource.id,
+                    'url_type': resource.url_type,
+                    'url': resource.url,
+                }
+                upload = uploader.get_resource_uploader(resource_dict)
+                filepath = upload.get_path(resource.id)
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                    files_deleted += 1
+                    logger.debug(f"Deleted file: {filepath}")
+            except Exception as e:
+                logger.warning(f"Could not delete file for resource {resource.id}: {e}")
+
+        # Delete from database directly
+        model.Session.delete(resource)
+        deleted += 1
+
+        # Commit in batches
+        if deleted % batch_size == 0:
+            model.Session.commit()
+            click.echo(f"  Committed batch ({deleted}/{total})")
+
+    # Final commit
     model.Session.commit()
-    click.echo("✅ All resources deleted")
+    click.echo(f"✅ Deleted {deleted} resources from database, {files_deleted} files from storage")
+
+    # Reindex the package once at the end
+    if not skip_reindex:
+        click.echo("Reindexing dataset in Solr...")
+        try:
+            rebuild(package_id=pkg.id)
+            click.echo("✅ Solr reindex complete")
+        except Exception as e:
+            click.echo(f"⚠️  Solr reindex failed: {e}")
+            click.echo("Run manually: ckan search-index rebuild-fast")
+    else:
+        click.echo("⚠️  Skipped reindex. Run manually: ckan search-index rebuild")

@@ -85,6 +85,21 @@ ckan.module('ckanext_wro_toggle_repeating_field_visibilty', function($){
   let contact_fields = $(".contact_person_getter")
   let contact_fields_label = $('label[for="field-contact_person"]')
 
+  // Helper function to copy author data to contact fields
+  let copyAuthorToContact = function() {
+    let authorName = $('#field-authors-0-author_name').val() || '';
+    let authorSurname = $('#field-authors-0-author_surname').val() || '';
+    let authorEmail = $('#field-authors-0-author_email').val() || '';
+    let authorOrg = $('#field-authors-0-author_organization').val() || '';
+    let authorDept = $('#field-authors-0-author_department').val() || '';
+
+    // Populate contact fields
+    $('#field-contact_person-0-contact_name').val((authorName + ' ' + authorSurname).trim());
+    $('#field-contact_person-0-contact_email').val(authorEmail);
+    $('#field-contact_person-0-contact_orgnization').val(authorOrg);
+    $('#field-contact_person-0-contact_department').val(authorDept);
+  }
+
   return {
     initialize:function(){
       $.proxyAll(this,/_on/);
@@ -95,15 +110,15 @@ ckan.module('ckanext_wro_toggle_repeating_field_visibilty', function($){
         // this for the edit page.
         author_checkbox.prop("checked", true)
         author_checkbox.val(true)
-        contact_fields.hide();
-        contact_fields_label.hide();
+        // Show contact fields with populated data instead of hiding
+        copyAuthorToContact();
       }
 
       // Check the current state of the checkbox on page load
       // This handles the case when form is reloaded after validation errors
       if(author_checkbox.is(':checked')){
-        contact_fields.hide();
-        contact_fields_label.hide();
+        // Show contact fields with populated data instead of hiding
+        copyAuthorToContact();
       }
 
       author_checkbox.on('change',this._onAlternatePublish);
@@ -115,15 +130,15 @@ ckan.module('ckanext_wro_toggle_repeating_field_visibilty', function($){
     },
     _onAlternatePublish:function(e){
       // didn't use this.el because there are muliple fields with the same config
-      
+
       if(e.target.checked){
-        contact_fields.hide();
-        contact_fields_label.hide();
+        // Copy author data to contact fields and keep them visible
+        copyAuthorToContact();
       }
-      else{
-        contact_fields.show();
-        contact_fields_label.show();
-      }
+      // Always show contact fields (user can edit if needed)
+      contact_fields.show();
+      contact_fields_label.show();
+
       e.target.value = e.target.checked.toString()
       sessionStorage.setItem("contactPerson_check", e.target.checked)
     },
@@ -290,10 +305,10 @@ ckan.module('ckanext_wro_checkboxs_handler',function($){
 })
 
 ckan.module('ckanext_wro_scheming_display_page_raws_visibility_control', function($){
-  
+
   /*
     conditionally change the display of two fields, according to values
-    of other two fields, the data collection 
+    of other two fields, the data collection
     orgnization and contact person fields, if the data collection
     org is the same as author/contact, and if the author is the same
     as contact respectivly this field should disappear.
@@ -303,24 +318,25 @@ ckan.module('ckanext_wro_scheming_display_page_raws_visibility_control', functio
   1. templates/scheming/display_snippets/text_mod.html
 
   */
-  
+
   return{
     initialize:function(){
       $.proxyAll(this, /_on/);
       let dataset_rows_heads = $(".dataset-label")
       $.each(dataset_rows_heads,function(){
         let str = $(this).text()
-        // the author field 
-        if(str.includes("Is this author a contact person for the dataset?")){
-          let td = $(this).next()
-          let td_text = td.text()
-          if(td_text.includes("true")){$(this).parent().parent().parent().parent().parent().next().hide()}
-        }        
-        
+        // the author field - NO LONGER hiding contact person
+        // Contact person data is auto-populated from author, so show it
+        // if(str.includes("Is this author a contact person for the dataset?")){
+        //   let td = $(this).next()
+        //   let td_text = td.text()
+        //   if(td_text.includes("true")){$(this).parent().parent().parent().parent().parent().next().hide()}
+        // }
+
         if(str.includes("Did the author / contact organization collect the data?")){
           let td = $(this).next()
           let td_text = td.text()
-          
+
           if(td_text.includes("true")){
             $(this).parent().next().hide()
           }
