@@ -16,13 +16,7 @@ logger = logging.getLogger(__name__)
 
 @toolkit.chained_action
 def package_create(original_action, context, data_dict):
-    logger.warning(context)
-    logger.warning(data_dict)
-    return
-    data_dict["type"] = "metadata-form"
-    access = toolkit.check_access("package_create", context, data_dict)
-    result = original_action(context, data_dict) if access else None
-    return result
+    return original_action(context, data_dict)
 
 
 @toolkit.chained_action

@@ -22,6 +22,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
       build-essential \
       git-core \
       wget \
+      nano \
       curl && \
     # these are ckanext-spatial dependencies \
     apt-get install --yes --no-install-recommends \
@@ -59,7 +60,8 @@ ENV PATH="$PATH:/home/appuser/.local/bin" \
 
 WORKDIR /home/appuser/app
 COPY --chown=appuser:appuser pyproject.toml poetry.lock ./
-RUN poetry install --no-root --only main --no-interaction --no-ansi
+RUN pip install --quiet setuptools && \
+    poetry install --no-root --only main --no-interaction --no-ansi
 COPY --chown=appuser:appuser . .
 
 EXPOSE 5000
