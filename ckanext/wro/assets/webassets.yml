@@ -45,25 +45,21 @@ google_cloud_upload_note_modal-js:
     - scripts/google_cloud_upload_note.js
 
 # wro-css:
-#   filters: cssrewrite
 #   output: ckanext-wro/%(version)s-wro.css
 #   contents:
 #     - css/styles.css
 
 captialize-css:
-  filters: cssrewrite
   output: ckanext-wro/%(version)s-captialize.css
   contents:
-    - css/captialize_package_diplay.css
+    - css/capitalize_package_display.css
 
 bigquery_views-css:
-  filters: cssrewrite
   output: ckanext-wro/%(version)s-bigquery_views.css
   contents:
     - css/bigquery_views.css
 
 cloud_upload_note-css:
-  filters: cssrewrite
   output: ckanext-wro/%(version)s-cloud_upload_note.css
   contents:
     - css/cloud_upload_note.css
@@ -75,13 +71,11 @@ home-search-action:
     - scripts/home_search_action.js
 
 home-css:
-  filters: cssrewrite
   output: ckanext-wro/%(version)s-home.css
   contents:
     - css/home.css
 
 tabular_view-css:
-  filters: cssrewrite
   output: ckanext-wro/%(version)s-tabular_view.css
   contents:
     - css/tabular_view.css
