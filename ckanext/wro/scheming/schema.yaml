@@ -363,6 +363,11 @@ resource_fields:
         label:
     help_text: Will be considered primary data assets if not specified
 
+  - field_name: download_count
+    label: Downloads
+    form_snippet: null
+    display_snippet: scheming/display_snippets/download_count.html
+
   - field_name: format
     label: Format
     required: true

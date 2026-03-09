@@ -19,6 +19,7 @@ class WroPlugin(plugins.SingletonPlugin):
     plugins.implements(plugins.IResourceView, inherit=True)
     plugins.implements(plugins.IClick)
     plugins.implements(plugins.IPackageController, inherit=True)
+    plugins.implements(plugins.IResourceController, inherit=True)
 
     def update_config(self, config_):
         toolkit.add_template_directory(config_, 'templates')
@@ -67,6 +68,7 @@ class WroPlugin(plugins.SingletonPlugin):
             "get_package_count": helpers.get_packages_count,
             "get_org_count":helpers.get_organizations_count,
             "get_default_spatial_search_extent":helpers.get_default_spatial_search_extent,
+            "get_resource_download_count": helpers.get_resource_download_count,
         }
 
     # IPackageController
@@ -129,6 +131,13 @@ class WroPlugin(plugins.SingletonPlugin):
 
         return pkg_dict
 
+    # IResourceController
+    def before_show(self, resource_dict):
+        if 'download_count' not in resource_dict:
+            resource_dict['download_count'] = '0'
+        return resource_dict
+
+    # IPackageController
     def before_dataset_create(self, context, data_dict):
         """Copy author data to contact person if checkbox is checked."""
         return converters.copy_author_to_contact(data_dict)
