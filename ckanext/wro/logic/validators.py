@@ -15,7 +15,6 @@ def conditional_date_reference_validator(key, flattened_data, errors, context):
         changes with other fields making the field
         not required anymore).
     """
-    logger.debug('======================== iniside validator' , flattened_data)
     missing_str = "missing value, set data classification to static if there is no time frame"
     from_date_value = flattened_data[('data_reference_date', 0, 'data_reference_date_from')]
     to_date_value = flattened_data[('data_reference_date', 0, 'data_reference_date_to')] 
@@ -39,7 +38,6 @@ def author_same_as_contact(key, flattened_data, errors, context):
 
         Otherwise, contact fields are required.
     """
-    logger.debug("======= from author_same_as_contact validator, data=", flattened_data)
 
     # Check if any author has contact_same_as_author checked
     contact_author_found = False
