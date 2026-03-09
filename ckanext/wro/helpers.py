@@ -166,6 +166,17 @@ def _read_according_to_extention(url:str, file_extension:str) -> dict:
     else:
         return pd.read_excel(url, storage_options={"token":service_account_path})
 
+def get_resource_download_count(resource_id: str) -> int:
+    """Return the download count stored in the resource's download_count extra."""
+    try:
+        resource = toolkit.get_action('resource_show')(
+            {'ignore_auth': True}, {'id': resource_id}
+        )
+        return int(resource.get('download_count', 0) or 0)
+    except Exception:
+        return 0
+
+
 def get_packages_count():
     """
     returns the number 

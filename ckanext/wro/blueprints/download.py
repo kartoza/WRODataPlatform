@@ -7,12 +7,27 @@ default download route to fix this.
 
 import os
 import mimetypes
+import logging
 from typing import Optional
 
 from flask import Blueprint, send_file, Response
 from ckan.plugins import toolkit
 from ckan.lib import uploader
 from ckan.common import config
+
+log = logging.getLogger(__name__)
+
+
+def _record_download(resource: dict, context: dict):
+    """Increment the download_count resource extra by 1."""
+    try:
+        current_count = int(resource.get('download_count', 0) or 0)
+        toolkit.get_action('resource_patch')(
+            {'ignore_auth': True, 'user': context.get('user')},
+            {'id': resource['id'], 'download_count': current_count + 1},
+        )
+    except Exception as e:
+        log.error("Failed to update download count: %s", e)
 
 
 download_blueprint = Blueprint(
@@ -90,7 +105,9 @@ def download(id: str, resource_id: str, filename: Optional[str] = None):
         # Ensure the header is set correctly (override Flask's default)
         response.headers["Content-Disposition"] = disposition
 
+        _record_download(resource, context)
         return response
     else:
         # External URL - redirect to it
+        _record_download(resource, context)
         return toolkit.redirect_to(resource["url"])
