@@ -124,6 +124,12 @@ class WroPlugin(plugins.SingletonPlugin):
 
                 pkg_dict['authors'] = author_strings
                 log.debug(f"Converted authors to: {author_strings}")
+                # Remove from extras so CKAN's extras processor doesn't
+                # overwrite our converted value with the raw JSON string
+                pkg_dict['extras'] = [
+                    e for e in pkg_dict.get('extras', [])
+                    if e.get('key') != 'authors'
+                ]
             elif not isinstance(authors, list):
                 # If it's not a list, remove it from indexing
                 log.warning(f"Authors is not a list, removing from index: {type(authors)}")

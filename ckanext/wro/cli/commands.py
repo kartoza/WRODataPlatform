@@ -147,8 +147,7 @@ def stac():
 
 
 
-# @wro.command()
-@click.command()
+@wro.command()
 def shell():
     """
     Launch a shell with CKAN already imported and ready to explore

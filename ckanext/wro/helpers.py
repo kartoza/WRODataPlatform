@@ -44,17 +44,29 @@ def convert_geojson_to_bbox(
     geojson: typing.Dict,
 ) -> typing.Optional[typing.List[float]]:
     try:
-        geojson = json.loads(geojson)
-        coords = geojson["coordinates"][0]
-    except:
-        result = None
-    else:
-        min_lon = min(c[0] for c in coords)
-        max_lon = max(c[0] for c in coords)
-        min_lat = min(c[1] for c in coords)
-        max_lat = max(c[1] for c in coords)
-        result = [max_lat, min_lon, min_lat, max_lon]
-    return result
+        if isinstance(geojson, str):
+            geojson = json.loads(geojson)
+        geom_type = geojson["type"]
+        raw_coords = geojson["coordinates"]
+
+        if geom_type == "Point":
+            coords = [raw_coords]
+        elif geom_type in ("LineString", "MultiPoint"):
+            coords = raw_coords
+        elif geom_type in ("Polygon", "MultiLineString"):
+            coords = [c for ring in raw_coords for c in ring]
+        elif geom_type == "MultiPolygon":
+            coords = [c for poly in raw_coords for ring in poly for c in ring]
+        else:
+            return None
+    except Exception:
+        return None
+
+    min_lon = min(c[0] for c in coords)
+    max_lon = max(c[0] for c in coords)
+    min_lat = min(c[1] for c in coords)
+    max_lat = max(c[1] for c in coords)
+    return [max_lat, min_lon, min_lat, max_lon]
 
 def _pad_geospatial_extent(extent: typing.Dict, padding: float) -> typing.Dict:
     geom = geometry.shape(extent)
