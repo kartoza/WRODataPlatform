@@ -170,12 +170,6 @@ attribute with the form `ckan-X.Y` -->
 
     <dynamicField name="*_date" type="date" indexed="true" stored="true" multiValued="false"/>
 
-    <!-- Spatial bounding box fields for ckanext-spatial solr-bbox backend -->
-    <field name="minx" type="pfloat" indexed="true" stored="true" required="false"/>
-    <field name="miny" type="pfloat" indexed="true" stored="true" required="false"/>
-    <field name="maxx" type="pfloat" indexed="true" stored="true" required="false"/>
-    <field name="maxy" type="pfloat" indexed="true" stored="true" required="false"/>
-
     <dynamicField name="extras_*" type="text" indexed="true" stored="true" multiValued="false"/>
     <dynamicField name="res_extras_*" type="text" indexed="true" stored="true" multiValued="true"/>
     <dynamicField name="vocab_*" type="string" indexed="true" stored="true" multiValued="true"/>

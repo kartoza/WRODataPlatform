@@ -74,7 +74,6 @@ services:
       - SOLR_HEAP=2g
     volumes:
       - solr-data:/opt/solr/server/solr/ckan/data
-      - ./solr/managed-schema:/opt/solr/server/solr/ckan/conf/managed-schema
 
   redis:
     image: redis:6.2
