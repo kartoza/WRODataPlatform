@@ -52,8 +52,8 @@ services:
     ports:
       - target: 5000
         published: *ckan-web-published-port
-    entrypoint: ["sleep"]
-    command: ["18000"]
+    # entrypoint: ["sleep"]
+    # command: ["18000"]
 
   ckan-background-worker:
     <<: *partial-ckan-volumes
