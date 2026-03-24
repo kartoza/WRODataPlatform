@@ -163,6 +163,12 @@ attribute with the form `ckan-X.Y` -->
          (rather than text type).  This allows us to sort on the titleString -->
     <field name="title_string" type="string" indexed="true" stored="false" />
 
+    <!-- Spatial bounding box fields for ckanext-spatial solr-bbox backend -->
+    <field name="minx" type="pfloat" indexed="true" stored="true"/>
+    <field name="miny" type="pfloat" indexed="true" stored="true"/>
+    <field name="maxx" type="pfloat" indexed="true" stored="true"/>
+    <field name="maxy" type="pfloat" indexed="true" stored="true"/>
+
     <field name="data_dict" type="string" indexed="false" stored="true" />
     <field name="validated_data_dict" type="string" indexed="false" stored="true" />
 
