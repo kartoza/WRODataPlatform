@@ -73,10 +73,7 @@ services:
     environment:
       - SOLR_HEAP=2g
     volumes:
-      # - solr-data:/opt/solr/server/solr/ckan/data
-      # - ./solr/managed-schema:/opt/solr/server/solr/ckan/conf/managed-schema
-      - solr-data:/var/solr
-      - ./solr/managed-schema:/var/solr/data/ckan/conf/managed-schema
+      - solr-data:/opt/solr/server/solr/ckan/data
 
   redis:
     image: redis:6.2
