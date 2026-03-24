@@ -52,6 +52,8 @@ services:
     ports:
       - target: 5000
         published: *ckan-web-published-port
+    # entrypoint: ["sleep"]
+    # command: ["18000"]
 
   ckan-background-worker:
     <<: *partial-ckan-volumes
@@ -175,6 +177,9 @@ services:
         published: *solr-published-port
     volumes:
       - solr-data:/opt/solr/server/solr/ckan/data
+      # - type: bind
+      #   source: ./solr/managed-schema
+      #   target: /opt/solr/server/solr/ckan/conf/managed-schema
 
   csw-harvest-target:
     image: geopython/pycsw:2.6.1

@@ -74,61 +74,59 @@ class WroPlugin(plugins.SingletonPlugin):
     # IPackageController
     def before_dataset_index(self, pkg_dict):
         """
-        Convert authors field from list of dicts to list of strings for Solr indexing
+        Convert authors field from list of dicts to list of strings for Solr indexing.
+        authors may be at the top level (list of dicts from scheming) or in extras
+        (JSON string). Both are handled here, and the extras entry is always removed
+        so CKAN's extras processor cannot overwrite the converted value.
         """
         import json
-        import logging
 
-        log = logging.getLogger(__name__)
+        # Resolve authors from top-level or extras
+        authors = pkg_dict.get('authors')
+        if authors is None:
+            for extra in pkg_dict.get('extras', []):
+                if extra.get('key') == 'authors':
+                    authors = extra.get('value')
+                    break
 
-        if 'authors' in pkg_dict:
-            authors = pkg_dict['authors']
+        # Always strip authors from extras to prevent CKAN overwriting below
+        pkg_dict['extras'] = [
+            e for e in pkg_dict.get('extras', [])
+            if e.get('key') != 'authors'
+        ]
 
-            # Log original value for debugging
-            log.debug(f"Original authors value: {authors} (type: {type(authors)})")
+        if authors is None:
+            return pkg_dict
 
-            # If authors is a string (JSON), parse it first
-            if isinstance(authors, str):
-                try:
-                    authors = json.loads(authors)
-                except (json.JSONDecodeError, ValueError):
-                    # If it fails, just remove it from indexing
-                    log.warning(f"Failed to parse authors JSON: {authors}")
-                    del pkg_dict['authors']
-                    return pkg_dict
+        # Parse JSON string if needed
+        if isinstance(authors, str):
+            try:
+                authors = json.loads(authors)
+            except (json.JSONDecodeError, ValueError):
+                pkg_dict.pop('authors', None)
+                return pkg_dict
 
-            # If authors is a list, convert to list of strings
-            if isinstance(authors, list) and authors:
-                author_strings = []
-                for author in authors:
-                    # Handle both dict and already-string cases
-                    if isinstance(author, dict):
-                        # Build author string from available fields
-                        name_parts = []
-                        if author.get('author_name'):
-                            name_parts.append(str(author['author_name']))
-                        if author.get('author_surname'):
-                            name_parts.append(str(author['author_surname']))
+        if not isinstance(authors, list):
+            pkg_dict.pop('authors', None)
+            return pkg_dict
 
-                        author_str = ' '.join(name_parts) if name_parts else ''
+        author_strings = []
+        for author in authors:
+            if isinstance(author, dict):
+                name_parts = []
+                if author.get('author_name'):
+                    name_parts.append(str(author['author_name']))
+                if author.get('author_surname'):
+                    name_parts.append(str(author['author_surname']))
+                author_str = ' '.join(name_parts)
+                if author.get('author_organization'):
+                    author_str += f" ({author['author_organization']})"
+                if author_str:
+                    author_strings.append(author_str)
+            elif isinstance(author, str):
+                author_strings.append(author)
 
-                        # Add organization if available
-                        if author.get('author_organization'):
-                            author_str += f" ({author['author_organization']})"
-
-                        if author_str:
-                            author_strings.append(author_str)
-                    elif isinstance(author, str):
-                        # Already a string, just use it
-                        author_strings.append(author)
-
-                pkg_dict['authors'] = author_strings
-                log.debug(f"Converted authors to: {author_strings}")
-            elif not isinstance(authors, list):
-                # If it's not a list, remove it from indexing
-                log.warning(f"Authors is not a list, removing from index: {type(authors)}")
-                del pkg_dict['authors']
-
+        pkg_dict['authors'] = author_strings
         return pkg_dict
 
     # IResourceController
