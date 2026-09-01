@@ -6,36 +6,55 @@ networks:
   default:
     driver: bridge
 
+# Docker's default json-file log driver never rotates, so long-running
+# containers (ckan-db in particular, which logs every SQL statement) fill
+# up disk indefinitely. The `local` driver keeps `docker logs`/`docker
+# compose logs -f` working exactly as before, but caps and rotates storage.
+x-default-logging: &default-logging
+  logging:
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
 
   ckan-web:
+    <<: *default-logging
     image: wro:${CKAN_IMAGE_TAG}
 
   ckan-datapusher:
+    <<: *default-logging
     image: ckan/ckan-base-datapusher:0.0.20
 
   ckan-background-worker:
+    <<: *default-logging
     image: wro:${CKAN_IMAGE_TAG}
     command: ["launch-ckan-cli", "jobs", "worker"]
 
   ckan-harvesting-gatherer:
+    <<: *default-logging
     image: wro:${CKAN_IMAGE_TAG}
     command: ["launch-ckan-cli", "harvester", "gather-consumer"]
 
   ckan-harvesting-fetcher:
+    <<: *default-logging
     image: wro:${CKAN_IMAGE_TAG}
     command: ["launch-ckan-cli", "harvester", "fetch-consumer"]
 
   # NOTE: This needs to be ran as a periodic command, check the
   # docker-compose.dev.yml file for additional comment
   ckan-harvesting-runner:
+    <<: *default-logging
     image: wro:${CKAN_IMAGE_TAG}
     command: ["launch-ckan-cli", "harvester", "run"]
 
   ckan-mail-sender:
+    <<: *default-logging
     image: wro:${CKAN_IMAGE_TAG}
 
   pycsw:
+    <<: *default-logging
     image: "geopython/pycsw@sha256:84382cbbd18e9788e9b1bb75299ce24b31403f3b3a4afc036c55c4a96a78cdae"
     volumes:
       - type: bind
@@ -48,14 +67,17 @@ services:
   # NOTE: This needs to be ran as a periodic command, check the
   # docker-compose.dev.yml file for additional comment
   pycsw-refresher:
+    <<: *default-logging
     image: wro:${CKAN_IMAGE_TAG}
 
   ckan-db:
+    <<: *default-logging
     image: postgis/postgis:13-3.1
     environment:
       PGDATA: /var/lib/postgresql/data/pgdata
 
   datastore-db:
+    <<: *default-logging
     image: postgis/postgis:13-3.1
     environment:
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -67,6 +89,7 @@ services:
         target: /docker-entrypoint-initdb.d
 
   solr:
+    <<: *default-logging
     build: https://github.com/kartoza/kartoza_ckan_solr.git#main
     ports:
       - 8983:8983
@@ -76,6 +99,7 @@ services:
       - solr-data:/opt/solr/server/solr/ckan/data
 
   redis:
+    <<: *default-logging
     image: redis:6.2
 
 volumes:
