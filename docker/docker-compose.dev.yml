@@ -44,6 +44,17 @@ x-email-environment-values: &partial-email-environment-values
   CKAN_SMTP_PASSWORD: ${CKAN_SMTP_PASSWORD}
   CKAN_SMTP_MAIL_FROM: ${CKAN_SMTP_MAIL_FROM}
 
+# services defined only in this file (not in docker-compose.yml) don't
+# inherit its x-default-logging anchor, since compose merges parsed
+# service dicts across files rather than the raw YAML, so it needs
+# repeating here for those.
+x-default-logging: &default-logging
+  logging:
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 
 services:
 
@@ -143,6 +154,7 @@ services:
 
   # this is used for running automated integration tests
   ckan-test-db:
+    <<: *default-logging
     image: postgis/postgis:13-3.1
     environment:
       POSTGRES_USER: ckan-test
@@ -156,6 +168,7 @@ services:
 
   # this is used for running automated integration tests
   datastore-test-db:
+    <<: *default-logging
     image: postgis/postgis:13-3.1
     environment:
       POSTGRES_USER: ckan-datastore-test
@@ -182,6 +195,7 @@ services:
         target: /opt/solr/server/solr/ckan/conf/managed-schema
 
   csw-harvest-target:
+    <<: *default-logging
     image: geopython/pycsw:2.6.1
     ports:
       - target: 8000
