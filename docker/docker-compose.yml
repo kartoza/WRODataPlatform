@@ -97,7 +97,14 @@ services:
       - SOLR_HEAP=2g
     volumes:
       - solr-data:/opt/solr/server/solr/ckan/data
-      - ./solr/managed-schema:/var/solr/data/ckan/conf/managed-schema
+      # Mount onto the configset template solr-precreate copies from to
+      # create a fresh core, NOT the live core path - bind-mounting onto
+      # the live core's conf/ dir makes Docker pre-create that directory
+      # before the entrypoint runs, which makes solr-precreate think the
+      # core already exists and skip initialization entirely, leaving a
+      # broken core with no core.properties/solrconfig.xml (Solr then
+      # reports zero cores and 404s on every request).
+      - ./solr/managed-schema:/opt/solr/server/solr/configsets/ckan/conf/managed-schema
 
   redis:
     <<: *default-logging

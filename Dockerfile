@@ -1,9 +1,19 @@
 FROM python:3.9-slim-bullseye
 
-# Install security updates and system dependencies, then clean up
+# bullseye is EOL: deb.debian.org no longer serves its packages, so switch to
+# the pinned snapshot.debian.org mirror the base image already ships (commented
+# out) as a fallback for exactly this situation. The pinned snapshot date is
+# itself always going to be "in the past", so disable apt's Release
+# expiry check too - that's expected/required when using snapshot.debian.org.
+RUN sed -i \
+      -e 's|^deb http://deb\.debian\.org|# deb http://deb.debian.org|' \
+      -e 's|^# deb http://snapshot\.debian\.org|deb http://snapshot.debian.org|' \
+      /etc/apt/sources.list && \
+    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/no-check-valid-until
+
+# Install system dependencies, then clean up
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
-    apt-get --yes upgrade && \
     # these are our own dependencies and utilities
     apt-get install --yes --no-install-recommends \
       net-tools \
@@ -26,7 +36,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     # these are ckanext-spatial dependencies \
     apt-get install --yes --no-install-recommends \
       proj-bin \
-      python-dev \
+      python3-dev \
       libxslt1-dev \
       libgeos-c1v5  \
       libgdal-dev \
