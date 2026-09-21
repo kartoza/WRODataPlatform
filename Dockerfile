@@ -55,18 +55,40 @@ RUN mkdir /home/appuser/app  && \
 ENV PATH="$PATH:/home/appuser/.local/bin" \
     # This allows us to get traces whenever some C code segfaults
     PYTHONFAULTHANDLER=1 \
-    CKAN_INI=/home/appuser/ckan.ini
+    CKAN_INI=/home/appuser/ckan.ini \
+    # Poetry's default 15s HTTP timeout is too short once ~10 concurrent
+    # downloads are competing for bandwidth and a big wheel (pandas, scipy,
+    # xarray, ...) is in flight, causing spurious ReadTimeoutError/
+    # ConnectionError failures during `poetry install`.
+    POETRY_REQUESTS_TIMEOUT=120
+
+# setuptools 82.0.0 (2026-02-08) removed pkg_resources entirely. CKAN
+# ckan-2.9.11's own setup.py (its last 2.9.x release, so there's no
+# upstream fix) still does `from pkg_resources import parse_version`.
+# Poetry always fetches the newest setuptools for the throwaway venv it
+# builds git dependencies in, regardless of any pin in our pyproject.toml,
+# so we restore just enough of pkg_resources via PYTHONPATH, which every
+# build subprocess poetry spawns inherits. This must NOT be a persistent
+# ENV: the real, complete pkg_resources (from the main venv's setuptools,
+# pinned well below 82 in poetry.lock) is needed at runtime by CKAN's
+# plugin loader (ckan.plugins.core uses pkg_resources.iter_entry_points),
+# and our stub only implements parse_version, so it must only shadow
+# pkg_resources during these two build-time `poetry install` invocations.
+RUN mkdir -p /home/appuser/pkg_resources_shim && \
+    printf 'from distutils.version import LooseVersion as parse_version\n' \
+      > /home/appuser/pkg_resources_shim/pkg_resources.py
 
 WORKDIR /home/appuser/app
 COPY --chown=appuser:appuser pyproject.toml poetry.lock ./
-RUN poetry install --no-root --only main --no-interaction --no-ansi
+RUN PYTHONPATH=/home/appuser/pkg_resources_shim \
+    poetry install --no-root --only main --no-interaction --no-ansi
 COPY --chown=appuser:appuser . .
 
 EXPOSE 5000
 
 # Now install our code
 COPY --chown=appuser:appuser . .
-RUN poetry install --only main
+RUN PYTHONPATH=/home/appuser/pkg_resources_shim poetry install --only main
 RUN cp -r /home/appuser/app/ckanext/* "$(poetry env info -p)/lib/$(python3 -c 'import sys; print(f"python{sys.version_info.major}.{sys.version_info.minor}")')/site-packages/ckanext/"
 
 # Write git commit identifier into the image

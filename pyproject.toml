@@ -115,7 +115,7 @@ Flask-DebugToolbar = "^0.11.0"
 ckanext-scheming = {git = "https://github.com/ckan/ckanext-scheming.git", rev = "release-3.0.0"}
 httpx = "^0.22.0"
 python-slugify = "^6.1.1"
-langcodes = {git = "https://github.com/rspeer/langcodes.git", rev = "v3.2.1"}
+langcodes = "3.2.1"
 pystac-client = "0.6.1"
 rasterio = "*"
 pystac = "1.7.0"
