@@ -72,7 +72,7 @@ class WroPlugin(plugins.SingletonPlugin):
         }
 
     # IPackageController
-    def before_index(self, pkg_dict):
+    def before_dataset_index(self, pkg_dict):
         """
         Convert authors field from list of dicts to list of strings for Solr indexing.
         authors may be at the top level (list of dicts from scheming) or in extras
@@ -95,92 +95,38 @@ class WroPlugin(plugins.SingletonPlugin):
             if e.get('key') != 'authors'
         ]
 
-        if authors is not None:
-            # Parse JSON string if needed
-            if isinstance(authors, str):
-                try:
-                    authors = json.loads(authors)
-                except (json.JSONDecodeError, ValueError):
-                    authors = None
-
-            if not isinstance(authors, list):
-                pkg_dict.pop('authors', None)
-            else:
-                author_strings = []
-                for author in authors:
-                    if isinstance(author, dict):
-                        name_parts = []
-                        if author.get('author_name'):
-                            name_parts.append(str(author['author_name']))
-                        if author.get('author_surname'):
-                            name_parts.append(str(author['author_surname']))
-                        author_str = ' '.join(name_parts)
-                        if author.get('author_organization'):
-                            author_str += f" ({author['author_organization']})"
-                        if author_str:
-                            author_strings.append(author_str)
-                    elif isinstance(author, str):
-                        author_strings.append(author)
-
-                pkg_dict['authors'] = author_strings
-
-        return pkg_dict
-
-    # IPackageController
-    def after_show(self, context, pkg_dict):
-        """
-        Flatten data_reference_date for search indexing only.
-
-        data_reference_date (scheming simple_subfields) is stored as an extra
-        whose value is a JSON string encoding a single-item list containing a
-        {from, to} dict, e.g. '[{"data_reference_date_from": "...", ...}]'.
-        ckan's core indexer (ckan/lib/search/index.py) copies extras onto the
-        top-level dict verbatim (it only flattens list/tuple values, and a
-        JSON string isn't one), then - because the key ends in "_date" -
-        tries to dateutil.parse() that raw JSON string, fails, logs an ERROR
-        and drops the field. Replace the extra here with flat from/to extras
-        instead, whose keys don't end in "_date" so they index untouched.
-
-        Both synchronous (on save) and `search-index rebuild` indexing call
-        package_show with validate=False, which view/edit/API callers never
-        set - used here to only touch the indexing copy of pkg_dict and leave
-        the nested structure the edit form relies on untouched everywhere else.
-        """
-        if context.get('validate') is not False:
+        if authors is None:
             return pkg_dict
 
-        import json
-
-        extras = pkg_dict.get('extras', [])
-        date_extra = next(
-            (e for e in extras if e.get('key') == 'data_reference_date'), None
-        )
-        if date_extra is None:
-            return pkg_dict
-
-        date_ref = date_extra.get('value')
-        if isinstance(date_ref, str):
+        # Parse JSON string if needed
+        if isinstance(authors, str):
             try:
-                date_ref = json.loads(date_ref)
+                authors = json.loads(authors)
             except (json.JSONDecodeError, ValueError):
-                date_ref = None
-        if isinstance(date_ref, list) and date_ref:
-            date_ref = date_ref[0]
+                pkg_dict.pop('authors', None)
+                return pkg_dict
 
-        new_extras = [e for e in extras if e.get('key') != 'data_reference_date']
-        if isinstance(date_ref, dict):
-            if date_ref.get('data_reference_date_from'):
-                new_extras.append({
-                    'key': 'data_reference_date_from',
-                    'value': date_ref['data_reference_date_from'],
-                })
-            if date_ref.get('data_reference_date_to'):
-                new_extras.append({
-                    'key': 'data_reference_date_to',
-                    'value': date_ref['data_reference_date_to'],
-                })
-        pkg_dict['extras'] = new_extras
+        if not isinstance(authors, list):
+            pkg_dict.pop('authors', None)
+            return pkg_dict
 
+        author_strings = []
+        for author in authors:
+            if isinstance(author, dict):
+                name_parts = []
+                if author.get('author_name'):
+                    name_parts.append(str(author['author_name']))
+                if author.get('author_surname'):
+                    name_parts.append(str(author['author_surname']))
+                author_str = ' '.join(name_parts)
+                if author.get('author_organization'):
+                    author_str += f" ({author['author_organization']})"
+                if author_str:
+                    author_strings.append(author_str)
+            elif isinstance(author, str):
+                author_strings.append(author)
+
+        pkg_dict['authors'] = author_strings
         return pkg_dict
 
     # IResourceController
